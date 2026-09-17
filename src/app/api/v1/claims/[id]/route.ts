@@ -1,0 +1,13 @@
+import { ClaimDetailSchema } from "@/core/api/claims";
+import { getCtx } from "@/server/auth/ctx";
+import { getClaimDetail } from "@/server/services/api";
+import { apiError, apiOk } from "../../respond";
+
+export async function GET(_req: Request, { params }: RouteContext<"/api/v1/claims/[id]">) {
+  const ctx = await getCtx();
+  if (!ctx) return apiError(401, "unauthorized", "Sign in first.");
+  const { id } = await params;
+  const detail = await getClaimDetail(ctx, id);
+  if (!detail) return apiError(404, "not_found", "No claim with that id.");
+  return apiOk(ClaimDetailSchema, detail);
+}

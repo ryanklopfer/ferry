@@ -81,7 +81,7 @@ function clip(s: string, font: PDFFont, size: number, maxW: number) {
 const mdy = (s: string | null | undefined) => (s ? format(new Date(s + "T00:00:00"), "MM/dd/yyyy") : "—");
 
 export async function buildPacket(ctx: LetterContext, superbill?: { bytes: Buffer; mime: string }) {
-  const { claim, plan, lineItems } = ctx;
+  const { claim, plan, lines } = ctx;
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
@@ -93,7 +93,7 @@ export async function buildPacket(ctx: LetterContext, superbill?: { bytes: Buffe
   // Page 2: claim form
   w.newPage();
   w.text("OUT-OF-NETWORK MEDICAL CLAIM FORM", { size: 16, bold: true });
-  w.text(`Prepared ${format(new Date(), "MM/dd/yyyy")} · Claim ref SC-${claim.id}`, { size: 9, gap: 4 });
+  w.text(`Prepared ${format(new Date(), "MM/dd/yyyy")} · Claim ref ${claim.id.slice(-8)}`, { size: 9, gap: 4 });
 
   w.heading("1. Insurance information");
   w.field("Insurance company", plan.insurerName);
@@ -113,11 +113,15 @@ export async function buildPacket(ctx: LetterContext, superbill?: { bytes: Buffe
   w.field("Relationship to subscriber", plan.patientRelationship);
 
   w.heading("4. Provider");
-  w.field("Provider / practice", claim.providerName);
-  w.field("NPI", claim.providerNpi);
-  w.field("Tax ID (EIN)", claim.providerTaxId);
-  w.field("Address", claim.providerAddress);
-  w.field("Phone", claim.providerPhone);
+  w.field("Provider / practice", claim.billingProviderName);
+  w.field("NPI", claim.billingProviderNpi);
+  w.field("Tax ID", claim.billingProviderTaxId);
+  w.field("Address", claim.billingProviderAddress);
+  w.field("Phone", claim.billingProviderPhone);
+  if (claim.renderingProviderName) {
+    w.field("Rendering provider", [claim.renderingProviderName, claim.renderingProviderCredential].filter(Boolean).join(", "));
+    w.field("Rendering NPI", claim.renderingProviderNpi);
+  }
   w.field("Place of service code", claim.placeOfService);
 
   w.heading("5. Diagnosis (ICD-10)");
@@ -126,8 +130,8 @@ export async function buildPacket(ctx: LetterContext, superbill?: { bytes: Buffe
   w.heading("6. Services rendered");
   const widths = [80, 70, 55, 190, 40, 69];
   w.row(["Date of service", "CPT/HCPCS", "Modifier", "Description", "Units", "Charge"], widths, true);
-  for (const li of lineItems) {
-    w.row([mdy(li.serviceDate), li.cptCode, li.modifier ?? "", li.description ?? "", String(li.units), `$${fromCents(li.charge)}`], widths);
+  for (const li of lines) {
+    w.row([mdy(li.serviceDate), li.cptCode, li.modifiers.join(" "), li.description ?? "", String(li.units), `$${fromCents(li.charge)}`], widths);
   }
   w.y -= 4;
   w.field("Total charged", `$${fromCents(claim.totalCharged)}`);

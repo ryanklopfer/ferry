@@ -51,6 +51,7 @@ bun run test         # vitest
 bun run typecheck    # next typegen && tsc --noEmit
 bun run lint
 bun run db:generate  # after schema changes
+bun run db:migrate   # apply to ferry_dev (db:migrate:test for ferry_test)
 ```
 
 ## Boundaries (lint-enforced from slice 2)
@@ -67,6 +68,10 @@ bun run db:generate  # after schema changes
 - Test first for anything touching the state machine, timers, fee logic, 837P mapping, tenancy or encryption.
 - Each slice gets its own branch (`slice/s<id>-<name>`) off `main`. End it with test, typecheck and lint green, tick the slice in `docs/sprint-tasks.md`, make one commit, then fast-forward `main`, re-run the checks on `main`, and delete the merged branch. This is a standing rule (2026-09-17): do not ask each time. Never push, force-push, reset --hard or delete an unmerged branch without asking.
 - Move MVP files into the new layout only in the slice that touches them (table in architecture §3).
+- Every repo method takes `ctx` first and filters on `ctx.userId`. Every new table gets `user_id NOT NULL` (a test fails otherwise). Services throw `NotOwnedError`; actions and routes turn it into a 404.
+- `/api/v1` responses are built field by field and parsed through a strict zod schema in `src/core/api` on the way out. Never spread a database row into a response.
+- Log with `log()` / `logFor(claimId)` from `@/server/log`. It drops anything not on its allow-list; add a key there only if it can never hold PHI.
+- Migrations were squashed on 2026-09-17 because nothing was deployed. From the first deploy on they are forward-only: never edit or delete one.
 - Read files before editing. Targeted edits over rewrites. No comments unless the logic is non-obvious. No docstrings, no speculative abstractions, no backwards-compat shims.
 - Never type, paste or echo API keys. The founder puts them in `.env.local`; code reads them from env.
 - After a correction from the founder, add the lesson to `tasks/lessons.md`.

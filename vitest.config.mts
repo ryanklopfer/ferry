@@ -6,5 +6,6 @@ export default defineConfig({
     include: ["src/**/*.test.ts", "scripts/**/*.test.ts"],
     globalSetup: "./vitest.global-setup.ts",
     fileParallelism: false,
+    silent: "passed-only",
   },
 });

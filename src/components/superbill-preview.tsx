@@ -1,4 +1,4 @@
-export function SuperbillPreview({ claimId, mime }: { claimId: number; mime: string | null }) {
+export function SuperbillPreview({ claimId, mime }: { claimId: string; mime: string | null }) {
   if (!mime) return <div className="rounded-lg border border-dashed border-stone-300 p-6 text-center text-xs text-stone-500">No superbill attached</div>;
   const src = `/api/claims/${claimId}/superbill`;
   return (

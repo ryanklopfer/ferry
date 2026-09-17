@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClaimFromUpload } from "@/app/actions";
-import { listPlans } from "@/lib/service";
+import { listPlans } from "@/server/services/plans";
 import { aiEnabled } from "@/lib/ai";
 import { SubmitButton } from "@/components/submit-button";
 import { requireCtx } from "@/server/auth/ctx";
@@ -8,9 +8,9 @@ import { requireCtx } from "@/server/auth/ctx";
 export const dynamic = "force-dynamic";
 
 export default async function NewClaimPage({ searchParams }: PageProps<"/claims/new">) {
-  await requireCtx();
+  const ctx = await requireCtx();
   const { plan } = await searchParams;
-  const plans = await listPlans();
+  const plans = await listPlans(ctx);
   if (plans.length === 0) {
     return (
       <div className="mx-auto max-w-xl space-y-4 text-center">

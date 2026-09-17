@@ -1,4 +1,7 @@
-import { pool } from "./index";
+import { randomBytes } from "node:crypto";
+import type { Ctx } from "@/server/auth/ctx";
+import { db, pool } from "./index";
+import { users } from "./schema";
 
 export async function resetDb(): Promise<void> {
   const { rows } = await pool.query<{ name: string }>("select current_database() as name");
@@ -7,4 +10,10 @@ export async function resetDb(): Promise<void> {
   if (!tables.rows.length) return;
   const list = tables.rows.map((t) => `"${t.tablename}"`).join(", ");
   await pool.query(`TRUNCATE ${list} RESTART IDENTITY CASCADE`);
+}
+
+export async function createTestUser(email: string): Promise<Ctx> {
+  const id = `usr_test_${randomBytes(8).toString("hex")}`;
+  await db.insert(users).values({ id, name: email.split("@")[0], email, emailVerified: true, role: "patient" });
+  return { userId: id, role: "patient" };
 }

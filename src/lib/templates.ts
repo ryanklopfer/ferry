@@ -1,20 +1,23 @@
 import { format } from "date-fns";
-import type { Claim, FollowUpType, LineItem, Plan } from "@/server/db/schema";
+import type { Claim, ClaimLine, FollowUpType, Plan } from "@/server/db/schema";
 import { fromCents } from "./extraction";
 import { appealDeadline, timelyFilingDeadline } from "./followups";
+import { fromSec, toEngineClaim } from "./followups-adapter";
 
-export type LetterContext = { claim: Claim; plan: Plan; lineItems: LineItem[] };
+export type LetterContext = { claim: Claim; plan: Plan; lines: ClaimLine[] };
 
-const d = (sec: number | null | undefined) => (sec ? format(new Date(sec * 1000), "MMMM d, yyyy") : "—");
+const d = (date: Date | null | undefined) => (date ? format(date, "MMMM d, yyyy") : "—");
+const dSec = (sec: number | null) => d(sec ? fromSec(sec) : null);
 const iso = (s: string | null | undefined) => (s ? format(new Date(s + "T00:00:00"), "MM/dd/yyyy") : "—");
 
-export function claimSummaryBlock({ claim, plan, lineItems }: LetterContext) {
-  const lines = lineItems.map((li) => `  - ${iso(li.serviceDate)}  CPT ${li.cptCode}${li.modifier ? "-" + li.modifier : ""} x${li.units}  $${fromCents(li.charge)}${li.description ? `  (${li.description})` : ""}`);
+export function claimSummaryBlock({ claim, plan, lines: claimLines }: LetterContext) {
+  const lines = claimLines.map((li) => `  - ${iso(li.serviceDate)}  CPT ${li.cptCode}${li.modifiers.length ? "-" + li.modifiers.join("-") : ""} x${li.units}  $${fromCents(li.charge)}${li.description ? `  (${li.description})` : ""}`);
   return [
     `Patient: ${plan.patientName}${plan.patientDob ? ` (DOB ${iso(plan.patientDob)})` : ""}`,
     `Subscriber: ${plan.subscriberName}`,
     `Member ID: ${plan.memberId}${plan.groupNumber ? `   Group: ${plan.groupNumber}` : ""}`,
-    `Provider: ${claim.providerName ?? "—"}   NPI: ${claim.providerNpi ?? "—"}   Tax ID: ${claim.providerTaxId ?? "—"}`,
+    `Provider: ${claim.billingProviderName ?? "—"}   NPI: ${claim.billingProviderNpi ?? "—"}   Tax ID: ${claim.billingProviderTaxId ?? "—"}`,
+    claim.renderingProviderName ? `Rendering provider: ${claim.renderingProviderName}${claim.renderingProviderCredential ? `, ${claim.renderingProviderCredential}` : ""}   NPI: ${claim.renderingProviderNpi ?? "—"}` : "",
     `Date(s) of service: ${iso(claim.serviceDateStart)}${claim.serviceDateEnd && claim.serviceDateEnd !== claim.serviceDateStart ? ` – ${iso(claim.serviceDateEnd)}` : ""}`,
     `Diagnosis codes: ${claim.diagnosisCodes.join(", ") || "—"}`,
     `Services:`,
@@ -60,10 +63,10 @@ export function templateFor(type: FollowUpType, ctx: LetterContext): { subject: 
 
   switch (type) {
     case "timely_filing_warning": {
-      const dl = timelyFilingDeadline(claim, plan);
+      const dl = timelyFilingDeadline(toEngineClaim(claim), plan);
       return {
-        subject: `Reminder: submit claim before ${d(dl)}`,
-        body: `This claim has not been submitted yet. ${plan.insurerName} typically requires out-of-network claims within ${plan.timelyFilingDays} days of the date of service, which puts the deadline around ${d(dl)}. Generate the claim packet, submit it via ${plan.preferredChannel}, then mark the claim as submitted so follow-ups start tracking.`,
+        subject: `Reminder: submit claim before ${dSec(dl)}`,
+        body: `This claim has not been submitted yet. ${plan.insurerName} typically requires out-of-network claims within ${plan.timelyFilingDays} days of the date of service, which puts the deadline around ${dSec(dl)}. Generate the claim packet, submit it via ${plan.preferredChannel}, then mark the claim as submitted so follow-ups start tracking.`,
       };
     }
     case "status_inquiry":
@@ -117,7 +120,7 @@ ${summary}
 Please resume processing of this claim and confirm receipt of this response.${sig}`,
       };
     case "appeal": {
-      const dl = appealDeadline(claim);
+      const dl = appealDeadline(toEngineClaim(claim));
       return {
         subject: `Formal appeal of claim denial – ${ref}`,
         body: `To ${plan.insurerName} Appeals Department,
@@ -128,7 +131,7 @@ ${summary}
 
 I request a full review of this decision. [Address the denial reason directly: e.g., the services were medically necessary as documented by the treating provider; the plan provides out-of-network benefits for this service type; the claim was filed within the timely filing window; the provider's NPI and codes are valid.] Enclosed are the itemized superbill, proof of payment, and any supporting documentation from my provider.
 
-Under my plan's appeal rights (and ERISA §503 if this is an employer-sponsored plan), I request a written decision within the required timeframe, a copy of all documents relied upon, and the identity of any reviewer. If this appeal is denied, please provide instructions for external review.${dl ? `\n\nNote: appeal deadline is approximately ${d(dl)} (180 days from denial).` : ""}${sig}`,
+Under my plan's appeal rights (and ERISA §503 if this is an employer-sponsored plan), I request a written decision within the required timeframe, a copy of all documents relied upon, and the identity of any reviewer. If this appeal is denied, please provide instructions for external review.${dl ? `\n\nNote: appeal deadline is approximately ${dSec(dl)} (180 days from denial).` : ""}${sig}`,
       };
     }
   }

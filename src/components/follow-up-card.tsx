@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { generateFollowUpDraft, updateFollowUp } from "@/app/actions";
-import type { FollowUp, Plan } from "@/server/db/schema";
+import type { FollowUp, Plan } from "@/server/services/types";
 import { FOLLOW_UP_LABELS } from "@/lib/followups";
 import { fmtDate } from "./ui";
 import { SubmitButton } from "./submit-button";

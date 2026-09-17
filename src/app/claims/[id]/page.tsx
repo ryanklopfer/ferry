@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { closeClaim, deleteClaim, markAppealed, markSubmitted, recordOutcome } from "@/app/actions";
-import { getClaimContext, nowSec } from "@/lib/service";
-import { appealDeadline, timelyFilingDeadline } from "@/lib/followups";
+import { getClaim } from "@/server/services/claims";
 import { aiEnabled } from "@/lib/ai";
 import { StatusBadge, fmtDate, fmtIso, money, relative } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
@@ -15,14 +14,14 @@ export const dynamic = "force-dynamic";
 const today = () => new Date().toISOString().slice(0, 10);
 
 export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
-  await requireCtx();
+  const ctx = await requireCtx();
   const { id } = await params;
-  const ctx = await getClaimContext(Number(id));
-  if (!ctx) notFound();
-  const { claim, plan, lineItems, followUps, events } = ctx;
-  const now = nowSec();
-  const filingDeadline = timelyFilingDeadline(claim, plan);
-  const appealBy = appealDeadline(claim);
+  const view = await getClaim(ctx, id);
+  if (!view) notFound();
+  const { claim, plan, lines, followUps, events, superbill, deadlines } = view;
+  const now = new Date();
+  const filingDeadline = deadlines.timelyFiling;
+  const appealBy = deadlines.appeal;
   const open = followUps.filter((f) => f.status === "pending" || f.status === "drafted");
   const done = followUps.filter((f) => f.status === "sent");
 
@@ -32,7 +31,7 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-semibold">{claim.providerName ?? "Untitled claim"}</h1>
+              <h1 className="text-xl font-semibold">{claim.billingProviderName ?? "Untitled claim"}</h1>
               <StatusBadge status={claim.status} />
             </div>
             <p className="text-sm text-stone-600">{plan.insurerName} · Member {plan.memberId} · {fmtIso(claim.serviceDateStart)}{claim.serviceDateEnd && claim.serviceDateEnd !== claim.serviceDateStart ? ` – ${fmtIso(claim.serviceDateEnd)}` : ""}</p>
@@ -44,7 +43,7 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
         </div>
 
         {claim.status === "draft" && filingDeadline && (
-          <Notice tone={filingDeadline - now < 30 * 86400 ? "warn" : "info"}>
+          <Notice tone={filingDeadline.getTime() - now.getTime() < 30 * 86_400_000 ? "warn" : "info"}>
             Timely filing deadline ≈ <strong>{fmtDate(filingDeadline)}</strong> ({plan.timelyFilingDays} days from service). Download the packet, submit it via {plan.preferredChannel}
             {plan.portalUrl ? <> (<a className="underline" href={plan.portalUrl} target="_blank">portal</a>)</> : plan.claimsFax ? ` (fax ${plan.claimsFax})` : plan.claimsAddress ? ` (${plan.claimsAddress})` : ""}, then record it below.
           </Notice>
@@ -59,26 +58,30 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
           <h2 className="mb-2 font-medium">Services</h2>
           <table className="w-full text-sm">
             <thead className="text-left text-xs uppercase text-stone-500">
-              <tr><th className="py-1">Date</th><th>CPT</th><th>Description</th><th className="text-right">Units</th><th className="text-right">Charge</th></tr>
+              <tr><th className="py-1">Date</th><th>CPT</th><th>Description</th><th>Dx</th><th>POS</th><th className="text-right">Units</th><th className="text-right">Charge</th></tr>
             </thead>
             <tbody className="divide-y divide-stone-100">
-              {lineItems.map((li) => (
+              {lines.map((li) => (
                 <tr key={li.id}>
                   <td className="py-1">{fmtIso(li.serviceDate)}</td>
-                  <td className="font-mono">{li.cptCode}{li.modifier ? `-${li.modifier}` : ""}</td>
+                  <td className="font-mono">{[li.cptCode, ...li.modifiers].join("-")}</td>
                   <td>{li.description}</td>
+                  <td className="font-mono">{li.diagnosisPointers.map((p) => String.fromCharCode(64 + p)).join(",")}</td>
+                  <td className="font-mono">{li.placeOfService ?? "—"}</td>
                   <td className="text-right tabular-nums">{li.units}</td>
                   <td className="text-right tabular-nums">{money(li.charge)}</td>
                 </tr>
               ))}
-              {lineItems.length === 0 && <tr><td colSpan={5} className="py-3 text-center text-stone-500">No line items — <Link className="underline" href={`/claims/${claim.id}/edit`}>add them</Link>.</td></tr>}
+              {lines.length === 0 && <tr><td colSpan={7} className="py-3 text-center text-stone-500">No line items — <Link className="underline" href={`/claims/${claim.id}/edit`}>add them</Link>.</td></tr>}
             </tbody>
-            <tfoot className="text-sm font-medium"><tr><td colSpan={4} className="pt-2 text-right">Total</td><td className="pt-2 text-right tabular-nums">{money(claim.totalCharged)}</td></tr></tfoot>
+            <tfoot className="text-sm font-medium"><tr><td colSpan={6} className="pt-2 text-right">Total</td><td className="pt-2 text-right tabular-nums">{money(claim.totalCharged)}</td></tr></tfoot>
           </table>
           <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-stone-600 sm:grid-cols-4">
-            <dt>NPI</dt><dd className="font-mono text-stone-900">{claim.providerNpi ?? "—"}</dd>
-            <dt>Tax ID</dt><dd className="font-mono text-stone-900">{claim.providerTaxId ?? "—"}</dd>
-            <dt>ICD-10</dt><dd className="font-mono text-stone-900">{claim.diagnosisCodes.join(", ") || "—"}</dd>
+            <dt>Billing NPI</dt><dd className="font-mono text-stone-900">{claim.billingProviderNpi ?? "—"}</dd>
+            <dt>Tax ID</dt><dd className="font-mono text-stone-900">{claim.billingProviderTaxId ?? "—"}</dd>
+            <dt>Rendering</dt><dd className="text-stone-900">{claim.renderingProviderName ? `${claim.renderingProviderName}${claim.renderingProviderCredential ? `, ${claim.renderingProviderCredential}` : ""}` : "Same as billing"}</dd>
+            <dt>Rendering NPI</dt><dd className="font-mono text-stone-900">{claim.renderingProviderNpi ?? "—"}</dd>
+            <dt>ICD-10</dt><dd className="font-mono text-stone-900">{claim.diagnosisCodes.map((c, i) => `${String.fromCharCode(65 + i)}. ${c}`).join("  ") || "—"}</dd>
             <dt>POS</dt><dd className="font-mono text-stone-900">{claim.placeOfService ?? "—"}</dd>
           </dl>
         </section>
@@ -152,7 +155,7 @@ export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
       </div>
 
       <aside className="space-y-6">
-        <SuperbillPreview claimId={claim.id} mime={claim.superbillMime} />
+        <SuperbillPreview claimId={claim.id} mime={superbill?.mime ?? null} />
         <section className="card text-sm">
           <h2 className="mb-2 font-medium">Where to send it</h2>
           <dl className="space-y-1 text-xs">

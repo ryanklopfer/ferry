@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { Claim, FollowUp, Plan } from "@/server/db/schema";
-import { RULES, computeFollowUps, staleFollowUps, timelyFilingDeadline } from "./followups";
+import { type ExistingFollowUp, type FollowUpClaim, type FollowUpPlan, RULES, computeFollowUps, staleFollowUps, timelyFilingDeadline } from "./followups";
 import { parseExtraction } from "./extraction";
 
 const DAY = 86_400;
-const plan = { id: 1, timelyFilingDays: 180 } as Plan;
-const base = { id: 1, planId: 1, status: "draft", serviceDateStart: "2026-06-01", serviceDateEnd: "2026-06-01", diagnosisCodes: [], submittedAt: null, decisionAt: null, updatedAt: 0 } as unknown as Claim;
-const fu = (type: FollowUp["type"], dueAt: number, status: FollowUp["status"] = "pending") => ({ id: Math.random(), claimId: 1, type, dueAt, status }) as FollowUp;
+const plan: FollowUpPlan = { timelyFilingDays: 180 };
+const base: FollowUpClaim = { status: "draft", serviceDateStart: "2026-06-01", serviceDateEnd: "2026-06-01", submittedAt: null, decisionAt: null, updatedAt: 0 };
+const fu = (type: ExistingFollowUp["type"], dueAt: number, status: ExistingFollowUp["status"] = "pending"): ExistingFollowUp => ({ id: String(Math.random()), type, dueAt, status });
 
 describe("computeFollowUps", () => {
   it("warns before the timely filing deadline for drafts", () => {
@@ -14,6 +13,13 @@ describe("computeFollowUps", () => {
     const deadline = timelyFilingDeadline(base, plan)!;
     expect(out).toEqual([{ type: "timely_filing_warning", dueAt: deadline - RULES.timelyFilingWarningDays * DAY }]);
     expect(new Date(deadline * 1000).toISOString().slice(0, 10)).toBe("2026-11-28");
+  });
+
+  it("lands on the same calendar day in every US time zone", () => {
+    const deadline = new Date(timelyFilingDeadline(base, plan)! * 1000);
+    for (const timeZone of ["America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "America/Anchorage", "Pacific/Honolulu"]) {
+      expect(new Intl.DateTimeFormat("en-CA", { timeZone, dateStyle: "short" }).format(deadline), timeZone).toBe("2026-11-28");
+    }
   });
 
   it("schedules inquiry → escalation → regulator after submission", () => {
@@ -26,7 +32,7 @@ describe("computeFollowUps", () => {
 
   it("is idempotent against existing follow-ups", () => {
     const submittedAt = 1_760_000_000;
-    const claim = { ...base, status: "submitted", submittedAt } as Claim;
+    const claim: FollowUpClaim = { ...base, status: "submitted", submittedAt };
     const first = computeFollowUps(claim, plan, []);
     const existing = first.map((p) => fu(p.type, p.dueAt));
     expect(computeFollowUps(claim, plan, existing)).toEqual([]);

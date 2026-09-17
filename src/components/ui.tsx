@@ -1,5 +1,5 @@
 import { format, formatDistanceToNowStrict } from "date-fns";
-import type { ClaimStatus } from "@/server/db/schema";
+import type { ClaimStatus } from "@/server/services/types";
 
 export const STATUS_LABEL: Record<ClaimStatus, string> = {
   draft: "Draft",
@@ -27,12 +27,12 @@ export function StatusBadge({ status }: { status: ClaimStatus }) {
   return <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLOR[status]}`}>{STATUS_LABEL[status]}</span>;
 }
 
-export const fmtDate = (sec: number | null | undefined) => (sec ? format(new Date(sec * 1000), "MMM d, yyyy") : "—");
+export const fmtDate = (d: Date | null | undefined) => (d ? format(d, "MMM d, yyyy") : "—");
 export const fmtIso = (s: string | null | undefined) => (s ? format(new Date(s + "T00:00:00"), "MMM d, yyyy") : "—");
 export const money = (cents: number | null | undefined) => `$${((cents ?? 0) / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}`;
-export const relative = (sec: number) => {
-  const diff = sec * 1000 - Date.now();
-  const s = formatDistanceToNowStrict(new Date(sec * 1000));
+export const relative = (d: Date) => {
+  const diff = d.getTime() - Date.now();
+  const s = formatDistanceToNowStrict(d);
   return diff < 0 ? `${s} overdue` : `in ${s}`;
 };
 

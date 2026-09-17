@@ -34,7 +34,7 @@ describe("every entry point verifies the session", () => {
     for (const file of files) {
       const source = read(file);
       const actions = source.match(/^export async function \w+/gm) ?? [];
-      const checks = source.match(/^ {2}await requireCtx\(\);$/gm) ?? [];
+      const checks = source.match(/^ {2}(const ctx = )?await requireCtx\(\);$/gm) ?? [];
       expect(actions.length, `${file} exports no actions`).toBeGreaterThan(0);
       expect(checks.length, `${file}: every action must start with await requireCtx()`).toBe(actions.length);
     }

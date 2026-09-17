@@ -33,14 +33,16 @@ Timing rules live in `src/lib/followups.ts` (`RULES`) and are unit-tested (`bun 
 ## Layout
 
 ```
-src/server/db/    drizzle schema + Postgres pool (migrations in ./drizzle, applied with bun run db:migrate)
+src/core/         pure rules and wire schemas: no I/O, importable by any client
+src/server/db/    drizzle schema, Postgres pool, and repos/ (every query scoped to the signed-in user)
+src/server/services/  use cases; the only code that writes. Actions and /api/v1 are thin wrappers over it
 src/server/auth/  Better Auth instance (magic link + passkeys) and Ctx: getCtx / requireCtx
 src/proxy.ts      redirects requests with no session cookie; pages, routes and actions verify the session themselves
 src/lib/ai.ts     Claude calls: superbill extraction (vision) and letter drafting
 src/lib/followups.ts   pure rules engine: which follow-ups exist for a claim state
 src/lib/templates.ts   cover letter + fallback letter templates
 src/lib/packet.ts      PDF packet (pdf-lib)
-src/app/actions.ts     server actions (all writes)
+src/app/actions.ts     server actions: parse the form, call one service
 src/app/...            dashboard, plans, claims/new, claims/[id], claims/[id]/edit
 ```
 

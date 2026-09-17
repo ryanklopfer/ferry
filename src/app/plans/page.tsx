@@ -1,13 +1,13 @@
 import Link from "next/link";
-import { listPlans } from "@/lib/service";
+import { listPlans } from "@/server/services/plans";
 import { Empty } from "@/components/ui";
 import { requireCtx } from "@/server/auth/ctx";
 
 export const dynamic = "force-dynamic";
 
 export default async function PlansPage() {
-  await requireCtx();
-  const plans = await listPlans();
+  const ctx = await requireCtx();
+  const plans = await listPlans(ctx);
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">

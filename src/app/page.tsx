@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { listClaims, nowSec } from "@/lib/service";
+import { listClaims } from "@/server/services/claims";
 import { FOLLOW_UP_LABELS } from "@/lib/followups";
 import { Empty, StatusBadge, fmtIso, money, relative } from "@/components/ui";
 import { requireCtx } from "@/server/auth/ctx";
@@ -7,11 +7,12 @@ import { requireCtx } from "@/server/auth/ctx";
 export const dynamic = "force-dynamic";
 
 export default async function Dashboard() {
-  await requireCtx();
-  const { rows, followUps } = await listClaims();
-  const now = nowSec();
+  const ctx = await requireCtx();
+  const { rows, followUps } = await listClaims(ctx);
+  const now = new Date();
+  const weekOut = new Date(now.getTime() + 7 * 86_400_000);
   const byClaim = new Map(rows.map((r) => [r.claim.id, r]));
-  const due = followUps.filter((f) => f.dueAt <= now + 7 * 86400 && byClaim.has(f.claimId));
+  const due = followUps.filter((f) => f.dueAt <= weekOut && byClaim.has(f.claimId));
   const outstanding = rows.filter((r) => !["paid", "closed", "draft"].includes(r.claim.status)).reduce((s, r) => s + r.claim.totalCharged, 0);
   const recovered = rows.reduce((s, r) => s + (r.claim.amountReimbursed ?? 0), 0);
 
@@ -37,7 +38,7 @@ export default async function Dashboard() {
                   <span className={`h-2 w-2 shrink-0 rounded-full ${overdue ? "bg-red-500" : "bg-amber-400"}`} />
                   <div className="min-w-0 flex-1">
                     <Link href={`/claims/${f.claimId}#followups`} className="font-medium hover:underline">{FOLLOW_UP_LABELS[f.type]}</Link>
-                    <div className="truncate text-stone-500">{r.plan.insurerName} · {r.claim.providerName ?? "Unknown provider"} · {fmtIso(r.claim.serviceDateStart)}</div>
+                    <div className="truncate text-stone-500">{r.plan.insurerName} · {r.claim.billingProviderName ?? "Unknown provider"} · {fmtIso(r.claim.serviceDateStart)}</div>
                   </div>
                   <span className={`text-xs ${overdue ? "text-red-600" : "text-stone-500"}`}>{relative(f.dueAt)}</span>
                   {f.status === "drafted" && <span className="rounded bg-stone-100 px-1.5 py-0.5 text-xs">draft ready</span>}
@@ -74,7 +75,7 @@ export default async function Dashboard() {
                 {rows.map(({ claim, plan }) => (
                   <tr key={claim.id} className="hover:bg-stone-50">
                     <td className="px-4 py-2"><Link href={`/claims/${claim.id}`} className="font-medium hover:underline">{fmtIso(claim.serviceDateStart)}</Link></td>
-                    <td className="px-4 py-2">{claim.providerName ?? "—"}</td>
+                    <td className="px-4 py-2">{claim.billingProviderName ?? "—"}</td>
                     <td className="px-4 py-2">{plan.insurerName}</td>
                     <td className="px-4 py-2 text-right tabular-nums">{money(claim.totalCharged)}</td>
                     <td className="px-4 py-2 text-right tabular-nums">{claim.amountReimbursed != null ? money(claim.amountReimbursed) : "—"}</td>

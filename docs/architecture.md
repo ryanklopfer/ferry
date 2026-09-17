@@ -158,10 +158,11 @@ Postgres via Drizzle. Money in integer cents. Timestamps `timestamptz`.
 | `user_keys` | wrapped per-user data key, key id, created/rotated |
 | `consents` | document type, version hash, signed at, IP, user agent |
 | `plans` | insurance plan per patient; payer id; sealed member ID, group, subscriber details |
-| `providers` | NPI, NPPES cache, taxonomy, sealed Tax ID, authorization status |
-| `provider_links` | patient ↔ provider, learned defaults |
-| `claims` | state, channel, payer id, totals, payer reference, timestamps; sealed clinical fields |
-| `claim_lines` | service date, CPT, up to 4 modifiers, units, charge, diagnosis pointers (sealed) |
+| `providers` | One patient's record of a provider: name, NPI, sealed Tax ID and type, address, credential, license. Never shared between patients (S2) |
+| `nppes_providers` | Public registry copy keyed by NPI; the only trusted source for shared provider facts (S6) |
+| `provider_accounts` | What a provider controls themselves: authorization, licenses, defaults (S11, S24) |
+| `claims` | state, channel, payer id, totals, payer reference, timestamps; a snapshot of billing and rendering provider as filed, plus optional links to `providers`; sealed clinical fields |
+| `claim_lines` | position, service date, CPT, up to 4 modifiers (database check), units, charge, diagnosis pointers, place of service (sealed) |
 | `claim_events` | append-only: seq, type, from, to, actor, cause, sealed payload |
 | `patient_tasks` | the single thing a patient is asked to do, with resolution |
 | `documents` | superbills, cards, EOBs, letters, packets: storage key, kind, hash |
@@ -172,11 +173,15 @@ Postgres via Drizzle. Money in integer cents. Timestamps `timestamptz`.
 | `payers`, `payer_rules` | directory and versioned rules loaded from `data/payers/*.json` |
 | `notifications` | one row per state change: channel, PHI-free body, delivery status |
 
+Provider data sits at three trust levels and never mixes: what a patient told us (`providers`, per user), what the registry says (`nppes_providers`), and what the provider controls (`provider_accounts`). A record learned from one patient's superbill must not flow into another patient's claim: that would leak data and let one user poison a real NPI's details for everyone.
+
+Ids are prefixed ULIDs (`clm_`, `pln_`, `lin_`, `prv_`, `doc_`, `fup_`, `evt_`). Dates of service are Postgres `date` values read as `YYYY-MM-DD` strings; anything derived from one is anchored at noon UTC so it shows as the same calendar day across US time zones.
+
 `claims.state` and the matching `claim_events` row are written in one transaction, along with the effects to run. Current state is a projection of the log; the log is never updated or deleted except by account deletion.
 
 ## 6. Tenancy and security
 
-- The patient account is the tenant. Every PHI table carries `user_id`. Repos require a `Ctx { userId, role }` and scope every query; there is no unscoped repo method. Postgres row-level security is added in hardening (slice 28) as defense in depth.
+- The patient account is the tenant. Every PHI table carries `user_id`. Repos require a `Ctx { userId, role }` and scope every query; there is no unscoped repo method. Reads of another user's rows return nothing, changes to them affect nothing, and attaching a new row to a parent you do not own throws `NotOwnedError`, which transports turn into a 404 so "not yours" and "does not exist" look the same. `schema.test.ts` fails if any new table lacks an owner; `isolation.test.ts` exercises every repo as a second user. Postgres row-level security is added in hardening (slice 28) as defense in depth.
 - Envelope encryption: a 256-bit data key per user, wrapped by a key-encryption key through `KeyProvider` (`local` from env in dev, `aws-kms` in prod). Fields are AES-256-GCM, stored as `v1.<keyId>.<iv>.<ciphertext>.<tag>`.
 - Sealed (field-level): names, DOB, addresses, phone, member ID, group number, diagnosis codes, CPT lines, provider Tax ID, payer messages, letter bodies, event payloads, vendor requests/responses. Plaintext operational columns: state, payer id, channel, amounts, timestamps. Auth identity (email, phone) stays in the auth tables under database-level encryption.
 - Blind indexes (HMAC-SHA256 with a separate key) on member ID and provider Tax ID for lookup and de-duplication.

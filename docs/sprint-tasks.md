@@ -86,19 +86,19 @@ Produces: `src/server/auth/index.ts` exporting `auth`; `requireCtx(): Promise<Ct
 - [x] Magic links expire in 15 minutes and are single-use; both covered by tests; tokens stored hashed
 - [x] No third-party auth service is called
 
-### [ ] S2 — Multi-user data model, scoped repos, service layer
+### [x] S2 — Multi-user data model, scoped repos, service layer
 
-Depends on: S3.
+Depends on: S3. Plan: `docs/plans/slice-02-data-model.md`. Done 2026-09-17. Changed from the original Produces line: `providers` is per patient and there is no `provider_links` (three trust levels, see architecture §5); migrations were squashed to one file because nothing is deployed; `CLAIM_STATUSES` and friends now live in `src/core/claim/status.ts`.
 
 Produces: `newId(prefix)` returning prefixed ULIDs (`clm_`, `pln_`, `lin_`, `evt_`, `doc_`, `prv_`); all domain tables with `user_id`, string ids, `timestamptz`; new tables `providers`, `provider_links`, `documents`; `claim_lines` replacing `line_items` with `modifiers text[]` (max 4), `units`, `diagnosis_pointers int[]`, `place_of_service`; claims split billing vs. rendering provider; repos in `src/server/db/repos/*` whose every method takes `ctx` first; services in `src/server/services/*`; `/api/v1/claims` (GET list, GET one) as the transport pattern; ESLint `no-restricted-imports` rules from architecture §3; `src/server/log.ts` exporting `log` with allow-list redaction and a per-claim correlation id.
 
-- [ ] A claim with two service lines, 3 units, modifiers `95` + `59`, and per-line diagnosis pointers round-trips through the repo unchanged
-- [ ] `log` drops every key not on its allow-list; a test logs a full claim object and asserts no name, member ID, diagnosis, Tax ID or address reaches the output
-- [ ] Tenant isolation test: user B gets `null`/empty for every repo read of user A's rows and cannot update or delete them
-- [ ] No file under `src/app` or `src/ui` imports `drizzle-orm` or `@/server/db`; lint fails if one does
-- [ ] Server actions are thin: parse input, call one service, revalidate/redirect
-- [ ] `/api/v1/claims` returns only the caller's claims, zod-validated, errors as `{ code, message }`
-- [ ] The walkthrough from S1 still works for two different signed-in users without seeing each other's data
+- [x] A claim with two service lines, 3 units, modifiers `95` + `59`, and per-line diagnosis pointers round-trips through the repo unchanged
+- [x] `log` drops every key not on its allow-list; a test logs a full claim object and asserts no name, member ID, diagnosis, Tax ID or address reaches the output
+- [x] Tenant isolation test: user B gets `null`/empty for every repo read of user A's rows and cannot update or delete them
+- [x] No file under `src/app` or `src/ui` imports `drizzle-orm` or `@/server/db`; lint fails if one does
+- [x] Server actions are thin: parse input, call one service, revalidate/redirect
+- [x] `/api/v1/claims` returns only the caller's claims, zod-validated, errors as `{ code, message }`
+- [x] The walkthrough from S1 still works for two different signed-in users without seeing each other's data
 
 ### [ ] S2b — Envelope encryption
 
@@ -115,7 +115,7 @@ Produces: `KeyProvider { wrap(plain: Buffer): Promise<WrappedKey>; unwrap(w: Wra
 
 ### [ ] S10 — State machine, event log, job queue, timers
 
-Depends on: S2b. Reuses and then deletes `src/lib/followups.ts`.
+Depends on: S2b. Reuses and then deletes `src/lib/followups.ts` and `followups-adapter.ts`. Carry over two lessons from S2: deadlines derived from a date of service are calendar dates (anchor at noon UTC or store as `date`), and a timer is keyed by (claim, kind) so a changed input replaces it instead of adding a second.
 
 Produces, in `src/core/claim/`: `states.ts` (`CLAIM_STATES`, `StateDef`), `events.ts` (`ClaimEvent` union), `effects.ts` (`Effect` union), `transition.ts` (`transition(claim: ClaimSnapshot, event: ClaimEvent, rules: PayerRules): TransitionResult`), `timers.ts`, `experience.ts` (`chipFor(state, hasOpenTask, outcome)`, `segmentsFor(state)`). In `src/server/`: `services/claim-engine.ts` exporting `applyEvent(actor, claimId, event)`; `jobs/queue.ts` (pg-boss); `jobs/handlers/*`; `worker.ts`; tables `claim_events`, `patient_tasks`, `notifications`.
 
@@ -164,7 +164,7 @@ Produces: `data/payers/*.json` validated by a zod schema; tables `payers`, `paye
 
 Depends on: S2.
 
-Produces: `nppes.lookup(npi): Promise<NppesProvider | null>` with `live` and `fixture` implementations; `providers` cache with a 30-day TTL. Consumes `isValidNpi(npi)` from `src/core/npi.ts`, which already exists (built with the corpus).
+Produces: `nppes.lookup(npi): Promise<NppesProvider | null>` with `live` and `fixture` implementations; global table `nppes_providers` keyed by NPI with a 30-day TTL (the per-patient `providers` table from S2 is never written from here). Consumes `isValidNpi(npi)` from `src/core/npi.ts`, which already exists (built with the corpus).
 
 - [ ] Invalid check digit is rejected before any network call
 - [ ] Lookup fills name, credential, taxonomy, practice address and phone; NPI-1 vs NPI-2 recorded

@@ -26,8 +26,10 @@ describe("proxy", () => {
     expect(response.headers.get("location")).toBe("http://localhost:3000/sign-in");
   });
 
-  it("answers an API request with no session cookie with 401", () => {
-    expect(proxy(request("/api/claims/1/packet")).status).toBe(401);
+  it("answers an API request with no session cookie with a 401 in the API error shape", async () => {
+    const response = proxy(request("/api/v1/claims"));
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ code: "unauthorized", message: "Sign in first." });
   });
 
   it("lets a request with a session cookie through to the real check", () => {
