@@ -20,7 +20,7 @@ The validated design for the 60-day sprint. Product intent lives in `mentaya-tea
 | D12 | E-fax is Sinch Fax API, not Twilio. | Twilio Programmable Fax was shut down in December 2021. Sinch signs a free self-serve BAA. |
 | D13 | Product analytics inside the app come from our own `claim_events` log. PostHog is limited to public marketing pages. | PostHog's BAA requires a $250/mo package; the funnel dashboard (slice 21) and scorecard (slice 27) already read the same log. |
 | D14 | "Ferry" is a working name held in one constant. The domain word in code is `claim`; "trip" is UI copy only. | Name decision is due Day 10. |
-| D15 | Commits: one local commit per green slice or doc package. Never push, force or rewrite history without asking. | Agreed 2026-09-17. |
+| D15 | One branch and one commit per slice; when test, typecheck and lint pass, fast-forward `main` and delete the branch without asking. Never push, force or rewrite history without asking. | Agreed 2026-09-17. Solo engineer, strict per-slice checks; pull requests start when there is a second reviewer or SOC 2 evidence collection begins. |
 
 ## 2. System shape
 

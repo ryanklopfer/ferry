@@ -65,7 +65,7 @@ bun run db:generate  # after schema changes
 
 - One slice per session, from `docs/sprint-tasks.md`, in its execution order. Write the slice's step plan to `docs/plans/` first if the slice is more than a few files.
 - Test first for anything touching the state machine, timers, fee logic, 837P mapping, tenancy or encryption.
-- End every slice with test, typecheck and lint green, tick the slice in `docs/sprint-tasks.md`, then make one local commit. Never push, force-push, reset --hard or delete branches without asking.
+- Each slice gets its own branch (`slice/s<id>-<name>`) off `main`. End it with test, typecheck and lint green, tick the slice in `docs/sprint-tasks.md`, make one commit, then fast-forward `main`, re-run the checks on `main`, and delete the merged branch. This is a standing rule (2026-09-17): do not ask each time. Never push, force-push, reset --hard or delete an unmerged branch without asking.
 - Move MVP files into the new layout only in the slice that touches them (table in architecture §3).
 - Read files before editing. Targeted edits over rewrites. No comments unless the logic is non-obvious. No docstrings, no speculative abstractions, no backwards-compat shims.
 - Never type, paste or echo API keys. The founder puts them in `.env.local`; code reads them from env.
@@ -76,4 +76,5 @@ bun run db:generate  # after schema changes
 
 - 2026-09-17: Stedi primary clearinghouse, Claim.MD backup. Psychotherapy + psychiatry at launch; PT + chiro phase 2. Autopilot ships v1. Practice Sponsor tiered by accepted claims (Basic $0 / Starter $59 / Growth $149 / Group $399). Product name open. Fee figures are placeholders ($9 pay-when-paid, $15 Autopilot) held in config.
 - 2026-09-17: Web-first Next.js PWA with an API-ready backend; Expo deferred. Supersedes the Cowork scaffold's "Expo" note. Full list D1–D15 in `docs/architecture.md`.
+- 2026-09-17: Merge each green slice to `main` locally without asking. No git remote yet by the founder's choice; the repo exists only on this Mac (open risk R1 in `docs/sprint-tasks.md`).
 - 2026-09-17: Ferry uses only `FERRY_BRAND.md` for visuals. Three chips added (On its way, Counted, Closed).

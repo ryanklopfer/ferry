@@ -23,6 +23,12 @@ Ordered by lead time. Nothing here is code. Keys go into `.env.local` by hand; C
 | F11 | `tokens.json` and `assets/` logo SVGs exported from the brand work | minutes | S3c logo |
 | F12 | ~~Clarify "Stedi's CMS-1500 validator"~~ Resolved 2026-09-17: it means Stedi's claim edits, the validation library run on every submitted claim (HTTP 400 with `errors[]`). Stedi documents no validate-only call. | done | — |
 
+## Open risks
+
+| # | Risk | Status |
+|---|---|---|
+| R1 | The repo has no git remote: every commit lives only on the founder's Mac. A lost or failed laptop loses the sprint. | Accepted for now (2026-09-17). Fix is a private GitHub repo and a push of `main` after each slice; the repo holds synthetic data only and `.env.local` is gitignored. Revisit no later than the end of Week 1. |
+
 ## What changed from the original list
 
 | Change | Why |
