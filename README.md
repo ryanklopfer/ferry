@@ -10,9 +10,12 @@ brew install postgresql@17 && brew services start postgresql@17
 /opt/homebrew/opt/postgresql@17/bin/createdb ferry_test
 bun install
 cp .env.example .env.local   # DATABASE_URL; add ANTHROPIC_API_KEY for synthetic-only AI extraction
+printf 'BETTER_AUTH_SECRET=%s\n' "$(openssl rand -base64 32)" >> .env.local
 bun run db:migrate
 bun run dev                  # http://localhost:3000
 ```
+
+Sign in at `/sign-in` with any email address. In development nothing is actually emailed: the sign-in link is printed in the dev server log and saved to `data/outbox/`. Links work once and last 15 minutes. Add a passkey on `/account` to skip the email next time.
 
 Without an API key everything still works: you type the codes in yourself and follow-up letters come from built-in templates.
 
@@ -31,6 +34,8 @@ Timing rules live in `src/lib/followups.ts` (`RULES`) and are unit-tested (`bun 
 
 ```
 src/server/db/    drizzle schema + Postgres pool (migrations in ./drizzle, applied with bun run db:migrate)
+src/server/auth/  Better Auth instance (magic link + passkeys) and Ctx: getCtx / requireCtx
+src/proxy.ts      redirects requests with no session cookie; pages, routes and actions verify the session themselves
 src/lib/ai.ts     Claude calls: superbill extraction (vision) and letter drafting
 src/lib/followups.ts   pure rules engine: which follow-ups exist for a claim state
 src/lib/templates.ts   cover letter + fallback letter templates

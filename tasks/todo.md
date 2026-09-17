@@ -27,3 +27,7 @@
 - Slice 1 not started: Postgres is not installed yet (F10), and the sprint starts Monday.
 
 **Next session.** Confirm F10, then execute `docs/plans/slice-01-postgres.md`. Order after that: S3 → S2 → S2b → S10.
+
+# Open manual checks
+
+- [ ] S3: on `/account`, add a passkey with Touch ID; sign out; on `/sign-in` choose "Use a passkey instead". Tick the criterion and the slice in `docs/sprint-tasks.md` when it works, or tell Claude what happened.

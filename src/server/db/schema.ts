@@ -114,3 +114,5 @@ export type Claim = typeof claims.$inferSelect;
 export type LineItem = typeof lineItems.$inferSelect;
 export type FollowUp = typeof followUps.$inferSelect;
 export type Event = typeof events.$inferSelect;
+
+export * from "./auth-schema";

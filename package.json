@@ -16,6 +16,9 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",
+    "@better-auth/drizzle-adapter": "^1.7.5",
+    "@better-auth/passkey": "^1.7.5",
+    "better-auth": "^1.7.5",
     "date-fns": "^4.4.0",
     "drizzle-orm": "^0.45.2",
     "next": "16.3.4",

@@ -73,17 +73,18 @@ Scope: engine swap only. Same five tables, same integer ids and epoch-second col
 - [x] Manual walkthrough on `bun run dev`: add plan → upload superbill → edit → packet PDF → mark submitted → follow-ups appear
 - [x] Existing 7 follow-up tests still pass
 
-### [ ] S3 — Auth: magic link + passkeys
+### [ ] S3 — Auth: magic link + passkeys (code complete 2026-09-17; one manual check open)
 
-Depends on: S1.
+Depends on: S1. Plan: `docs/plans/slice-03-auth.md`.
 
 Produces: `src/server/auth/index.ts` exporting `auth`; `requireCtx(): Promise<Ctx>` and `getCtx(): Promise<Ctx | null>` where `Ctx = { userId: string; role: 'patient' | 'provider' | 'staff' }`; route `/api/auth/[...all]`; pages `/sign-in`, `/account`; `src/server/integrations/email` with `send({ to, subject, text, html })` and a `fixture` implementation that writes to `data/outbox/` and logs the link.
 
-- [ ] Better Auth with `magicLink` and `@better-auth/passkey`, Drizzle pg adapter, `nextCookies`
-- [ ] Sign in by emailed link; add a passkey on `/account`; sign in with it; sign out; sessions listed and revocable
-- [ ] Every existing page requires a session; unauthenticated requests redirect to `/sign-in`
-- [ ] Magic links expire in 15 minutes and are single-use; both covered by tests
-- [ ] No third-party auth service is called
+- [x] Better Auth with `magicLink` and `@better-auth/passkey`, Drizzle pg adapter, `nextCookies`
+- [x] Sign in by emailed link; sign out; sessions listed and revocable (another device's session ended from `/account` and confirmed dead)
+- [ ] Add a passkey on `/account` and sign in with it. Registration options are verified by test and against the live server; the fingerprint step needs a person. Founder: 2 minutes with Touch ID, then tick this and the slice
+- [x] Every existing page requires a session; unauthenticated requests redirect to `/sign-in`; API routes answer 401; a forged cookie is refused; `guards.test.ts` fails the build if a new page, route or action forgets the check
+- [x] Magic links expire in 15 minutes and are single-use; both covered by tests; tokens stored hashed
+- [x] No third-party auth service is called
 
 ### [ ] S2 — Multi-user data model, scoped repos, service layer
 

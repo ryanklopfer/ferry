@@ -8,12 +8,14 @@ import { StatusBadge, fmtDate, fmtIso, money, relative } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { FollowUpCard } from "@/components/follow-up-card";
 import { SuperbillPreview } from "@/components/superbill-preview";
+import { requireCtx } from "@/server/auth/ctx";
 
 export const dynamic = "force-dynamic";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
 export default async function ClaimPage({ params }: PageProps<"/claims/[id]">) {
+  await requireCtx();
   const { id } = await params;
   const ctx = await getClaimContext(Number(id));
   if (!ctx) notFound();

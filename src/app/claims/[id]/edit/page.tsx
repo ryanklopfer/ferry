@@ -6,10 +6,12 @@ import { fromCents } from "@/lib/extraction";
 import { Field } from "@/components/ui";
 import { LineItemsEditor } from "@/components/line-items-editor";
 import { SuperbillPreview } from "@/components/superbill-preview";
+import { requireCtx } from "@/server/auth/ctx";
 
 export const dynamic = "force-dynamic";
 
 export default async function EditClaimPage({ params }: PageProps<"/claims/[id]/edit">) {
+  await requireCtx();
   const { id } = await params;
   const ctx = await getClaimContext(Number(id));
   if (!ctx) notFound();

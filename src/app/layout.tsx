@@ -19,6 +19,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <Link href="/" className="font-semibold text-base tracking-tight">Superbill Claims</Link>
             <Link href="/" className="text-stone-600 hover:text-stone-900">Dashboard</Link>
             <Link href="/plans" className="text-stone-600 hover:text-stone-900">Insurance plans</Link>
+            <Link href="/account" className="text-stone-600 hover:text-stone-900">Account</Link>
             <Link href="/claims/new" className="ml-auto rounded-md bg-stone-900 px-3 py-1.5 text-white hover:bg-stone-700">New claim</Link>
           </nav>
         </header>

@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { listPlans } from "@/lib/service";
 import { Empty } from "@/components/ui";
+import { requireCtx } from "@/server/auth/ctx";
 
 export const dynamic = "force-dynamic";
 
 export default async function PlansPage() {
+  await requireCtx();
   const plans = await listPlans();
   return (
     <div className="space-y-4">

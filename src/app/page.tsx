@@ -2,10 +2,12 @@ import Link from "next/link";
 import { listClaims, nowSec } from "@/lib/service";
 import { FOLLOW_UP_LABELS } from "@/lib/followups";
 import { Empty, StatusBadge, fmtIso, money, relative } from "@/components/ui";
+import { requireCtx } from "@/server/auth/ctx";
 
 export const dynamic = "force-dynamic";
 
 export default async function Dashboard() {
+  await requireCtx();
   const { rows, followUps } = await listClaims();
   const now = nowSec();
   const byClaim = new Map(rows.map((r) => [r.claim.id, r]));

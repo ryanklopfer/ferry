@@ -10,6 +10,7 @@ import type { ClaimStatus } from "@/server/db/schema";
 import { aiEnabled, draftFollowUp, extractSuperbill } from "@/lib/ai";
 import { toCents } from "@/lib/extraction";
 import { getClaimContext, logEvent, nowSec, setStatus, syncFollowUps } from "@/lib/service";
+import { requireCtx } from "@/server/auth/ctx";
 
 const { plans, claims, lineItems, followUps } = schema;
 
@@ -24,6 +25,7 @@ const dateSec = (fd: FormData, k: string) => {
 };
 
 export async function createPlan(fd: FormData) {
+  await requireCtx();
   const [row] = await db
     .insert(plans)
     .values({
@@ -54,6 +56,7 @@ export async function createPlan(fd: FormData) {
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"]);
 
 export async function createClaimFromUpload(fd: FormData) {
+  await requireCtx();
   const planId = num(fd, "planId");
   const file = fd.get("superbill");
   if (!planId) throw new Error("Choose an insurance plan first");
@@ -113,6 +116,7 @@ export async function createClaimFromUpload(fd: FormData) {
 }
 
 export async function saveClaim(fd: FormData) {
+  await requireCtx();
   const id = num(fd, "id");
   const rows = fd.getAll("li_cpt").map((_, i) => ({
     claimId: id,
@@ -151,6 +155,7 @@ export async function saveClaim(fd: FormData) {
 }
 
 export async function markSubmitted(fd: FormData) {
+  await requireCtx();
   const id = num(fd, "id");
   await setStatus(id, "submitted", { submittedAt: dateSec(fd, "submittedAt"), submissionChannel: str(fd, "channel") ?? "portal", confirmationNumber: str(fd, "confirmationNumber") }, str(fd, "note") ?? undefined);
   revalidatePath(`/claims/${id}`);
@@ -158,6 +163,7 @@ export async function markSubmitted(fd: FormData) {
 }
 
 export async function recordOutcome(fd: FormData) {
+  await requireCtx();
   const id = num(fd, "id");
   const outcome = str(fd, "outcome") as ClaimStatus;
   const decisionAt = dateSec(fd, "decisionAt");
@@ -172,12 +178,14 @@ export async function recordOutcome(fd: FormData) {
 }
 
 export async function markAppealed(fd: FormData) {
+  await requireCtx();
   const id = num(fd, "id");
   await setStatus(id, "appealed", { decisionAt: dateSec(fd, "appealedAt") }, "Appeal sent");
   revalidatePath(`/claims/${id}`);
 }
 
 export async function closeClaim(fd: FormData) {
+  await requireCtx();
   const id = num(fd, "id");
   await setStatus(id, "closed", {}, str(fd, "note") ?? undefined);
   revalidatePath(`/claims/${id}`);
@@ -185,6 +193,7 @@ export async function closeClaim(fd: FormData) {
 }
 
 export async function generateFollowUpDraft(fd: FormData) {
+  await requireCtx();
   const id = num(fd, "id");
   const fu = await db.query.followUps.findFirst({ where: eq(followUps.id, id) });
   if (!fu) return;
@@ -197,6 +206,7 @@ export async function generateFollowUpDraft(fd: FormData) {
 }
 
 export async function updateFollowUp(fd: FormData) {
+  await requireCtx();
   const id = num(fd, "id");
   const action = str(fd, "action");
   const fu = await db.query.followUps.findFirst({ where: eq(followUps.id, id) });
@@ -214,6 +224,7 @@ export async function updateFollowUp(fd: FormData) {
 }
 
 export async function deleteClaim(fd: FormData) {
+  await requireCtx();
   const id = num(fd, "id");
   await db.delete(lineItems).where(eq(lineItems.claimId, id));
   await db.delete(followUps).where(eq(followUps.claimId, id));

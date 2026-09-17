@@ -3,10 +3,12 @@ import { createClaimFromUpload } from "@/app/actions";
 import { listPlans } from "@/lib/service";
 import { aiEnabled } from "@/lib/ai";
 import { SubmitButton } from "@/components/submit-button";
+import { requireCtx } from "@/server/auth/ctx";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewClaimPage({ searchParams }: PageProps<"/claims/new">) {
+  await requireCtx();
   const { plan } = await searchParams;
   const plans = await listPlans();
   if (plans.length === 0) {
