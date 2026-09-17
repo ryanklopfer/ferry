@@ -134,17 +134,17 @@ Timers take their durations from `payer_rules` (median and 90th-percentile days,
 
 ### Experience mapping
 
-Chip is a function of state and whether a patient task is open. Chips beyond the four in the brand guide are proposed amendments recorded in `FERRY_BRAND.md`.
+Chip is a function of state and whether a patient task is open. The three chips beyond the brand guide's original four were approved 2026-09-17 and are recorded in `FERRY_BRAND.md` §12.
 
 | Chip | Style | States |
 |---|---|---|
 | One quick thing | blush / navy + hand icon | any state with an open patient task (send tap, approve appeal, retake photo) |
 | We've got it | blush / navy | draft, ready |
 | Sent across | mint / seaDeep | submitted, rejected_front_end, accepted, in_adjudication, info_requested, stalled, escalated, appealed, misdirected |
-| On its way (proposed) | mint / seaDeep | paid, partially_paid |
+| On its way | mint / seaDeep | paid, partially_paid |
 | Landed | sea / white | closed with money back (detail copy differs: confirmed vs. payer-reported) |
-| Counted (proposed) | mint / seaDeep | applied_to_deductible, and closed with deductible credit only |
-| Closed (proposed) | mist / slate | closed with no money and no credit |
+| Counted | mint / seaDeep | applied_to_deductible, and closed with deductible credit only |
+| Closed | mist / slate | closed with no money and no credit |
 
 List rows show chip plus the state's one-line copy, so a stalled claim reads as being chased, not as unchanged. Progress segments: 1 done at `submitted`, 2 done at `accepted` (or first payer signal on the member-form channel), 3 done at a money or deductible outcome.
 
@@ -268,4 +268,3 @@ Microservices, Kubernetes, multi-region, a message bus, GraphQL, a data warehous
 2. AWS: is SES inbound receiving covered by the BAA? AWS lists SES without restriction but does not address receiving explicitly.
 3. Attorney: may a push notification body carry a dollar amount with no payer, provider, diagnosis or date? Default until answered: amounts allowed in push, nothing but a generic prompt in SMS.
 4. Attorney: is a typed-name e-signature sufficient for the patient authorization and the provider authorization?
-5. Brand: approve the three proposed chips (On its way, Counted, Closed) and the third progress label.
