@@ -21,7 +21,7 @@ Ordered by lead time. Nothing here is code. Keys go into `.env.local` by hand; C
 | F9 | Test corpus: 30+ real superbills and cards, de-identified **before** they touch this machine; 10+ EOBs by Week 2 | slowest input of Weeks 1–3 | S4 gate, S5, S16 |
 | F10 | Postgres 17 running locally; `createdb ferry_dev ferry_test` | minutes | S1 |
 | F11 | `tokens.json` and `assets/` logo SVGs exported from the brand work | minutes | S3c logo |
-| F12 | Clarify "Stedi's CMS-1500 validator" in slice 8: is it Stedi's submission-time validation, or a specific tool? | one reply | S8 acceptance |
+| F12 | ~~Clarify "Stedi's CMS-1500 validator"~~ Resolved 2026-09-17: it means Stedi's claim edits, the validation library run on every submitted claim (HTTP 400 with `errors[]`). Stedi documents no validate-only call. | done | — |
 
 ## What changed from the original list
 
@@ -175,6 +175,7 @@ Produces: `LlmProvider { extract<T>(input: { document: Buffer; mime: string; sch
 - [ ] Scorer prints per-field accuracy and writes `corpus/results/<timestamp>.json`; exits non-zero if NPI, date of service, CPT, ICD or charge is under 95%
 - [ ] Gate fields reach ≥ 95% on the synthetic corpus; each miss is listed with document id and expected vs. actual
 - [ ] Low-confidence or missing required fields are flagged per field so the review step can ask for exactly those
+- [ ] A provider-completed CMS-1500 form is accepted as an input document, not only superbills: diagnoses from box 21, service lines from 24A–J, Tax ID from 25, providers and NPIs from 31–33. Add corpus case `sb-11` (a filled CMS-1500, photographed) to `scripts/corpus/data.ts` in this slice. If box 27 shows Accept Assignment = Yes or box 13 is signed, flag it: we file non-assigned
 
 ### [ ] S5 — Insurance card extraction
 
@@ -201,14 +202,15 @@ Produces: `stedi.eligibility(req): Promise<Eligibility271>` (`live`, `test`, `fi
 
 ### [ ] S8 — 837P builder and validation
 
-Depends on: S6, S6b, S10. F12 for the exact meaning of the validator criterion.
+Depends on: S6, S6b, S10; F2 for the Stedi check.
 
 Produces: `buildProfessionalClaim(claim: ClaimRecord, party: { submitter: Submitter; payer: PayerRef }): Stedi837PRequest` in `src/core/x12/`; `validate(claim: ClaimRecord, rules: PayerRules): Issue[]` in `src/core/validation/`.
 
 - [ ] Every built claim has `planParticipationCode: 'C'` (CLM07) and `benefitsAssignmentCertificationIndicator: 'N'` (CLM08); a property test asserts this over the whole corpus and over generated claims
 - [ ] Billing vs. rendering provider, patient vs. subscriber (dependents), multiple lines, units, up to 4 modifiers and diagnosis pointers all map correctly (snapshot per corpus document)
 - [ ] `validate` blocks `draft → ready` on any error-level issue and names the single field to fix
-- [ ] Every corpus claim passes Stedi test-mode validation when a key is present; without one, a zod schema of the request shape
+- [ ] Every corpus claim, submitted in Stedi test mode, comes back with no claim-edit errors (Stedi returns HTTP 400 with `errors[]` of `code`, `description`, `followupAction` when an edit fails). Stedi has no validate-only call, so without a key the check is a zod schema of the request shape
+- [ ] A failed Stedi edit maps to an `Issue` with the same shape `validate` produces, so the patient sees one fix, not a vendor error
 - [ ] No claim can be built for a gated plan type
 
 ### [ ] S9 — Submission and 277CA ingestion
@@ -222,6 +224,7 @@ Produces: `submitClaim` effect handler; `stedi.submitProfessionalClaim(req)`; 27
 - [ ] Submission is idempotent: a retried job never sends a second claim (test on idempotency key)
 - [ ] Request and response are stored sealed in `external_calls`
 - [ ] Cancel works until `accepted`, then is refused with plain copy
+- [ ] Stedi's generated CMS-1500 PDF for each submitted claim is fetched and attached to the timeline as the record of what we sent
 
 ### [ ] S11 — Provider action link, SMS, channel selection
 

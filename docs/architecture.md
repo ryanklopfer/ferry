@@ -199,7 +199,7 @@ Each integration exposes a narrow interface with three implementations selected 
 
 | Vendor | Notes |
 |---|---|
-| Stedi | Test claims need a pay-as-you-go account with a test key; send to payer `STEDI`. The test payer always accepts and always pays every line, so rejected 277CAs and all 276/277 responses are fixture-only. Mock eligibility answers only for Stedi's predefined subscribers. Route per payer on `transactionSupport`. |
+| Stedi | Test claims need a pay-as-you-go account with a test key; send to payer `STEDI`. The test payer always accepts and always pays every line, so rejected 277CAs and all 276/277 responses are fixture-only. Mock eligibility answers only for Stedi's predefined subscribers. Route per payer on `transactionSupport`. Validation is Stedi's claim edits, run on every submission (HTTP 400 with `errors[]`); there is no validate-only call. Stedi generates a CMS-1500 PDF for every submitted claim; we attach it to the timeline. |
 | LLM | `LlmProvider`: `bedrock` (`us.anthropic.claude-sonnet-5`, US inference profile) or `anthropic` (direct API). The direct provider refuses to run unless `FERRY_DATA_CLASS=synthetic`, and never in production. Extraction uses schema-constrained output, not brace-matching. |
 | NPPES | Public registry, cached in `providers`. |
 | Twilio | SMS only. Bodies carry no names, payers, codes or dates of service. |
