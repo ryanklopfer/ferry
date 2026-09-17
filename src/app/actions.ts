@@ -5,8 +5,8 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { db, ready, schema } from "@/db";
-import type { ClaimStatus } from "@/db/schema";
+import { db, schema } from "@/server/db";
+import type { ClaimStatus } from "@/server/db/schema";
 import { aiEnabled, draftFollowUp, extractSuperbill } from "@/lib/ai";
 import { toCents } from "@/lib/extraction";
 import { getClaimContext, logEvent, nowSec, setStatus, syncFollowUps } from "@/lib/service";
@@ -24,7 +24,6 @@ const dateSec = (fd: FormData, k: string) => {
 };
 
 export async function createPlan(fd: FormData) {
-  await ready();
   const [row] = await db
     .insert(plans)
     .values({
@@ -55,7 +54,6 @@ export async function createPlan(fd: FormData) {
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"]);
 
 export async function createClaimFromUpload(fd: FormData) {
-  await ready();
   const planId = num(fd, "planId");
   const file = fd.get("superbill");
   if (!planId) throw new Error("Choose an insurance plan first");
@@ -68,7 +66,9 @@ export async function createClaimFromUpload(fd: FormData) {
     const bytes = Buffer.from(await file.arrayBuffer());
     const ext = path.extname(file.name) || (file.type === "application/pdf" ? ".pdf" : ".jpg");
     const name = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
-    await fs.writeFile(path.join(process.cwd(), "data", "uploads", name), bytes);
+    const dir = path.join(process.cwd(), "data", "uploads");
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(path.join(dir, name), bytes);
     superbillPath = name;
     superbillMime = file.type;
     try {
@@ -113,7 +113,6 @@ export async function createClaimFromUpload(fd: FormData) {
 }
 
 export async function saveClaim(fd: FormData) {
-  await ready();
   const id = num(fd, "id");
   const rows = fd.getAll("li_cpt").map((_, i) => ({
     claimId: id,
@@ -186,7 +185,6 @@ export async function closeClaim(fd: FormData) {
 }
 
 export async function generateFollowUpDraft(fd: FormData) {
-  await ready();
   const id = num(fd, "id");
   const fu = await db.query.followUps.findFirst({ where: eq(followUps.id, id) });
   if (!fu) return;
@@ -199,7 +197,6 @@ export async function generateFollowUpDraft(fd: FormData) {
 }
 
 export async function updateFollowUp(fd: FormData) {
-  await ready();
   const id = num(fd, "id");
   const action = str(fd, "action");
   const fu = await db.query.followUps.findFirst({ where: eq(followUps.id, id) });
@@ -217,7 +214,6 @@ export async function updateFollowUp(fd: FormData) {
 }
 
 export async function deleteClaim(fd: FormData) {
-  await ready();
   const id = num(fd, "id");
   await db.delete(lineItems).where(eq(lineItems.claimId, id));
   await db.delete(followUps).where(eq(followUps.claimId, id));

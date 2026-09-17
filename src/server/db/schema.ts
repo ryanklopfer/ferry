@@ -1,10 +1,11 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
+import { integer, jsonb, pgTable, text } from "drizzle-orm/pg-core";
 
-const now = () => sql`(unixepoch())`;
+const now = () => sql`(extract(epoch from now())::integer)`;
+const id = () => integer("id").primaryKey().generatedAlwaysAsIdentity();
 
-export const plans = sqliteTable("plans", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const plans = pgTable("plans", {
+  id: id(),
   insurerName: text("insurer_name").notNull(),
   planName: text("plan_name"),
   memberId: text("member_id").notNull(),
@@ -38,8 +39,8 @@ export const CLAIM_STATUSES = [
 ] as const;
 export type ClaimStatus = (typeof CLAIM_STATUSES)[number];
 
-export const claims = sqliteTable("claims", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const claims = pgTable("claims", {
+  id: id(),
   planId: integer("plan_id").notNull().references(() => plans.id),
   status: text("status").$type<ClaimStatus>().notNull().default("draft"),
   providerName: text("provider_name"),
@@ -50,7 +51,7 @@ export const claims = sqliteTable("claims", {
   serviceDateStart: text("service_date_start"),
   serviceDateEnd: text("service_date_end"),
   placeOfService: text("place_of_service").default("11"),
-  diagnosisCodes: text("diagnosis_codes", { mode: "json" }).$type<string[]>().notNull().default([]),
+  diagnosisCodes: jsonb("diagnosis_codes").$type<string[]>().notNull().default([]),
   totalCharged: integer("total_charged").notNull().default(0),
   totalPaid: integer("total_paid").notNull().default(0),
   superbillPath: text("superbill_path"),
@@ -67,8 +68,8 @@ export const claims = sqliteTable("claims", {
   updatedAt: integer("updated_at").notNull().default(now()),
 });
 
-export const lineItems = sqliteTable("line_items", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const lineItems = pgTable("line_items", {
+  id: id(),
   claimId: integer("claim_id").notNull().references(() => claims.id, { onDelete: "cascade" }),
   serviceDate: text("service_date"),
   cptCode: text("cpt_code").notNull(),
@@ -88,8 +89,8 @@ export const FOLLOW_UP_TYPES = [
 ] as const;
 export type FollowUpType = (typeof FOLLOW_UP_TYPES)[number];
 
-export const followUps = sqliteTable("follow_ups", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const followUps = pgTable("follow_ups", {
+  id: id(),
   claimId: integer("claim_id").notNull().references(() => claims.id, { onDelete: "cascade" }),
   type: text("type").$type<FollowUpType>().notNull(),
   dueAt: integer("due_at").notNull(),
@@ -100,8 +101,8 @@ export const followUps = sqliteTable("follow_ups", {
   createdAt: integer("created_at").notNull().default(now()),
 });
 
-export const events = sqliteTable("events", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const events = pgTable("events", {
+  id: id(),
   claimId: integer("claim_id").notNull().references(() => claims.id, { onDelete: "cascade" }),
   type: text("type").notNull(),
   note: text("note"),

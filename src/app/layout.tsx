@@ -24,7 +24,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </header>
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">{children}</main>
         <footer className="mx-auto max-w-5xl px-4 py-6 text-xs text-stone-500">
-          Data stays on this machine (./data). Letters are templates, not legal advice; confirm deadlines with your plan documents.
+          Data stays on this machine (local Postgres and ./data/uploads). Letters are templates, not legal advice; confirm deadlines with your plan documents.
         </footer>
       </body>
     </html>

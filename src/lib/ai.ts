@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { FollowUpType } from "@/db/schema";
+import type { FollowUpType } from "@/server/db/schema";
 import { EMPTY_EXTRACTION, EXTRACTION_PROMPT, parseExtraction, type Extraction } from "./extraction";
 import { claimSummaryBlock, templateFor, type LetterContext } from "./templates";
 import { FOLLOW_UP_LABELS } from "./followups";

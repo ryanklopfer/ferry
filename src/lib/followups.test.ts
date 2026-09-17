@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Claim, FollowUp, Plan } from "@/db/schema";
+import type { Claim, FollowUp, Plan } from "@/server/db/schema";
 import { RULES, computeFollowUps, staleFollowUps, timelyFilingDeadline } from "./followups";
 import { parseExtraction } from "./extraction";
 

@@ -53,7 +53,7 @@ If a week runs short, slip in this order and keep going: S5 → S6 into Week 2 (
 
 ## Week 1 — core pipeline in sandbox
 
-### [ ] S1 — SQLite → Postgres
+### [x] S1 — SQLite → Postgres
 
 Depends on: F10. Plan: `docs/plans/slice-01-postgres.md`.
 
@@ -61,11 +61,11 @@ Produces: `src/server/db/index.ts` exporting `db`, `pool`, `schema`; `src/server
 
 Scope: engine swap only. Same five tables, same integer ids and epoch-second columns, same behavior. The data model changes in S2.
 
-- [ ] `bun run db:migrate` builds the schema on an empty database; running it twice is a no-op
-- [ ] No `@libsql/client`, no `drizzle-orm/libsql`, no `ready()` anywhere; old SQLite migrations deleted
-- [ ] A db round-trip test inserts and reads a plan, claim and line item against `ferry_test`
-- [ ] Manual walkthrough on `bun run dev`: add plan → upload superbill → edit → packet PDF → mark submitted → follow-ups appear
-- [ ] Existing 7 follow-up tests still pass
+- [x] `bun run db:migrate` builds the schema on an empty database; running it twice is a no-op
+- [x] No `@libsql/client`, no `drizzle-orm/libsql`, no `ready()` anywhere; old SQLite migrations deleted
+- [x] A db round-trip test inserts and reads a plan, claim and line item against `ferry_test`
+- [x] Manual walkthrough on `bun run dev`: add plan → upload superbill → edit → packet PDF → mark submitted → follow-ups appear
+- [x] Existing 7 follow-up tests still pass
 
 ### [ ] S3 — Auth: magic link + passkeys
 

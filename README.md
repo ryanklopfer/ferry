@@ -5,9 +5,13 @@ Web app that turns a superbill into an insurer-ready claim packet, tracks the cl
 ## Run it
 
 ```sh
+brew install postgresql@17 && brew services start postgresql@17
+/opt/homebrew/opt/postgresql@17/bin/createdb ferry_dev
+/opt/homebrew/opt/postgresql@17/bin/createdb ferry_test
 bun install
-cp .env.example .env      # add ANTHROPIC_API_KEY for AI extraction + tailored letters
-bun run dev               # http://localhost:3000
+cp .env.example .env.local   # DATABASE_URL; add ANTHROPIC_API_KEY for synthetic-only AI extraction
+bun run db:migrate
+bun run dev                  # http://localhost:3000
 ```
 
 Without an API key everything still works: you type the codes in yourself and follow-up letters come from built-in templates.
@@ -26,7 +30,7 @@ Timing rules live in `src/lib/followups.ts` (`RULES`) and are unit-tested (`bun 
 ## Layout
 
 ```
-src/db/           drizzle schema + libsql (SQLite at ./data/app.db, migrations in ./drizzle)
+src/server/db/    drizzle schema + Postgres pool (migrations in ./drizzle, applied with bun run db:migrate)
 src/lib/ai.ts     Claude calls: superbill extraction (vision) and letter drafting
 src/lib/followups.ts   pure rules engine: which follow-ups exist for a claim state
 src/lib/templates.ts   cover letter + fallback letter templates
@@ -35,8 +39,8 @@ src/app/actions.ts     server actions (all writes)
 src/app/...            dashboard, plans, claims/new, claims/[id], claims/[id]/edit
 ```
 
-Uploaded superbills and the database live in `./data` (gitignored) — that's PHI, keep it local.
+Uploaded superbills live in `./data/uploads` (gitignored). Use synthetic documents from `corpus/synthetic/` only.
 
 ## Scripts
 
-`bun run dev` · `bun run build` · `bun run test` · `bun run typecheck` · `bun run lint` · `bun run db:generate` (after schema changes)
+`bun run dev` · `bun run build` · `bun run test` · `bun run typecheck` · `bun run lint` · `bun run db:generate` (after schema changes) · `bun run db:migrate`

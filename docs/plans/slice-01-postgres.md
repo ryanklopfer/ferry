@@ -66,7 +66,7 @@ Expected: one row starting `PostgreSQL 17`. If this fails, stop; the slice canno
 - Consumes: nothing.
 - Produces: `databaseUrl(): string`; `migrateDb(url: string): Promise<void>`; `resetDb(): Promise<void>`; scripts `db:migrate`, `db:migrate:test`.
 
-- [ ] **Step 1: Swap the driver dependency**
+- [x] **Step 1: Swap the driver dependency**
 
 ```bash
 export PATH="/opt/homebrew/bin:$PATH"
@@ -77,7 +77,7 @@ bun add -d @types/pg
 
 Expected: `package.json` no longer lists `@libsql/client`; `pg` is under dependencies.
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 Create `src/server/db/roundtrip.test.ts`:
 
@@ -134,12 +134,12 @@ describe("postgres round trip", () => {
 });
 ```
 
-- [ ] **Step 3: Run it and confirm it fails for the right reason**
+- [x] **Step 3: Run it and confirm it fails for the right reason**
 
 Run: `bun run test`
 Expected: FAIL in `src/server/db/roundtrip.test.ts` with `Cannot find module '@/server/db'` (or `'@/server/db/env'`). The other 66 tests pass.
 
-- [ ] **Step 4: Connection string resolution**
+- [x] **Step 4: Connection string resolution**
 
 Create `src/server/db/env.ts`:
 
@@ -154,7 +154,7 @@ export function databaseUrl(): string {
 }
 ```
 
-- [ ] **Step 5: Migration runner**
+- [x] **Step 5: Migration runner**
 
 Create `src/server/db/migrate.ts`:
 
@@ -189,7 +189,7 @@ await migrateDb(url);
 console.log(`migrated ${new URL(url).pathname.slice(1)}`);
 ```
 
-- [ ] **Step 6: Test reset helper with the safety guard**
+- [x] **Step 6: Test reset helper with the safety guard**
 
 Create `src/server/db/testing.ts`:
 
@@ -203,7 +203,7 @@ export async function resetDb(): Promise<void> {
 }
 ```
 
-- [ ] **Step 7: Migrate the test database once per test run**
+- [x] **Step 7: Migrate the test database once per test run**
 
 Create `vitest.global-setup.ts`:
 
@@ -241,7 +241,7 @@ export default defineConfig({
 
 `fileParallelism: false` because every database test shares `ferry_test`; the suite is small enough that serial files cost nothing.
 
-- [ ] **Step 8: Scripts and env example**
+- [x] **Step 8: Scripts and env example**
 
 In `package.json` scripts, add after `db:generate`:
 
@@ -274,7 +274,7 @@ Do not commit yet: the test still fails until Task 2 provides `@/server/db` and 
 - Consumes: `databaseUrl()` from Task 1.
 - Produces: `db`, `pool`, `schema` from `@/server/db`; the types `Plan`, `Claim`, `LineItem`, `FollowUp`, `Event`, `ClaimStatus`, `FollowUpType` and the constants `CLAIM_STATUSES`, `FOLLOW_UP_TYPES` from `@/server/db/schema`, with the same names and shapes as today.
 
-- [ ] **Step 1: Write the Postgres schema**
+- [x] **Step 1: Write the Postgres schema**
 
 Create `src/server/db/schema.ts`:
 
@@ -397,7 +397,7 @@ export type FollowUp = typeof followUps.$inferSelect;
 export type Event = typeof events.$inferSelect;
 ```
 
-- [ ] **Step 2: Write the database module**
+- [x] **Step 2: Write the database module**
 
 Create `src/server/db/index.ts`:
 
@@ -415,7 +415,7 @@ export const db = drizzle({ client: pool, schema });
 export { schema };
 ```
 
-- [ ] **Step 3: Point drizzle-kit at Postgres and regenerate the migration**
+- [x] **Step 3: Point drizzle-kit at Postgres and regenerate the migration**
 
 Replace `drizzle.config.ts` with:
 
@@ -439,7 +439,7 @@ bun run db:generate
 
 Expected: a new `drizzle/0000_<name>.sql` containing `CREATE TABLE "plans"`, `GENERATED ALWAYS AS IDENTITY`, `"diagnosis_codes" jsonb DEFAULT '[]'::jsonb NOT NULL`, and `ON DELETE cascade` on the three child tables. Open the file and confirm all four.
 
-- [ ] **Step 4: Update every import of the old module**
+- [x] **Step 4: Update every import of the old module**
 
 ```bash
 grep -rln '"@/db' src
@@ -449,15 +449,15 @@ Expected files: `src/app/actions.ts`, `src/components/ui.tsx`, `src/components/f
 
 Run `grep -rn '"@/db' src` afterwards. Expected: no output.
 
-- [ ] **Step 5: Remove `ready()`**
+- [x] **Step 5: Remove `ready()`**
 
 In `src/lib/service.ts`: change the import on line 2 to `import { db, schema } from "@/server/db";` and delete all five `await ready();` lines.
 
 In `src/app/actions.ts`: change the import on line 8 to `import { db, schema } from "@/server/db";` and delete all six `await ready();` lines.
 
-Run `grep -rn "ready" src`. Expected: no output.
+Run `grep -rn "ready()" src`. Expected: no output. (Executed 2026-09-17: a bare `ready` also matches the unrelated words "draft ready" and "already".)
 
-- [ ] **Step 6: Create the uploads folder where files are written**
+- [x] **Step 6: Create the uploads folder where files are written**
 
 The old database module created `data/uploads` as a side effect. In `src/app/actions.ts`, inside `createClaimFromUpload`, replace:
 
@@ -473,12 +473,12 @@ with:
     await fs.writeFile(path.join(dir, name), bytes);
 ```
 
-- [ ] **Step 7: Run the tests**
+- [x] **Step 7: Run the tests**
 
 Run: `bun run test`
 Expected: PASS, 71 tests (66 existing + 5 round-trip). If global setup reports that Postgres is unreachable, fix the prerequisite; do not mock the database.
 
-- [ ] **Step 8: Typecheck and lint**
+- [x] **Step 8: Typecheck and lint**
 
 Run: `bun run typecheck && bun run lint`
 Expected: both clean. A type error in a page usually means an id that was a `number` is now typed differently; ids are still integers in this slice, so investigate rather than cast.
@@ -495,7 +495,7 @@ Expected: both clean. A type error in a page usually means an id that was a `num
 - Consumes: everything from Tasks 1–2.
 - Produces: a migrated `ferry_dev`, updated run instructions, the slice ticked.
 
-- [ ] **Step 1: Local env and dev migration**
+- [x] **Step 1: Local env and dev migration**
 
 ```bash
 cp -n .env.example .env.local
@@ -505,7 +505,7 @@ bun run db:migrate
 
 Expected: `migrated ferry_dev` both times; the second run changes nothing.
 
-- [ ] **Step 2: Walk the app in a browser**
+- [x] **Step 2: Walk the app in a browser**
 
 Start `bun run dev` with the session's preview tooling and, at http://localhost:3000:
 
@@ -526,7 +526,7 @@ ls data/
 
 Expected: the Cigna plan is listed; `data/` contains only `uploads/`, no `app.db`.
 
-- [ ] **Step 3: Update the README**
+- [x] **Step 3: Update the README**
 
 In `README.md`, replace the "Run it" code block with:
 
@@ -550,11 +550,11 @@ Replace the sentence about `./data` with: "Uploaded superbills live in `./data/u
 
 In the Scripts line, add `bun run db:migrate` after `bun run db:generate`.
 
-- [ ] **Step 4: Tick the slice**
+- [x] **Step 4: Tick the slice**
 
 In `docs/sprint-tasks.md`, change `### [ ] S1 — SQLite → Postgres` to `### [x] S1 — SQLite → Postgres` and tick its five acceptance boxes.
 
-- [ ] **Step 5: Final check and commit**
+- [x] **Step 5: Final check and commit**
 
 ```bash
 bun run test && bun run typecheck && bun run lint

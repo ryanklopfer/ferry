@@ -1,5 +1,5 @@
 import { format, formatDistanceToNowStrict } from "date-fns";
-import type { ClaimStatus } from "@/db/schema";
+import type { ClaimStatus } from "@/server/db/schema";
 
 export const STATUS_LABEL: Record<ClaimStatus, string> = {
   draft: "Draft",

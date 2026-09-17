@@ -1,4 +1,4 @@
-import type { Claim, FollowUp, FollowUpType, Plan } from "@/db/schema";
+import type { Claim, FollowUp, FollowUpType, Plan } from "@/server/db/schema";
 
 const DAY = 86_400;
 

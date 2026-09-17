@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import type { Claim, FollowUpType, LineItem, Plan } from "@/db/schema";
+import type { Claim, FollowUpType, LineItem, Plan } from "@/server/db/schema";
 import { fromCents } from "./extraction";
 import { appealDeadline, timelyFilingDeadline } from "./followups";
 
