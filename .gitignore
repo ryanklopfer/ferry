@@ -42,3 +42,7 @@ next-env.d.ts
 
 # local database + uploaded superbills (PHI)
 data/
+
+# test corpus: real documents never enter git
+/corpus/real/
+/corpus/results/

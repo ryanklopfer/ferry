@@ -1,0 +1,987 @@
+{
+  "generatedBy": "bun run corpus:generate",
+  "note": "Synthetic test data. Every person, provider, identifier and member number is invented.",
+  "superbills": [
+    {
+      "id": "sb-01",
+      "files": [
+        "superbills/sb-01.pdf"
+      ],
+      "cases": [
+        "clean",
+        "single-line",
+        "solo-provider"
+      ],
+      "billingProvider": {
+        "name": "Maya Okafor, LCSW",
+        "npi": "1999000015",
+        "taxId": "00-1000001",
+        "taxIdType": "EIN",
+        "address": {
+          "line1": "418 Juniper St Suite 2",
+          "city": "Asheville",
+          "state": "NC",
+          "zip": "28801"
+        },
+        "phone": "(828) 555-0142"
+      },
+      "renderingProvider": {
+        "name": "Maya Okafor",
+        "npi": "1999000015",
+        "credential": "LCSW",
+        "license": "NC C012345"
+      },
+      "patient": {
+        "name": "Jordan Ellis",
+        "dob": "1989-03-14",
+        "address": {
+          "line1": "22 Haywood Rd Apt 3",
+          "city": "Asheville",
+          "state": "NC",
+          "zip": "28806"
+        }
+      },
+      "diagnosisCodes": [
+        "F41.1"
+      ],
+      "lines": [
+        {
+          "serviceDate": "2026-09-08",
+          "cpt": "90837",
+          "modifiers": [],
+          "units": 1,
+          "chargeCents": 22500,
+          "diagnosisPointers": [
+            1
+          ],
+          "placeOfService": "11",
+          "description": "Psychotherapy, 60 min"
+        }
+      ],
+      "totalChargedCents": 22500,
+      "totalPaidCents": 22500,
+      "expectedFlags": []
+    },
+    {
+      "id": "sb-02",
+      "files": [
+        "superbills/sb-02.pdf"
+      ],
+      "cases": [
+        "multi-dos",
+        "long-dates"
+      ],
+      "billingProvider": {
+        "name": "Rachel Steinberg, LCSW",
+        "npi": "1999000023",
+        "taxId": "00-1000002",
+        "taxIdType": "EIN",
+        "address": {
+          "line1": "151 W 19th St Floor 4",
+          "city": "New York",
+          "state": "NY",
+          "zip": "10011"
+        },
+        "phone": "(212) 555-0117"
+      },
+      "renderingProvider": {
+        "name": "Rachel Steinberg",
+        "npi": "1999000023",
+        "credential": "LCSW",
+        "license": "NY 078812"
+      },
+      "patient": {
+        "name": "Samira Haddad",
+        "dob": "1992-11-02",
+        "address": {
+          "line1": "310 W 20th St Apt 5C",
+          "city": "New York",
+          "state": "NY",
+          "zip": "10011"
+        }
+      },
+      "diagnosisCodes": [
+        "F33.1"
+      ],
+      "lines": [
+        {
+          "serviceDate": "2026-08-04",
+          "cpt": "90834",
+          "modifiers": [],
+          "units": 1,
+          "chargeCents": 17500,
+          "diagnosisPointers": [
+            1
+          ],
+          "placeOfService": "11",
+          "description": "Psychotherapy, 45 min"
+        },
+        {
+          "serviceDate": "2026-08-11",
+          "cpt": "90834",
+          "modifiers": [],
+          "units": 1,
+          "chargeCents": 17500,
+          "diagnosisPointers": [
+            1
+          ],
+          "placeOfService": "11",
+          "description": "Psychotherapy, 45 min"
+        },
+        {
+          "serviceDate": "2026-08-18",
+          "cpt": "90834",
+          "modifiers": [],
+          "units": 1,
+          "chargeCents": 17500,
+          "diagnosisPointers": [
+            1
+          ],
+          "placeOfService": "11",
+          "description": "Psychotherapy, 45 min"
+        },
+        {
+          "serviceDate": "2026-08-25",
+          "cpt": "90834",
+          "modifiers": [],
+          "units": 1,
+          "chargeCents": 17500,
+          "diagnosisPointers": [
+            1
+          ],
+          "placeOfService": "11",
+          "description": "Psychotherapy, 45 min"
+        }
+      ],
+      "totalChargedCents": 70000,
+      "totalPaidCents": 70000,
+      "expectedFlags": []
+    },
+    {
+      "id": "sb-03",
+      "files": [
+        "superbills/sb-03.pdf"
+      ],
+      "cases": [
+        "telehealth",
+        "modifier-95",
+        "pos-10",
+        "iso-dates"
+      ],
+      "billingProvider": {
+        "name": "Marcus Bell, LPC",
+        "npi": "1999000031",
+        "taxId": "00-1000003",
+        "taxIdType": "EIN",
+        "address": {
+          "line1": "1033 SW Yamhill St Suite 210",
+          "city": "Portland",
+          "state": "OR",
+          "zip": "97205"
+        },
+        "phone": "(503) 555-0163"
+      },
+      "renderingProvider": {
+        "name": "Marcus Bell",
+        "npi": "1999000031",
+        "credential": "LPC",
+        "license": "OR C6120"
+      },
+      "patient": {
+        "name": "Caleb Turner",
+        "dob": "1985-06-27",
+        "address": {
+          "line1": "1420 SW Morrison St",
+          "city": "Portland",
+          "state": "OR",
+          "zip": "97205"
+        }
+      },
+      "diagnosisCodes": [
+        "F43.10"
+      ],
+      "lines": [
+        {
+          "serviceDate": "2026-08-06",
+          "cpt": "90837",
+          "modifiers": [
+            "95"
+          ],
+          "units": 1,
+          "chargeCents": 20000,
+          "diagnosisPointers": [
+            1
+          ],
+          "placeOfService": "10",
+          "description": "Psychotherapy, 60 min (telehealth)"
+        },
+        {
+          "serviceDate": "2026-08-20",
+          "cpt": "90837",
+          "modifiers": [
+            "95"
+          ],
+          "units": 1,
+          "chargeCents": 20000,
+          "diagnosisPointers": [
+            1
+          ],
+          "placeOfService": "10",
+          "description": "Psychotherapy, 60 min (telehealth)"
+        },
+        {
+          "serviceDate": "2026-09-03",
+          "cpt": "90837",
+          "modifiers": [
+            "95"
+          ],
+          "units": 1,
+          "chargeCents": 20000,
+          "diagnosisPointers": [
+            1
+          ],
+          "placeOfService": "10",
+          "description": "Psychotherapy, 60 min (telehealth)"
+        }
+      ],
+      "totalChargedCents": 60000,
+      "totalPaidCents": 60000,
+      "expectedFlags": []
+    },
+    {
+      "id": "sb-04",
+      "files": [
+        "superbills/sb-04.pdf"
+      ],
+      "cases": [
+        "psych-testing",
+        "units",
+        "two-diagnoses",
+        "minor-patient"
+      ],
+      "billingProvider": {
+        "name": "Reyes Psychological Services",
+        "npi": "1999000049",
+        "taxId": "00-1000004",
+        "taxIdType": "EIN",
+        "address": {
+          "line1": "700 Grant St Suite 310",
+          "city": "Denver",
+          "state": "CO",
+          "zip": "80203"
+        },
+        "phone": "(303) 555-0128"
+      },
+      "renderingProvider": {
+        "name": "Daniel Reyes",
+        "npi": "1999000148",
+        "credential": "PhD",
+        "license": "CO PSY.0004471"
+      },
+      "patient": {
+        "name": "Noah Kim",
+        "dob": "2015-02-09",
+        "address": {
+          "line1": "885 Pearl St",
+          "city": "Denver",
+          "state": "CO",
+          "zip": "80203"
+        }
+      },
+      "diagnosisCodes": [
+        "F90.2",
+        "F81.0"
+      ],
+      "lines": [
+        {
+          "serviceDate": "2026-07-21",
+          "cpt": "96136",
+          "modifiers": [],
+          "units": 1,
+          "chargeCents": 15000,
+          "diagnosisPointers": [
+            1,
+            2
+          ],
+          "placeOfService": "11",
+          "description": "Test admin and scoring, first 30 min"
+        },
+        {
+          "serviceDate": "2026-07-21",
+          "cpt": "96137",
+          "modifiers": [],
+          "units": 5,
+          "chargeCents": 75000,
+          "diagnosisPointers": [
+            1,
+            2
+          ],
+          "placeOfService": "11",
+          "description": "Test admin and scoring, each addl 30 min"
+        },
+        {
+          "serviceDate": "2026-07-28",
+          "cpt": "96130",
+          "modifiers": [],
+          "units": 1,
+          "chargeCents": 30000,
+          "diagnosisPointers": [
+            1,
+            2
+          ],
+          "placeOfService": "11",
+          "description": "Testing evaluation, first hour"
+        },
+        {
+          "serviceDate": "2026-07-28",
+          "cpt": "96131",
+          "modifiers": [],
+          "units": 2,
+          "chargeCents": 60000,
+          "diagnosisPointers": [
+            1,
+            2
+          ],
+          "placeOfService": "11",
+          "description": "Testing evaluation, each addl hour"
+        }
+      ],
+      "totalChargedCents": 180000,
+      "totalPaidCents": 180000,
+      "expectedFlags": []
+    },
+    {
+      "id": "sb-05",
+      "files": [
+        "superbills/sb-05.pdf"
+      ],
+      "cases": [
+        "psychiatry",
+        "em-plus-addon",
+        "diagnosis-pointers"
+      ],
+      "billingProvider": {
+        "name": "Priya Natarajan, MD",
+        "npi": "1999000056",
+        "taxId": "00-1000005",
+        "taxIdType": "EIN",
+        "address": {
+          "line1": "200 Clarendon St Suite 1450",
+          "city": "Boston",
+          "state": "MA",
+          "zip": "02116"
+        },
+        "phone": "(617) 555-0109"
+      },
+      "renderingProvider": {
+        "name": "Priya Natarajan",
+        "npi": "1999000056",
+        "credential": "MD",
+        "license": "MA 251904"
+      },
+      "patient": {
+        "name": "Alicia Brandt",
+        "dob": "1978-09-30",
+        "address": {
+          "line1": "75 Marlborough St",
+          "city": "Boston",
+          "state": "MA",
+          "zip": "02116"
+        }
+      },
+      "diagnosisCodes": [
+        "F31.81",
+        "F41.1"
+      ],
+      "lines": [
+        {
+          "serviceDate": "2026-08-12",
+          "cpt": "99214",
+          "modifiers": [],
+          "units": 1,
+          "chargeCents": 25000,
+          "diagnosisPointers": [
+            1,
+            2
+          ],
+          "placeOfService": "11",
+          "description": "Office visit, established pt, moderate"
+        },
+        {
+          "serviceDate": "2026-08-12",
+          "cpt": "90833",
+          "modifiers": [],
+          "units": 1,
+          "chargeCents": 12000,
+          "diagnosisPointers": [
+            1
+          ],
+          "placeOfService": "11",
+          "description": "Psychotherapy add-on, 30 min"
+        },
+        {
+          "serviceDate": "2026-09-09",
+          "cpt": "99213",
+          "modifiers": [],
+          "units": 1,
+          "chargeCents": 17500,
+          "diagnosisPointers": [
+            2
+          ],
+          "placeOfService": "11",
+          "description": "Office visit, established pt, low"
+        }
+      ],
+      "totalChargedCents": 54500,
+      "totalPaidCents": 54500,
+      "expectedFlags": []
+    },
+    {
+      "id": "sb-06",
+      "files": [
+        "superbills/sb-06.pdf"
+      ],
+      "cases": [
+        "group-practice",
+        "billing-npi-differs",
+        "two-modifiers",
+        "mixed-pos"
+      ],
+      "billingProvider": {
+        "name": "Harbor Light Therapy Group LLC",
+        "npi": "1999000064",
+        "taxId": "00-1000006",
+        "taxIdType": "EIN",
+        "address": {
+          "line1": "26 Court St Suite 1200",
+          "city": "Brooklyn",
+          "state": "NY",
+          "zip": "11201"
+        },
+        "phone": "(718) 555-0155"
+      },
+      "renderingProvider": {
+        "name": "Sofia Marchetti",
+        "npi": "1999000163",
+        "credential": "LMHC",
+        "license": "NY 010447"
+      },
+      "patient": {
+        "name": "Devon Price",
+        "dob": "1996-01-18",
+        "address": {
+          "line1": "144 Court St Apt 2",
+          "city": "Brooklyn",
+          "state": "NY",
+          "zip": "11201"
+        }
+      },
+      "diagnosisCodes": [
+        "F43.23"
+      ],
+      "lines": [
+        {
+          "serviceDate": "2026-08-05",
+          "cpt": "90791",
+          "modifiers": [
+            "HO"
+          ],
+          "units": 1,
+          "chargeCents": 30000,
+          "diagnosisPointers": [
+            1
+          ],
+          "placeOfService": "11",
+          "description": "Psychiatric diagnostic evaluation"
+        },
+        {
+          "serviceDate": "2026-08-19",
+          "cpt": "90837",
+          "modifiers": [
+            "HO",
+            "95"
+          ],
+          "units": 1,
+          "chargeCents": 24000,
+          "diagnosisPointers": [
+            1
+          ],
+          "placeOfService": "10",
+          "description": "Psychotherapy, 60 min (telehealth)"
+        }
+      ],
+      "totalChargedCents": 54000,
+      "totalPaidCents": 54000,
+      "expectedFlags": []
+    },
+    {
+      "id": "sb-07",
+      "files": [
+        "superbills/sb-07.pdf"
+      ],
+      "cases": [
+        "ssn-as-tax-id",
+        "family-therapy",
+        "z-code"
+      ],
+      "billingProvider": {
+        "name": "Tom Whitfield, LMFT",
+        "npi": "1999000072",
+        "taxId": "000-45-6789",
+        "taxIdType": "SSN",
+        "address": {
+          "line1": "3300 Grand Ave Suite B",
+          "city": "Oakland",
+          "state": "CA",
+          "zip": "94610"
+        },
+        "phone": "(510) 555-0171"
+      },
+      "renderingProvider": {
+        "name": "Tom Whitfield",
+        "npi": "1999000072",
+        "credential": "LMFT",
+        "license": "CA LMFT 104882"
+      },
+      "patient": {
+        "name": "Hannah Whitlock",
+        "dob": "1983-12-05",
+        "address": {
+          "line1": "612 Mandana Blvd",
+          "city": "Oakland",
+          "state": "CA",
+          "zip": "94610"
+        }
+      },
+      "diagnosisCodes": [
+        "F43.25",
+        "Z63.0"
+      ],
+      "lines": [
+        {
+          "serviceDate": "2026-09-02",
+          "cpt": "90847",
+          "modifiers": [],
+          "units": 1,
+          "chargeCents": 22000,
+          "diagnosisPointers": [
+            1,
+            2
+          ],
+          "placeOfService": "11",
+          "description": "Family psychotherapy w/ patient, 50 min"
+        },
+        {
+          "serviceDate": "2026-09-16",
+          "cpt": "90847",
+          "modifiers": [],
+          "units": 1,
+          "chargeCents": 22000,
+          "diagnosisPointers": [
+            1,
+            2
+          ],
+          "placeOfService": "11",
+          "description": "Family psychotherapy w/ patient, 50 min"
+        }
+      ],
+      "totalChargedCents": 44000,
+      "totalPaidCents": 44000,
+      "expectedFlags": []
+    },
+    {
+      "id": "sb-08",
+      "files": [
+        "superbills/sb-08.jpg"
+      ],
+      "cases": [
+        "missing-npi",
+        "photo",
+        "skewed"
+      ],
+      "billingProvider": {
+        "name": "Elena Vasquez, LPC",
+        "npi": null,
+        "taxId": "00-1000008",
+        "taxIdType": "EIN",
+        "address": {
+          "line1": "1108 Lavaca St Suite 110",
+          "city": "Austin",
+          "state": "TX",
+          "zip": "78701"
+        },
+        "phone": "(512) 555-0136"
+      },
+      "renderingProvider": {
+        "name": "Elena Vasquez",
+        "npi": null,
+        "credential": "LPC",
+        "license": "TX 78214"
+      },
+      "patient": {
+        "name": "Luis Ortega",
+        "dob": "1990-07-22",
+        "address": {
+          "line1": "2209 S 1st St",
+          "city": "Austin",
+          "state": "TX",
+          "zip": "78704"
+        }
+      },
+      "diagnosisCodes": [
+        "F41.1"
+      ],
+      "lines": [
+        {
+          "serviceDate": "2026-08-27",
+          "cpt": "90834",
+          "modifiers": [],
+          "units": 1,
+          "chargeCents": 16500,
+          "diagnosisPointers": [
+            1
+          ],
+          "placeOfService": "11",
+          "description": "Psychotherapy, 45 min"
+        },
+        {
+          "serviceDate": "2026-09-10",
+          "cpt": "90834",
+          "modifiers": [],
+          "units": 1,
+          "chargeCents": 16500,
+          "diagnosisPointers": [
+            1
+          ],
+          "placeOfService": "11",
+          "description": "Psychotherapy, 45 min"
+        }
+      ],
+      "totalChargedCents": 33000,
+      "totalPaidCents": 33000,
+      "expectedFlags": [
+        "missing_billing_npi",
+        "missing_rendering_npi"
+      ]
+    },
+    {
+      "id": "sb-09",
+      "files": [
+        "superbills/sb-09.jpg"
+      ],
+      "cases": [
+        "handwritten",
+        "photo"
+      ],
+      "billingProvider": {
+        "name": "Karen Liu, PsyD",
+        "npi": "1999000098",
+        "taxId": "00-1000009",
+        "taxIdType": "EIN",
+        "address": {
+          "line1": "680 N Lake Shore Dr Suite 914",
+          "city": "Chicago",
+          "state": "IL",
+          "zip": "60611"
+        },
+        "phone": "(312) 555-0184"
+      },
+      "renderingProvider": {
+        "name": "Karen Liu",
+        "npi": "1999000098",
+        "credential": "PsyD",
+        "license": "IL 071.009921"
+      },
+      "patient": {
+        "name": "Megan Doyle",
+        "dob": "1987-04-11",
+        "address": null
+      },
+      "diagnosisCodes": [
+        "F32.1"
+      ],
+      "lines": [
+        {
+          "serviceDate": "2026-09-10",
+          "cpt": "90837",
+          "modifiers": [],
+          "units": 1,
+          "chargeCents": 25000,
+          "diagnosisPointers": [
+            1
+          ],
+          "placeOfService": "11",
+          "description": "Psychotherapy, 60 min"
+        }
+      ],
+      "totalChargedCents": 25000,
+      "totalPaidCents": 25000,
+      "expectedFlags": []
+    },
+    {
+      "id": "sb-10",
+      "files": [
+        "superbills/sb-10.pdf"
+      ],
+      "cases": [
+        "fax-quality",
+        "two-page",
+        "group-practice",
+        "mixed-telehealth"
+      ],
+      "billingProvider": {
+        "name": "Northside Behavioral Health PC",
+        "npi": "1999000106",
+        "taxId": "00-1000010",
+        "taxIdType": "EIN",
+        "address": {
+          "line1": "1375 Peachtree St NE Suite 600",
+          "city": "Atlanta",
+          "state": "GA",
+          "zip": "30309"
+        },
+        "phone": "(404) 555-0190"
+      },
+      "renderingProvider": {
+        "name": "James Abara",
+        "npi": "1999000205",
+        "credential": "LCSW",
+        "license": "GA CSW007315"
+      },
+      "patient": {
+        "name": "Tyrone Bassett",
+        "dob": "1975-10-08",
+        "address": {
+          "line1": "940 Virginia Ave NE",
+          "city": "Atlanta",
+          "state": "GA",
+          "zip": "30306"
+        }
+      },
+      "diagnosisCodes": [
+        "F33.2"
+      ],
+      "lines": [
+        {
+          "serviceDate": "2026-07-07",
+          "cpt": "90837",
+          "modifiers": [],
+          "units": 1,
+          "chargeCents": 21000,
+          "diagnosisPointers": [
+            1
+          ],
+          "placeOfService": "11",
+          "description": "Psychotherapy, 60 min"
+        },
+        {
+          "serviceDate": "2026-07-14",
+          "cpt": "90837",
+          "modifiers": [
+            "95"
+          ],
+          "units": 1,
+          "chargeCents": 21000,
+          "diagnosisPointers": [
+            1
+          ],
+          "placeOfService": "10",
+          "description": "Psychotherapy, 60 min (telehealth)"
+        },
+        {
+          "serviceDate": "2026-07-21",
+          "cpt": "90837",
+          "modifiers": [],
+          "units": 1,
+          "chargeCents": 21000,
+          "diagnosisPointers": [
+            1
+          ],
+          "placeOfService": "11",
+          "description": "Psychotherapy, 60 min"
+        },
+        {
+          "serviceDate": "2026-07-28",
+          "cpt": "90837",
+          "modifiers": [
+            "95"
+          ],
+          "units": 1,
+          "chargeCents": 21000,
+          "diagnosisPointers": [
+            1
+          ],
+          "placeOfService": "10",
+          "description": "Psychotherapy, 60 min (telehealth)"
+        },
+        {
+          "serviceDate": "2026-08-04",
+          "cpt": "90837",
+          "modifiers": [],
+          "units": 1,
+          "chargeCents": 21000,
+          "diagnosisPointers": [
+            1
+          ],
+          "placeOfService": "11",
+          "description": "Psychotherapy, 60 min"
+        },
+        {
+          "serviceDate": "2026-08-11",
+          "cpt": "90837",
+          "modifiers": [
+            "95"
+          ],
+          "units": 1,
+          "chargeCents": 21000,
+          "diagnosisPointers": [
+            1
+          ],
+          "placeOfService": "10",
+          "description": "Psychotherapy, 60 min (telehealth)"
+        }
+      ],
+      "totalChargedCents": 126000,
+      "totalPaidCents": 105000,
+      "expectedFlags": []
+    }
+  ],
+  "cards": [
+    {
+      "id": "card-01",
+      "files": [
+        "cards/card-01-front.jpg",
+        "cards/card-01-back.jpg"
+      ],
+      "payerName": "Aetna",
+      "payerDirectoryKey": "aetna",
+      "planName": "Open Choice PPO",
+      "planType": "PPO",
+      "gated": false,
+      "memberId": "W268417359",
+      "groupNumber": "0285716-10-001",
+      "subscriberName": "Jordan Ellis",
+      "claimsAddress": "Aetna, PO Box 981106, El Paso, TX 79998-1106",
+      "payerPhone": "1-800-555-0110"
+    },
+    {
+      "id": "card-02",
+      "files": [
+        "cards/card-02-front.jpg",
+        "cards/card-02-back.jpg"
+      ],
+      "payerName": "Cigna",
+      "payerDirectoryKey": "cigna",
+      "planName": "Open Access Plus",
+      "planType": "PPO",
+      "gated": false,
+      "memberId": "U4827193 01",
+      "groupNumber": "3340127",
+      "subscriberName": "Samira Haddad",
+      "claimsAddress": "Cigna, PO Box 182223, Chattanooga, TN 37422-7223",
+      "payerPhone": "1-800-555-0120"
+    },
+    {
+      "id": "card-03",
+      "files": [
+        "cards/card-03-front.jpg",
+        "cards/card-03-back.jpg"
+      ],
+      "payerName": "UnitedHealthcare",
+      "payerDirectoryKey": "uhc",
+      "planName": "Choice Plus",
+      "planType": "POS",
+      "gated": false,
+      "memberId": "918452673",
+      "groupNumber": "706214",
+      "subscriberName": "Caleb Turner",
+      "claimsAddress": "UnitedHealthcare, PO Box 30555, Salt Lake City, UT 84130-0555",
+      "payerPhone": "1-866-555-0130"
+    },
+    {
+      "id": "card-04",
+      "files": [
+        "cards/card-04-front.jpg",
+        "cards/card-04-back.jpg"
+      ],
+      "payerName": "Anthem Blue Cross",
+      "payerDirectoryKey": "anthem_ca",
+      "planName": "Prudent Buyer PPO",
+      "planType": "PPO",
+      "gated": false,
+      "memberId": "JQU123A45678",
+      "groupNumber": "CA4471B",
+      "subscriberName": "Hannah Whitlock",
+      "claimsAddress": "Anthem Blue Cross, PO Box 60007, Los Angeles, CA 90060-0007",
+      "payerPhone": "1-800-555-0140"
+    },
+    {
+      "id": "card-05",
+      "files": [
+        "cards/card-05-front.jpg",
+        "cards/card-05-back.jpg"
+      ],
+      "payerName": "Blue Cross and Blue Shield of Texas",
+      "payerDirectoryKey": "bcbs_tx",
+      "planName": "Blue Choice PPO",
+      "planType": "PPO",
+      "gated": false,
+      "memberId": "ZGP845210937",
+      "groupNumber": "128844",
+      "subscriberName": "Luis Ortega",
+      "claimsAddress": "BCBSTX, PO Box 660044, Dallas, TX 75266-0044",
+      "payerPhone": "1-800-555-0150"
+    },
+    {
+      "id": "card-06",
+      "files": [
+        "cards/card-06-front.jpg",
+        "cards/card-06-back.jpg"
+      ],
+      "payerName": "Kaiser Permanente",
+      "payerDirectoryKey": "kaiser",
+      "planName": "Traditional HMO",
+      "planType": "HMO",
+      "gated": true,
+      "memberId": "11024839",
+      "groupNumber": "604418",
+      "subscriberName": "Megan Doyle",
+      "claimsAddress": null,
+      "payerPhone": "1-800-555-0160"
+    },
+    {
+      "id": "card-07",
+      "files": [
+        "cards/card-07-front.jpg",
+        "cards/card-07-back.jpg"
+      ],
+      "payerName": "Amerigroup Community Care",
+      "payerDirectoryKey": null,
+      "planName": "Georgia Families (Medicaid)",
+      "planType": "MEDICAID",
+      "gated": true,
+      "memberId": "722104938201",
+      "groupNumber": null,
+      "subscriberName": "Tyrone Bassett",
+      "claimsAddress": "Amerigroup, PO Box 61010, Virginia Beach, VA 23466-1010",
+      "payerPhone": "1-800-555-0170"
+    },
+    {
+      "id": "card-08",
+      "files": [
+        "cards/card-08-front.jpg",
+        "cards/card-08-back.jpg"
+      ],
+      "payerName": "Medicare",
+      "payerDirectoryKey": "cms_medicare",
+      "planName": "Medicare Health Insurance",
+      "planType": "MEDICARE",
+      "gated": true,
+      "memberId": "1EG4-TE5-MK73",
+      "groupNumber": null,
+      "subscriberName": "Alicia Brandt",
+      "claimsAddress": null,
+      "payerPhone": "1-800-MEDICARE"
+    }
+  ]
+}

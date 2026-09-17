@@ -157,7 +157,7 @@ Produces: `data/payers/*.json` validated by a zod schema; tables `payers`, `paye
 
 Depends on: S2.
 
-Produces: `isValidNpi(npi)` in core (Luhn with the 80840 prefix); `nppes.lookup(npi): Promise<NppesProvider | null>` with `live` and `fixture` implementations; `providers` cache with a 30-day TTL.
+Produces: `nppes.lookup(npi): Promise<NppesProvider | null>` with `live` and `fixture` implementations; `providers` cache with a 30-day TTL. Consumes `isValidNpi(npi)` from `src/core/npi.ts`, which already exists (built with the corpus).
 
 - [ ] Invalid check digit is rejected before any network call
 - [ ] Lookup fills name, credential, taxonomy, practice address and phone; NPI-1 vs NPI-2 recorded
@@ -193,7 +193,7 @@ Depends on: S3b, S5, S6b; F2 for `test` mode.
 
 Produces: `stedi.eligibility(req): Promise<Eligibility271>` (`live`, `test`, `fixture`); in core, `summarizeBenefits(r): BenefitsSummary` and `estimateReimbursement(input): { lowCents: number; highCents: number; basis: string }`; result screen.
 
-- [ ] Results render for at least 5 payers using Stedi's predefined mock subscribers; each response is recorded as a fixture
+- [ ] Results render for at least 5 payers using Stedi's predefined mock subscribers; each response is recorded as a fixture. Put those subscriber values into `scripts/corpus/data.ts` and regenerate the cards, so a card photo drives the mock 271 end to end
 - [ ] Screen states, in brand voice: out-of-network benefits or not, deductible and amount left, share paid after that, an estimate as a range with its basis, the payer's typical days when known
 - [ ] No out-of-network benefit → the patient is told before anything is filed, and no claim can reach `ready`
 - [ ] Requires a verified email and consent; calls are counted per user for S28 rate limits
