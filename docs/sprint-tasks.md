@@ -19,7 +19,7 @@ Ordered by lead time. Nothing here is code. Keys go into `.env.local` by hand; C
 | F7 | Stripe account, test keys | same-day | S11b, S20 |
 | F8 | Sinch Fax account + BAA (document storage off, 2FA on) | same-day | S14 fax channel |
 | F9 | Test corpus: 30+ real superbills and cards, de-identified **before** they touch this machine; 10+ EOBs by Week 2 | slowest input of Weeks 1–3 | S4 gate, S5, S16 |
-| F10 | Postgres 17 running locally; `createdb ferry_dev ferry_test` | minutes | S1 |
+| F10 | ~~Postgres 17 running locally~~ Done 2026-09-17: 17.11 via Homebrew, started as a login service; `ferry_dev` and `ferry_test` created. Binaries are keg-only at `/opt/homebrew/opt/postgresql@17/bin`. | done | S1 |
 | F11 | `tokens.json` and `assets/` logo SVGs exported from the brand work | minutes | S3c logo |
 | F12 | ~~Clarify "Stedi's CMS-1500 validator"~~ Resolved 2026-09-17: it means Stedi's claim edits, the validation library run on every submitted claim (HTTP 400 with `errors[]`). Stedi documents no validate-only call. | done | — |
 
