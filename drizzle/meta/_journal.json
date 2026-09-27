@@ -15,6 +15,13 @@
       "when": 1790547393953,
       "tag": "0001_marvelous_jackal",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790550594072,
+      "tag": "0002_sturdy_machine_man",
+      "breakpoints": true
     }
   ]
 }

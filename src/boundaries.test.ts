@@ -33,7 +33,7 @@ describe("import boundaries", () => {
   });
 
   it("keeps src/core free of Next, Node, Drizzle and server code", async () => {
-    for (const source of ["next/headers", "node:fs", "drizzle-orm", "@/server/db", "@/server/services/claims", "@/lib/ai", "react"]) {
+    for (const source of ["next/headers", "node:fs", "drizzle-orm", "@/server/db", "@/server/services/claims", "@/lib/packet", "react"]) {
       expect(await restricted("src/core/x.ts", `import x from "${source}";\nexport default x;\n`), source).toHaveLength(1);
     }
   });
@@ -47,12 +47,12 @@ describe("import boundaries", () => {
     expect(await restricted("src/server/services/x.ts", 'import { claimsRepo } from "@/server/db/repos/claims";\nexport default claimsRepo;\n')).toEqual([]);
   });
 
-  it("keeps the direct Anthropic SDK out of everything but src/lib/ai.ts and the llm integration", async () => {
+  it("keeps the direct Anthropic SDK out of everything but the llm integration", async () => {
     const code = 'import Anthropic from "@anthropic-ai/sdk";\nexport default Anthropic;\n';
     expect(await flagged("src/server/services/x.ts", code, "ferry/no-direct-anthropic")).toHaveLength(1);
     expect(await flagged("src/app/x/page.tsx", code, "ferry/no-direct-anthropic")).toHaveLength(1);
     expect(await flagged("src/server/services/x.ts", 'export const load = () => import("@anthropic-ai/sdk");\n', "ferry/no-direct-anthropic")).toHaveLength(1);
-    expect(await flagged("src/lib/ai.ts", code, "ferry/no-direct-anthropic")).toEqual([]);
+    expect(await flagged("src/lib/ai.ts", code, "ferry/no-direct-anthropic")).toHaveLength(1);
     expect(await flagged("src/server/integrations/llm/anthropic.ts", code, "ferry/no-direct-anthropic")).toEqual([]);
   });
 
@@ -158,7 +158,7 @@ describe("import boundaries", () => {
     expect(await flagged("src/server/services/x.ts", 'import { unstable_cache } from "next/cache";\nexport default unstable_cache;\n', "ferry/no-phi-cache")).not.toHaveLength(0);
     expect(await flagged("src/app/c/page.tsx", 'import { cacheLife } from "next/cache";\nexport default cacheLife;\n', "ferry/no-phi-cache")).not.toHaveLength(0);
     expect(await flagged("src/lib/packet.ts", inner, "ferry/no-phi-cache")).toHaveLength(1);
-    expect(await flagged("src/components/follow-up-card.tsx", inner, "ferry/no-phi-cache")).toHaveLength(1);
+    expect(await flagged("src/components/line-items-editor.tsx", inner, "ferry/no-phi-cache")).toHaveLength(1);
     expect(await flagged("src/ui/client-list.tsx", inner, "ferry/no-phi-cache")).toHaveLength(1);
     expect(await flagged("src/app/(public)/page.tsx", directive, "ferry/no-phi-cache")).toEqual([]);
   });

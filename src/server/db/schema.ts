@@ -121,25 +121,6 @@ export const claimLines = pgTable(
   (t) => [index("claim_lines_claim_idx").on(t.claimId), check("claim_lines_max_4_modifiers", sql`cardinality(${t.modifiers}) <= 4`)],
 );
 
-export const DOCUMENT_KINDS = ["superbill", "card_front", "card_back", "eob", "letter", "packet"] as const;
-export type DocumentKind = (typeof DOCUMENT_KINDS)[number];
-
-export const documents = pgTable(
-  "documents",
-  {
-    id: id(),
-    userId: owner(),
-    claimId: text("claim_id").references(() => claims.id, { onDelete: "cascade" }),
-    kind: text("kind").$type<DocumentKind>().notNull(),
-    storageKey: text("storage_key").notNull(),
-    mime: text("mime").notNull(),
-    bytes: integer("bytes").notNull(),
-    sha256: text("sha256").notNull(),
-    createdAt: createdAt(),
-  },
-  (t) => [index("documents_claim_idx").on(t.claimId)],
-);
-
 export const followUps = pgTable(
   "follow_ups",
   {
@@ -174,6 +155,5 @@ export type Plan = typeof plans.$inferSelect;
 export type Provider = typeof providers.$inferSelect;
 export type Claim = typeof claims.$inferSelect;
 export type ClaimLine = typeof claimLines.$inferSelect;
-export type Document = typeof documents.$inferSelect;
 export type FollowUp = typeof followUps.$inferSelect;
 export type Event = typeof events.$inferSelect;

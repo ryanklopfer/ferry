@@ -14,7 +14,7 @@ export function SignInForm({ linkProblem }: { linkProblem: boolean }) {
     const to = String(formData.get("email") ?? "").trim();
     if (!to) return;
     setStatus({ kind: "busy" });
-    const { error } = await authClient.signIn.magicLink({ email: to, callbackURL: "/", errorCallbackURL: "/sign-in" });
+    const { error } = await authClient.signIn.magicLink({ email: to, callbackURL: "/home", errorCallbackURL: "/sign-in" });
     setStatus(error ? { kind: "problem" } : { kind: "sent", to });
   }
 

@@ -6,10 +6,11 @@ From the 2026-09-27 replan in `docs/sprint-tasks.md` (execution order). N0 (docs
 - [x] N3a — Audio core and capture relay skeleton (ws, token, counting, no writes)
 - [x] S18a — Installable web app shell: manifest, service worker, install prompt, offline page
 - [x] N2a — Access model: contexts, roles, guards and staff:grant
+- [x] N2b — Public routes, /start fork, proxy PUBLIC_PATHS and patient-MVP deletions
 
 - [ ] N3b — Phone recorder, `dev:phone` tunnel and device matrix (code done, 2 criteria open: the fake-mic e2e and Gate A, both in the manual checks below)
 
-Then Wed Sep 30: N2b.
+Then Wed Sep 30: N4.
 
 # Open manual checks
 

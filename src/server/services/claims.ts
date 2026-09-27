@@ -1,24 +1,15 @@
-import { createHash } from "node:crypto";
-import path from "node:path";
 import { z } from "zod";
-import { aiEnabled, extractSuperbill } from "@/lib/ai";
-import { toCents } from "@/lib/extraction";
 import { appealDeadline, computeFollowUps, staleFollowUps, timelyFilingDeadline } from "@/lib/followups";
 import { fromSec, toEngineClaim, toEngineFollowUp } from "@/lib/followups-adapter";
 import type { ClinicianOnlyCtx } from "@/server/auth/ctx";
-import { newId } from "@/server/db/ids";
 import { type ClaimPatch, claimsRepo } from "@/server/db/repos/claims";
-import { documentsRepo } from "@/server/db/repos/documents";
 import { NotOwnedError } from "@/server/errors";
 import { eventsRepo } from "@/server/db/repos/events";
 import { followUpsRepo } from "@/server/db/repos/follow-ups";
 import { plansRepo } from "@/server/db/repos/plans";
 import { providersRepo } from "@/server/db/repos/providers";
 import { logFor } from "@/server/log";
-import { deleteFile, putFile } from "@/server/storage/local";
 import type { Claim, ClaimStatus, ClaimView } from "./types";
-
-const ALLOWED_UPLOADS = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"]);
 
 const text = z.string().trim().min(1);
 const optional = text.nullish().transform((v) => v ?? null);
@@ -98,12 +89,7 @@ export async function getClaim(ctx: ClinicianOnlyCtx, id: string): Promise<Claim
   if (!claim) return null;
   const plan = await plansRepo.get(ctx, claim.planId);
   if (!plan) return null;
-  const [lines, followUps, events, superbills] = await Promise.all([
-    claimsRepo.lines(ctx, id),
-    followUpsRepo.forClaim(ctx, id),
-    eventsRepo.forClaim(ctx, id),
-    documentsRepo.forClaim(ctx, id, "superbill"),
-  ]);
+  const [lines, followUps, events] = await Promise.all([claimsRepo.lines(ctx, id), followUpsRepo.forClaim(ctx, id), eventsRepo.forClaim(ctx, id)]);
   const engineClaim = toEngineClaim(claim);
   const filing = timelyFilingDeadline(engineClaim, plan);
   const appeal = appealDeadline(engineClaim);
@@ -113,76 +99,8 @@ export async function getClaim(ctx: ClinicianOnlyCtx, id: string): Promise<Claim
     lines,
     followUps,
     events,
-    superbill: superbills[0] ?? null,
     deadlines: { timelyFiling: filing ? fromSec(filing) : null, appeal: appeal ? fromSec(appeal) : null },
   };
-}
-
-export type Upload = { name: string; type: string; bytes: Buffer };
-
-export async function createClaimFromUpload(ctx: ClinicianOnlyCtx, input: { planId: string; file?: Upload | null }): Promise<Claim> {
-  const plan = await plansRepo.get(ctx, input.planId);
-  if (!plan) throw new NotOwnedError("Plan");
-  const file = input.file && input.file.bytes.length > 0 ? input.file : null;
-  if (file && !ALLOWED_UPLOADS.has(file.type)) throw new Error("Upload a JPG, PNG, WEBP, GIF, or PDF");
-
-  let notes: string | null = null;
-  let extraction: Awaited<ReturnType<typeof extractSuperbill>> | null = null;
-  if (file) {
-    try {
-      extraction = await extractSuperbill(file.bytes, file.type);
-      notes = extraction.notes;
-    } catch (e) {
-      notes = `Extraction failed: ${e instanceof Error ? e.message : String(e)}. Enter fields manually.`;
-    }
-  }
-
-  const items = extraction?.lineItems ?? [];
-  const dates = items.map((i) => i.serviceDate).filter((d): d is string => Boolean(d)).sort();
-  const charged = toCents(extraction?.totalCharged ?? items.reduce((s, i) => s + i.charge, 0));
-  const placeOfService = extraction?.placeOfService ?? "11";
-  const claim = await claimsRepo.create(
-    ctx,
-    {
-      planId: plan.id,
-      billingProviderName: extraction?.providerName ?? null,
-      billingProviderNpi: extraction?.providerNpi ?? null,
-      billingProviderTaxId: extraction?.providerTaxId ?? null,
-      billingProviderAddress: extraction?.providerAddress ?? null,
-      billingProviderPhone: extraction?.providerPhone ?? null,
-      placeOfService,
-      diagnosisCodes: extraction?.diagnosisCodes ?? [],
-      serviceDateStart: dates[0] ?? null,
-      serviceDateEnd: dates[dates.length - 1] ?? null,
-      totalCharged: charged,
-      totalPaid: extraction?.totalPaid != null ? toCents(extraction.totalPaid) : charged,
-      extractionNotes: notes,
-    },
-    items.map((i) => ({
-      serviceDate: i.serviceDate,
-      cptCode: i.cptCode,
-      modifiers: i.modifier ? [i.modifier] : [],
-      description: i.description,
-      units: i.units,
-      charge: toCents(i.charge),
-      diagnosisPointers: [1],
-      placeOfService,
-    })),
-  );
-
-  if (file) {
-    const id = newId("doc");
-    const ext = path.extname(file.name).toLowerCase() || (file.type === "application/pdf" ? ".pdf" : ".jpg");
-    const storageKey = `${ctx.userId}/${id}${ext}`;
-    await putFile(storageKey, file.bytes);
-    await documentsRepo.create(ctx, { id, claimId: claim.id, kind: "superbill", storageKey, mime: file.type, bytes: file.bytes.length, sha256: createHash("sha256").update(file.bytes).digest("hex") });
-  }
-
-  const how = file ? `Superbill uploaded${aiEnabled() ? `; AI extracted ${items.length} line item(s)` : ""}` : "Created without superbill";
-  await eventsRepo.append(ctx, claim.id, "created", how);
-  await syncFollowUps(ctx, claim.id);
-  logFor(claim.id)("claim.created", { userId: ctx.userId, planId: plan.id, count: items.length, bytes: file?.bytes.length ?? 0 });
-  return claim;
 }
 
 export async function saveClaim(ctx: ClinicianOnlyCtx, id: string, input: ClaimInput): Promise<void> {
@@ -254,8 +172,6 @@ export function closeClaim(ctx: ClinicianOnlyCtx, id: string, input: { note: str
 }
 
 export async function deleteClaim(ctx: ClinicianOnlyCtx, id: string): Promise<void> {
-  const docs = await documentsRepo.forClaim(ctx, id);
   if (!(await claimsRepo.remove(ctx, id))) return;
-  await Promise.all(docs.map((d) => deleteFile(d.storageKey)));
-  logFor(id)("claim.deleted", { userId: ctx.userId, count: docs.length });
+  logFor(id)("claim.deleted", { userId: ctx.userId });
 }

@@ -60,7 +60,7 @@ const PRIVILEGED_MODULES = [
 const ferry = {
   rules: {
     "no-direct-anthropic": {
-      meta: { type: "problem", schema: [], messages: { direct: "@anthropic-ai/* is allowed only in src/lib/ai.ts and src/server/integrations/llm (the direct API is synthetic-only)." } },
+      meta: { type: "problem", schema: [], messages: { direct: "@anthropic-ai/* is allowed only in src/server/integrations/llm (the direct API is synthetic-only)." } },
       create(context) {
         const check = (node, source) => {
           if (typeof source === "string" && /^@anthropic-ai\//.test(source)) context.report({ node, messageId: "direct" });
@@ -160,7 +160,7 @@ const ferry = {
 
 const crossCutting = [
   { plugins: { ferry } },
-  { files: ["**/*.{ts,tsx,mts,js,mjs}"], ignores: ["src/lib/ai.ts", "src/server/integrations/llm/**"], rules: { "ferry/no-direct-anthropic": "error" } },
+  { files: ["**/*.{ts,tsx,mts,js,mjs}"], ignores: ["src/server/integrations/llm/**"], rules: { "ferry/no-direct-anthropic": "error" } },
   { files: ["src/**"], ignores: ["src/app/(public)/**"], rules: { "ferry/no-phi-cache": "error" } },
   // Contexts that act for a tenant without a signed-in clinician are built only where the plan allows (architecture §6).
   { files: ["src/**", "scripts/**"], ignores: ["**/*.test.ts", "**/*.test.tsx"], rules: { "ferry/ctx-constructors": "error", "ferry/privileged-imports": "error" } },

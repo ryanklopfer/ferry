@@ -26,7 +26,7 @@ export async function listClaimSummaries(ctx: ClinicianOnlyCtx): Promise<{ claim
 export async function getClaimDetail(ctx: ClinicianOnlyCtx, id: string): Promise<ClaimDetail | null> {
   const view = await getClaim(ctx, id);
   if (!view) return null;
-  const { claim, plan, lines, followUps, events, superbill, deadlines } = view;
+  const { claim, plan, lines, followUps, events, deadlines } = view;
   return {
     ...summary(claim, plan),
     planId: plan.id,
@@ -34,7 +34,6 @@ export async function getClaimDetail(ctx: ClinicianOnlyCtx, id: string): Promise
     placeOfService: claim.placeOfService,
     diagnosisCodes: claim.diagnosisCodes,
     totalPaidCents: claim.totalPaid,
-    hasSuperbill: Boolean(superbill),
     submittedAt: iso(claim.submittedAt),
     decisionAt: iso(claim.decisionAt),
     timelyFilingDeadline: iso(deadlines.timelyFiling),

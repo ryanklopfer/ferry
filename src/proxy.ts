@@ -1,16 +1,50 @@
 import { getSessionCookie } from "better-auth/cookies";
 import { type NextRequest, NextResponse } from "next/server";
+import { deployTier } from "@/server/deploy";
+
+// Reachable signed out. "/x/*" means anything under /x/, never /x itself. Mirrored in src/server/auth/guards.test.ts.
+export const PUBLIC_PATHS = [
+  "/",
+  "/start",
+  "/for-clients",
+  "/i/*",
+  "/legal/*",
+  "/offline",
+  "/manifest.webmanifest",
+  "/sw.js",
+  "/worklets/*",
+  "/icons/*",
+  "/api/webhooks/*",
+  "/sign-in",
+  "/api/auth/*",
+] as const;
+
+// The phone spike's pages: public only in the dev tier, and each route still 404s without this run's key (src/server/dev-spike.ts).
+export const DEV_PUBLIC_PATHS = ["/dev/*", "/api/dev/*"] as const;
+
+const covers = (entry: string, pathname: string) => (entry.endsWith("/*") ? pathname.startsWith(entry.slice(0, -1)) && pathname.length > entry.length - 1 : pathname === entry);
+
+function isDevTier(): boolean {
+  try {
+    return deployTier() === "dev";
+  } catch {
+    return false;
+  }
+}
+
+export function isPublicPath(pathname: string, devTier = isDevTier()): boolean {
+  return PUBLIC_PATHS.some((e) => covers(e, pathname)) || (devTier && DEV_PUBLIC_PATHS.some((e) => covers(e, pathname)));
+}
 
 // Optimistic only: it checks that a session cookie exists, not that it is valid.
 // Pages, routes and actions verify the session against the database.
 export function proxy(request: NextRequest) {
-  if (getSessionCookie(request)) return NextResponse.next();
-  if (request.nextUrl.pathname.startsWith("/api/")) return NextResponse.json({ code: "unauthorized", message: "Sign in first." }, { status: 401 });
+  const { pathname } = request.nextUrl;
+  if (isPublicPath(pathname) || getSessionCookie(request)) return NextResponse.next();
+  if (pathname.startsWith("/api/")) return NextResponse.json({ code: "unauthorized", message: "Sign in first." }, { status: 401 });
   return NextResponse.redirect(new URL("/sign-in", request.url));
 }
 
-// Everything under _next/ is framework assets and the dev hot-reload socket, never app data. The app shell
-// (manifest, service worker, worklets, icons, offline page) must load signed out; N2b folds it into PUBLIC_PATHS.
-// /dev/ and /api/dev/ are the phone spike's pages: each route 404s itself outside the dev tier or without the
-// per-run key (src/server/dev-spike.ts), so they need no session here.
-export const config = { matcher: ["/((?!sign-in|api/auth|_next/|favicon.ico|manifest\\.webmanifest$|sw\\.js$|worklets/|icons/|offline$|dev/|api/dev/).*)"] };
+// Everything under _next/ is framework assets and the dev hot-reload socket, never app data. Every other path
+// reaches the proxy, so PUBLIC_PATHS above is the only allow-list.
+export const config = { matcher: ["/((?!_next/|favicon\\.ico$).*)"] };

@@ -3,7 +3,7 @@ import { getSessionUser } from "@/server/auth/ctx";
 import { SignInForm } from "./sign-in-form";
 
 export default async function SignInPage({ searchParams }: PageProps<"/sign-in">) {
-  if (await getSessionUser()) redirect("/");
+  if (await getSessionUser()) redirect("/home");
   const { error } = await searchParams;
   return (
     <div className="mx-auto max-w-sm space-y-6 pt-10">

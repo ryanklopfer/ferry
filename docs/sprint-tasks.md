@@ -788,7 +788,7 @@ Plan: `docs/plans/slice-n2a.md`. The systemCtx/inviteCtx boundary is the ESLint 
 - [x] boundaries.test.ts: importing systemCtx from src/app/app/**, or inviteCtx outside src/server/services/invites.ts, fails lint
 - [x] Existing api, isolation and schema tests migrated to createTestUser('clinician') and green; typecheck and lint green
 
-### [ ] N2b — Public routes, /start fork, proxy PUBLIC_PATHS and patient-MVP deletions
+### [x] N2b — Public routes, /start fork, proxy PUBLIC_PATHS and patient-MVP deletions
 
 Scheduled: Wed Sep 30 · Status: new · Size: M · PRD: P0-1.1, P0-9.2, P0-11.1, R12
 
@@ -825,12 +825,14 @@ Why: The proxy (src/proxy.ts:13) sends / to sign-in, so the homepage can't rende
 
 #### Acceptance
 
-- [ ] proxy.test.ts table: signed out, no PUBLIC_PATHS entry is redirected; /app/claims redirects to /sign-in; /api/v1/claims returns 401; /dev/mic passes the proxy only in the dev tier
-- [ ] guards.test.ts fails if an /app page lacks requireClinician(), a /c page lacks requireClient(), an /ops page lacks requireStaff(), or a public page is missing from PUBLIC_PATHS
-- [ ] home-redirect.test.ts: clinician goes to /app, client to /c, staff to /ops, pending to /start
-- [ ] start-fork.test.ts: a pending user choosing 'I'm a client' lands on /for-clients with the role still pending, and never reaches clinician onboarding
-- [ ] deletions.test.ts: no file under src/app references billingProviderTaxId; src/server/storage/local.ts and the documents table no longer exist; no src file imports putFile
-- [ ] typecheck, lint and all remaining tests green
+Plan: `docs/plans/slice-n2b.md`. The proxy matcher now skips only `_next/` and `favicon.ico`, so `PUBLIC_PATHS` is the one allow-list. Also removed, because their only callers or their data went with the MVP: `services/follow-ups.ts`, `components/superbill-preview.tsx`, `hasSuperbill` in the v1 claim DTO, and packet.ts's patient-voice cover letter. Both files in data/uploads matched corpus/synthetic by sha256 (sb-02.pdf, sb-06.pdf) and went to the macOS Trash; none were left for Ryan.
+
+- [x] proxy.test.ts table: signed out, no PUBLIC_PATHS entry is redirected; /app/claims redirects to /sign-in; /api/v1/claims returns 401; /dev/mic passes the proxy only in the dev tier
+- [x] guards.test.ts fails if an /app page lacks requireClinician(), a /c page lacks requireClient(), an /ops page lacks requireStaff(), or a public page is missing from PUBLIC_PATHS
+- [x] home-redirect.test.ts: clinician goes to /app, client to /c, staff to /ops, pending to /start
+- [x] start-fork.test.ts: a pending user choosing 'I'm a client' lands on /for-clients with the role still pending, and never reaches clinician onboarding
+- [x] deletions.test.ts: no file under src/app references billingProviderTaxId; src/server/storage/local.ts and the documents table no longer exist; no src file imports putFile
+- [x] typecheck, lint and all remaining tests green
 
 ### [ ] N4 — Tenancy data: clients, memberships, tenantWhere, resolvers (test-first; enforces the N2a access model)
 

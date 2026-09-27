@@ -1,8 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { pool } from "@/server/db";
 import { createTestUser, resetDb, signedInHeaders } from "@/server/db/testing";
-import { GET as packet } from "./claims/[id]/packet/route";
-import { GET as superbill } from "./claims/[id]/superbill/route";
 import { GET as claimDetail } from "./v1/claims/[id]/route";
 import { GET as claimList } from "./v1/claims/route";
 
@@ -10,7 +8,7 @@ const request = vi.hoisted(() => ({ headers: new Headers() }));
 vi.mock("next/headers", () => ({ headers: async () => request.headers }));
 
 const params = { params: Promise.resolve({ id: "clm_missing" }) } as never;
-const routes = { claimList: () => claimList(), claimDetail: () => claimDetail(new Request("http://x"), params), packet: () => packet(new Request("http://x"), params), superbill: () => superbill(new Request("http://x"), params) };
+const routes = { claimList: () => claimList(), claimDetail: () => claimDetail(new Request("http://x"), params) };
 
 // A client that re-authenticates on 401 would loop on a wrong-role session, so only a missing session is 401.
 describe("clinician route handlers", () => {

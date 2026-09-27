@@ -31,7 +31,6 @@ export const ClaimDetailSchema = ClaimSummarySchema.extend({
   placeOfService: z.string().nullable(),
   diagnosisCodes: z.array(z.string()),
   totalPaidCents: cents,
-  hasSuperbill: z.boolean(),
   submittedAt: instant.nullable(),
   decisionAt: instant.nullable(),
   timelyFilingDeadline: instant.nullable(),

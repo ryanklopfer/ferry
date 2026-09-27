@@ -1,17 +1,13 @@
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type { ClinicianCtx } from "@/server/auth/ctx";
 import { pool } from "@/server/db";
+import { claimsRepo } from "@/server/db/repos/claims";
 import { NotOwnedError } from "@/server/errors";
 import { createTestUser, resetDb } from "@/server/db/testing";
-import { type ClaimInput, closeClaim, createClaimFromUpload, deleteClaim, getClaim, listClaims, markSubmitted, saveClaim } from "./claims";
+import { type ClaimInput, closeClaim, deleteClaim, getClaim, listClaims, markSubmitted, saveClaim } from "./claims";
 import { createPlan } from "./plans";
 
 const DAY = 86_400_000;
-const uploads = fs.mkdtempSync(path.join(os.tmpdir(), "ferry-uploads-"));
-const PDF = fs.readFileSync(path.join(process.cwd(), "corpus/synthetic/superbills/sb-06.pdf"));
 
 const input = (over: Partial<ClaimInput> = {}): ClaimInput => ({
   billingProvider: { name: "Harbor Light Therapy Group LLC", npi: "1999000064", taxId: "00-1000006", taxIdType: "EIN", address: "26 Court St Suite 1200, Brooklyn, NY 11201", phone: "(718) 555-0155" },
@@ -30,36 +26,19 @@ describe("claims service", () => {
   let a: ClinicianCtx;
   let b: ClinicianCtx;
   let planId: string;
+  // Claims come from approved notes from N9 on; until then a test starts from an empty draft.
+  const draft = (ctx: ClinicianCtx) => claimsRepo.create(ctx, { planId }, []);
 
-  beforeAll(() => {
-    process.env.FERRY_UPLOAD_DIR = uploads;
-  });
   beforeEach(async () => {
     await resetDb();
     a = await createTestUser("clinician", "a@example.test");
     b = await createTestUser("clinician", "b@example.test");
     planId = (await createPlan(a, { insurerName: "Aetna", memberId: "W268417359", subscriberName: "Devon Price" })).id;
   });
-  afterAll(async () => {
-    fs.rmSync(uploads, { recursive: true, force: true });
-    await pool.end();
-  });
-
-  it("stores an uploaded superbill under the owner's folder and records it as a document", async () => {
-    const claim = await createClaimFromUpload(a, { planId, file: { name: "sb-06.pdf", type: "application/pdf", bytes: PDF } });
-    const view = await getClaim(a, claim.id);
-    expect(view?.superbill?.mime).toBe("application/pdf");
-    expect(view?.superbill?.bytes).toBe(PDF.length);
-    expect(view?.superbill?.storageKey.startsWith(`${a.userId}/doc_`)).toBe(true);
-    expect(fs.existsSync(path.join(uploads, view!.superbill!.storageKey))).toBe(true);
-  });
-
-  it("rejects a file type we do not accept", async () => {
-    await expect(createClaimFromUpload(a, { planId, file: { name: "x.exe", type: "application/x-msdownload", bytes: Buffer.from("MZ") } })).rejects.toThrow(/JPG, PNG, WEBP, GIF, or PDF/);
-  });
+  afterAll(() => pool.end());
 
   it("saves lines, totals, both providers, and schedules the timely-filing warning", async () => {
-    const claim = await createClaimFromUpload(a, { planId });
+    const claim = await draft(a);
     await saveClaim(a, claim.id, input());
     const view = (await getClaim(a, claim.id))!;
     expect(view.lines.map((l) => [l.cptCode, l.modifiers, l.diagnosisPointers, l.placeOfService])).toEqual([
@@ -78,7 +57,7 @@ describe("claims service", () => {
   });
 
   it("replaces the pending filing warning when the date of service moves, instead of adding a second", async () => {
-    const claim = await createClaimFromUpload(a, { planId });
+    const claim = await draft(a);
     await saveClaim(a, claim.id, input());
     const moved = input();
     moved.lines[0].serviceDate = "2026-07-01";
@@ -89,8 +68,8 @@ describe("claims service", () => {
   });
 
   it("reuses the same provider record the next time that NPI appears", async () => {
-    const first = await createClaimFromUpload(a, { planId });
-    const second = await createClaimFromUpload(a, { planId });
+    const first = await draft(a);
+    const second = await draft(a);
     await saveClaim(a, first.id, input());
     await saveClaim(a, second.id, input());
     const [one, two] = [await getClaim(a, first.id), await getClaim(a, second.id)];
@@ -98,14 +77,14 @@ describe("claims service", () => {
   });
 
   it("rejects a pointer to a diagnosis that is not listed", async () => {
-    const claim = await createClaimFromUpload(a, { planId });
+    const claim = await draft(a);
     const bad = input();
     bad.lines[0].diagnosisPointers = [3];
     await expect(saveClaim(a, claim.id, bad)).rejects.toThrow(/diagnosis/i);
   });
 
   it("rejects more than four modifiers and malformed codes", async () => {
-    const claim = await createClaimFromUpload(a, { planId });
+    const claim = await draft(a);
     const tooMany = input();
     tooMany.lines[0].modifiers = ["HO", "95", "59", "GT", "XE"];
     await expect(saveClaim(a, claim.id, tooMany)).rejects.toThrow();
@@ -115,7 +94,7 @@ describe("claims service", () => {
   });
 
   it("schedules inquiry, escalation and regulator notice on submit and retires the warning", async () => {
-    const claim = await createClaimFromUpload(a, { planId });
+    const claim = await draft(a);
     await saveClaim(a, claim.id, input());
     const submittedAt = new Date("2026-09-17T16:00:00Z");
     await markSubmitted(a, claim.id, { submittedAt, channel: "portal", confirmationNumber: null, note: null });
@@ -132,7 +111,7 @@ describe("claims service", () => {
   });
 
   it("gives another user nothing and lets them change nothing", async () => {
-    const claim = await createClaimFromUpload(a, { planId, file: { name: "sb-06.pdf", type: "application/pdf", bytes: PDF } });
+    const claim = await draft(a);
     await saveClaim(a, claim.id, input());
 
     expect(await getClaim(b, claim.id)).toBeNull();
@@ -140,20 +119,16 @@ describe("claims service", () => {
     await expect(saveClaim(b, claim.id, input({ diagnosisCodes: ["Z00.00"] }))).rejects.toBeInstanceOf(NotOwnedError);
     await expect(markSubmitted(b, claim.id, { submittedAt: new Date(), channel: "fax", confirmationNumber: null, note: null })).rejects.toBeInstanceOf(NotOwnedError);
     await expect(closeClaim(b, claim.id, { note: null })).rejects.toBeInstanceOf(NotOwnedError);
-    await expect(createClaimFromUpload(b, { planId })).rejects.toBeInstanceOf(NotOwnedError);
     await deleteClaim(b, claim.id);
 
     const view = (await getClaim(a, claim.id))!;
     expect(view.claim.status).toBe("draft");
     expect(view.claim.diagnosisCodes).toEqual(["F43.23", "F41.1"]);
-    expect(fs.existsSync(path.join(uploads, view.superbill!.storageKey))).toBe(true);
   });
 
-  it("removes the files along with the claim", async () => {
-    const claim = await createClaimFromUpload(a, { planId, file: { name: "sb-06.pdf", type: "application/pdf", bytes: PDF } });
-    const key = (await getClaim(a, claim.id))!.superbill!.storageKey;
+  it("deletes the claim for its owner", async () => {
+    const claim = await draft(a);
     await deleteClaim(a, claim.id);
     expect(await getClaim(a, claim.id)).toBeNull();
-    expect(fs.existsSync(path.join(uploads, key))).toBe(false);
   });
 });

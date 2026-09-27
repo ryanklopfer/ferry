@@ -3,7 +3,6 @@ import type { ClinicianCtx } from "@/server/auth/ctx";
 import { pool } from "@/server/db";
 import { createTestUser, resetDb } from "@/server/db/testing";
 import { claimsRepo } from "./claims";
-import { documentsRepo } from "./documents";
 import { eventsRepo } from "./events";
 import { followUpsRepo } from "./follow-ups";
 import { plansRepo } from "./plans";
@@ -43,13 +42,12 @@ describe("claim line model", () => {
     await expect(claimsRepo.create(ctx, { planId }, [{ ...LINES[0], modifiers: ["95", "59", "HO", "GT", "XE"] }])).rejects.toThrow();
   });
 
-  it("takes its lines, documents, follow-ups and events with it when deleted", async () => {
+  it("takes its lines, follow-ups and events with it when deleted", async () => {
     const claim = await claimsRepo.create(ctx, { planId }, LINES);
-    await documentsRepo.create(ctx, { claimId: claim.id, kind: "superbill", storageKey: "k", mime: "application/pdf", bytes: 1, sha256: "x" });
     await followUpsRepo.createMany(ctx, claim.id, [{ type: "appeal", dueAt: new Date() }]);
     await eventsRepo.append(ctx, claim.id, "created");
     await claimsRepo.remove(ctx, claim.id);
-    const { rows } = await pool.query("select (select count(*) from claim_lines)::int + (select count(*) from documents)::int + (select count(*) from follow_ups)::int + (select count(*) from events)::int as n");
+    const { rows } = await pool.query("select (select count(*) from claim_lines)::int + (select count(*) from follow_ups)::int + (select count(*) from events)::int as n");
     expect(rows[0].n).toBe(0);
   });
 

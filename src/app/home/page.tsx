@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
-import { requireSignedIn } from "@/server/auth/ctx";
+import { type Role, requireSignedIn } from "@/server/auth/ctx";
 
-// The installed app opens here (manifest start_url). N2b replaces this with the redirect by role.
+const HOME: Record<Role, string> = { clinician: "/app", client: "/c", staff: "/ops", pending: "/start" };
+
+// The installed app and every sign-in land here (manifest start_url), and each role goes to its own area.
 export default async function HomePage() {
-  await requireSignedIn();
-  redirect("/");
+  const { role } = await requireSignedIn();
+  redirect(HOME[role]);
 }

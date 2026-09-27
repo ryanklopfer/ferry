@@ -1,7 +1,9 @@
 import { PDFDocument, StandardFonts, rgb, type PDFPage, type PDFFont } from "pdf-lib";
 import { format } from "date-fns";
 import { fromCents } from "./extraction";
-import { coverLetter, type LetterContext } from "./templates";
+import type { Claim, ClaimLine, Plan } from "@/server/db/schema";
+
+type PacketContext = { claim: Claim; plan: Plan; lines: ClaimLine[] };
 
 const PAGE: [number, number] = [612, 792];
 const M = 54;
@@ -80,18 +82,14 @@ function clip(s: string, font: PDFFont, size: number, maxW: number) {
 
 const mdy = (s: string | null | undefined) => (s ? format(new Date(s + "T00:00:00"), "MM/dd/yyyy") : "—");
 
-export async function buildPacket(ctx: LetterContext, superbill?: { bytes: Buffer; mime: string }) {
+export async function buildPacket(ctx: PacketContext, superbill?: { bytes: Buffer; mime: string }) {
   const { claim, plan, lines } = ctx;
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const w = new Writer(doc, font, bold);
 
-  // Page 1: cover letter
-  w.text(coverLetter(ctx));
-
-  // Page 2: claim form
-  w.newPage();
+  // Claim form
   w.text("OUT-OF-NETWORK MEDICAL CLAIM FORM", { size: 16, bold: true });
   w.text(`Prepared ${format(new Date(), "MM/dd/yyyy")} · Claim ref ${claim.id.slice(-8)}`, { size: 9, gap: 4 });
 

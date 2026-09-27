@@ -2,7 +2,8 @@ import { randomBytes } from "node:crypto";
 import { isValidElement, type ReactElement } from "react";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { config } from "@/proxy";
+import { NextRequest } from "next/server";
+import { proxy } from "@/proxy";
 import { devRunId } from "@/server/dev-spike";
 import { verifyRelayToken } from "@/server/relay/token";
 import { GET, POST } from "../api/dev/relay-token/route";
@@ -11,7 +12,6 @@ import MicPage from "./mic/page";
 
 const K = randomBytes(32).toString("base64url");
 const SECRET = "s".repeat(32);
-const matcher = new RegExp(`^${config.matcher[0]}$`);
 
 type Page = (props: { searchParams: Promise<Record<string, string | string[] | undefined>> }) => Promise<ReactElement>;
 
@@ -39,8 +39,8 @@ beforeEach(() => setEnv("dev", K));
 afterEach(() => vi.unstubAllEnvs());
 
 describe("dev pages, signed out", () => {
-  it.each(["/dev/mic", "/dev/file-input", "/api/dev/relay-token", "/api/dev/manifest"])("the proxy lets %s through without a session; the route enforces tier and k", (path) => {
-    expect(matcher.test(path)).toBe(false);
+  it.each(["/dev/mic", "/dev/file-input", "/api/dev/relay-token", "/api/dev/manifest"])("the proxy lets %s through without a session in the dev tier; the route enforces k", (path) => {
+    expect(proxy(new NextRequest(`http://localhost:3000${path}`)).headers.get("x-middleware-next")).toBe("1");
   });
 
   it("with a valid k, /dev/mic returns 200 in the dev tier", async () => {
