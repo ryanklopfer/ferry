@@ -27,10 +27,47 @@ const boundaries = [
   },
 ];
 
+// Rules that apply across layers, so they live in their own plugin instead of fighting over no-restricted-imports.
+const ferry = {
+  rules: {
+    "no-direct-anthropic": {
+      meta: { type: "problem", schema: [], messages: { direct: "@anthropic-ai/* is allowed only in src/lib/ai.ts and src/server/integrations/llm (the direct API is synthetic-only)." } },
+      create(context) {
+        const check = (node, source) => {
+          if (typeof source === "string" && /^@anthropic-ai\//.test(source)) context.report({ node, messageId: "direct" });
+        };
+        return {
+          ImportDeclaration: (n) => check(n, n.source.value),
+          ExportNamedDeclaration: (n) => n.source && check(n, n.source.value),
+          ExportAllDeclaration: (n) => check(n, n.source.value),
+          ImportExpression: (n) => n.source.type === "Literal" && check(n, n.source.value),
+          CallExpression: (n) => n.callee.type === "Identifier" && n.callee.name === "require" && n.arguments[0]?.type === "Literal" && check(n, n.arguments[0].value),
+        };
+      },
+    },
+    "no-phi-cache": {
+      meta: { type: "problem", schema: [], messages: { cache: "Caching is banned on PHI paths: no 'use cache', unstable_cache or cacheLife here." } },
+      create(context) {
+        return {
+          ExpressionStatement: (n) => typeof n.directive === "string" && n.directive.startsWith("use cache") && context.report({ node: n, messageId: "cache" }),
+          Identifier: (n) => (n.name === "unstable_cache" || n.name === "cacheLife") && context.report({ node: n, messageId: "cache" }),
+        };
+      },
+    },
+  },
+};
+
+const crossCutting = [
+  { plugins: { ferry } },
+  { files: ["**/*.{ts,tsx,mts,js,mjs}"], ignores: ["src/lib/ai.ts", "src/server/integrations/llm/**"], rules: { "ferry/no-direct-anthropic": "error" } },
+  { files: ["src/app/**", "src/ui/**", "src/server/**"], ignores: ["src/app/(public)/**"], rules: { "ferry/no-phi-cache": "error" } },
+];
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   ...boundaries,
+  ...crossCutting,
   // Tests may reach across layers to set up and inspect state.
   { files: ["**/*.test.ts"], rules: { "no-restricted-imports": "off" } },
   // Override default ignores of eslint-config-next.

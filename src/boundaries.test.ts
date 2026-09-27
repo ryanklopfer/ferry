@@ -3,6 +3,11 @@ import { describe, expect, it } from "vitest";
 
 const eslint = new ESLint();
 
+async function flagged(filePath: string, code: string, ruleId: string): Promise<string[]> {
+  const [result] = await eslint.lintText(code, { filePath });
+  return result.messages.filter((m) => m.ruleId === ruleId).map((m) => m.message);
+}
+
 async function restricted(filePath: string, code: string): Promise<string[]> {
   const [result] = await eslint.lintText(code, { filePath });
   return result.messages.filter((m) => m.ruleId === "no-restricted-imports").map((m) => m.message);
@@ -40,5 +45,24 @@ describe("import boundaries", () => {
   it("stops a service from reaching past the repos to the database handle", async () => {
     expect(await restricted("src/server/services/x.ts", 'import { db } from "@/server/db";\nexport default db;\n')).toHaveLength(1);
     expect(await restricted("src/server/services/x.ts", 'import { claimsRepo } from "@/server/db/repos/claims";\nexport default claimsRepo;\n')).toEqual([]);
+  });
+
+  it("keeps the direct Anthropic SDK out of everything but src/lib/ai.ts and the llm integration", async () => {
+    const code = 'import Anthropic from "@anthropic-ai/sdk";\nexport default Anthropic;\n';
+    expect(await flagged("src/server/services/x.ts", code, "ferry/no-direct-anthropic")).toHaveLength(1);
+    expect(await flagged("src/app/x/page.tsx", code, "ferry/no-direct-anthropic")).toHaveLength(1);
+    expect(await flagged("src/server/services/x.ts", 'export const load = () => import("@anthropic-ai/sdk");\n', "ferry/no-direct-anthropic")).toHaveLength(1);
+    expect(await flagged("src/lib/ai.ts", code, "ferry/no-direct-anthropic")).toEqual([]);
+    expect(await flagged("src/server/integrations/llm/anthropic.ts", code, "ferry/no-direct-anthropic")).toEqual([]);
+  });
+
+  it("bans 'use cache' and unstable_cache on PHI paths, but not on public pages", async () => {
+    const directive = '"use cache";\nexport default async function Page() {\n  return null;\n}\n';
+    const inner = 'export async function load() {\n  "use cache";\n  return 1;\n}\n';
+    expect(await flagged("src/app/app/clients/page.tsx", directive, "ferry/no-phi-cache")).toHaveLength(1);
+    expect(await flagged("src/app/api/v1/claims/route.ts", inner, "ferry/no-phi-cache")).toHaveLength(1);
+    expect(await flagged("src/server/services/x.ts", 'import { unstable_cache } from "next/cache";\nexport default unstable_cache;\n', "ferry/no-phi-cache")).not.toHaveLength(0);
+    expect(await flagged("src/app/c/page.tsx", 'import { cacheLife } from "next/cache";\nexport default cacheLife;\n', "ferry/no-phi-cache")).not.toHaveLength(0);
+    expect(await flagged("src/app/(public)/page.tsx", directive, "ferry/no-phi-cache")).toEqual([]);
   });
 });

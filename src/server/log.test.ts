@@ -49,4 +49,23 @@ describe("log", () => {
     expect(lines.map((l) => l.cid)).toEqual(["clm_1", "clm_1"]);
     expect(lines.map((l) => l.claimId)).toEqual(["clm_1", "clm_1"]);
   });
+
+  it("keeps each new id-only key", () => {
+    const fields = { clientId: "cli_1", membershipId: "mem_1", encounterId: "enc_1", captureId: "cap_1", noteId: "not_1", scanId: "scn_1", letterId: "let_1", taskId: "tsk_1", subscriptionId: "sub_1", timerId: "tmr_1", job: "claims.tick", vendor: "email", mode: "fixture", tier: "dev", digest: "123456" };
+    expect(JSON.parse(capture(() => log("x", fields)))).toMatchObject(fields);
+  });
+
+  it("keeps a code identifier and drops a diagnosis code or a name in a code-like key", () => {
+    const out = JSON.parse(capture(() => log("x", { code: "not_owned", kind: "Jane", type: "follow_up" })));
+    expect(out.code).toBe("not_owned");
+    expect(out.type).toBe("follow_up");
+    expect(out.kind).toBeUndefined();
+    const dropped = JSON.parse(capture(() => log("x", { code: "F43.25", kind: "Jane", status: "Samira Haddad", state: "NY", from: "Cigna", to: "jordan@example.test" })));
+    for (const key of ["code", "kind", "status", "state", "from", "to"]) expect(dropped[key], key).toBeUndefined();
+  });
+
+  it("never takes a name from something that is not an error", () => {
+    expect(JSON.parse(capture(() => log("x", { error: { name: "Samira" } }))).error).toBe("Error");
+    expect(JSON.parse(capture(() => log("x", { error: new TypeError("U4827193") }))).error).toBe("TypeError");
+  });
 });

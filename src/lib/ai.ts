@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { assertSyntheticDirectApi } from "@/server/integrations/llm/guard";
 import type { FollowUpType } from "@/server/db/schema";
 import { EMPTY_EXTRACTION, EXTRACTION_PROMPT, parseExtraction, type Extraction } from "./extraction";
 import { claimSummaryBlock, templateFor, type LetterContext } from "./templates";
@@ -9,6 +10,7 @@ const MODEL = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-5";
 export const aiEnabled = () => Boolean(process.env.ANTHROPIC_API_KEY);
 
 function client() {
+  assertSyntheticDirectApi();
   return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 }
 

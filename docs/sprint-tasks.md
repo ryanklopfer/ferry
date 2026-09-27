@@ -495,9 +495,9 @@ Docs only; no code.
 - [x] `git diff --stat` on the commit lists only .md and .html files
 - [x] bun run test, typecheck and lint green
 
-### [ ] N1 — Safety rails, integration modes, deploy tiers, error scrubbing and test tooling
+### [x] N1 — Safety rails, integration modes, deploy tiers, error scrubbing and test tooling
 
-Scheduled: Mon Sep 28 · Status: new · Size: M · PRD: P0-11.1, P0-11.3, P0-11.5
+Scheduled: Mon Sep 28 · Status: done 2026-09-27 · Plan: `docs/plans/slice-n1.md` · Size: M · PRD: P0-11.1, P0-11.3, P0-11.5
 
 Depends on: N0
 
@@ -562,24 +562,24 @@ Why: This slice closes live gaps and adds primitives every later slice needs:
 
 #### Acceptance
 
-- [ ] guard.test.ts: the direct API is refused for data classes deidentified and real, refused in the prelaunch, staging and prod tiers, and allowed for synthetic in dev; a fetch spy sees zero calls when refused
-- [ ] mode.test.ts: table over every vendor × tier × override; 'off' is accepted only where the tier allows it
-- [ ] boot.test.ts table:
+- [x] guard.test.ts: the direct API is refused for data classes deidentified and real, refused in the prelaunch, staging and prod tiers, and allowed for synthetic in dev; a fetch spy sees zero calls when refused
+- [x] mode.test.ts: table over every vendor × tier × override; 'off' is accepted only where the tier allows it
+- [x] boot.test.ts table:
   - prod refuses fixture, test or local for every vendor, and off for anything but sms and fax
   - staging refuses fixture and local, and any FERRY_DATA_CLASS but synthetic
   - prelaunch refuses anything not off
   - NODE_ENV=production without FERRY_DEPLOY_TIER refuses
   - each failure names the vendor
-- [ ] process-errors.test.ts: a spawned child that calls bootProcess and then rejects with a marker exits non-zero, and its stderr lacks the marker but has the error name
-- [ ] e2e/scrub.spec.ts (next start, FERRY_SCRUB_ERRORS=1): an Error carrying a marker thrown from a route handler and from a server action never appears in the server's stdout or stderr
-- [ ] log.test.ts: each new key passes; `code: 'F43.25'` and `kind: 'Jane'` are dropped; `code: 'not_owned'` is kept
-- [ ] email.test.ts: the console output of a non-sign-in mail contains no body text; a sign-in mail prints only the path and the link
-- [ ] repo-hygiene.test.ts: `git check-ignore -q data/payers/x.json` exits 1 and `git check-ignore -q data/outbox/x.json` exits 0; every test file named in docs/sprint-tasks.md matches the vitest include or the Playwright testDir
-- [ ] boundaries.test.ts: @anthropic-ai/sdk imported from src/server/services fails; a 'use cache' directive under src/app/app or src/app/api/v1 fails, and one under src/app/(public) passes
-- [ ] dev-tier.test.ts: assertDevTier refuses in any other tier and against a database not ending _dev or _test
-- [ ] mask.test.ts: last4('12-3456789') is '6789'; short or empty input is handled
-- [ ] tooling: a sample .test.tsx runs under happy-dom and appears in the vitest report; e2e/smoke.spec.ts loads /sign-in through `bun run test:e2e` against ferry_e2e_test
-- [ ] All 154 existing tests, typecheck and lint green
+- [x] process-errors.test.ts: a spawned child that calls bootProcess and then rejects with a marker exits non-zero, and its stderr lacks the marker but has the error name
+- [x] e2e/scrub.spec.ts (next start, FERRY_SCRUB_ERRORS=1): an Error carrying a marker thrown from a route handler and from a server action never appears in the server's stdout or stderr
+- [x] log.test.ts: each new key passes; `code: 'F43.25'` and `kind: 'Jane'` are dropped; `code: 'not_owned'` is kept
+- [x] email.test.ts: the console output of a non-sign-in mail contains no body text; a sign-in mail prints only the path and the link
+- [x] repo-hygiene.test.ts: `git check-ignore -q data/payers/x.json` exits 1 and `git check-ignore -q data/outbox/x.json` exits 0; every test file named in docs/sprint-tasks.md matches the vitest include or the Playwright testDir
+- [x] boundaries.test.ts: @anthropic-ai/sdk imported from src/server/services fails; a 'use cache' directive under src/app/app or src/app/api/v1 fails, and one under src/app/(public) passes
+- [x] dev-tier.test.ts: assertDevTier refuses in any other tier and against a database not ending _dev or _test
+- [x] mask.test.ts: last4('12-3456789') is '6789'; short or empty input is handled
+- [x] tooling: a sample .test.tsx runs under happy-dom and appears in the vitest report; e2e/smoke.spec.ts loads /sign-in through `bun run test:e2e` against ferry_e2e_test
+- [x] All 154 existing tests, typecheck and lint green
 
 ### [ ] N3a — Audio core and capture relay skeleton (ws, token, counting, no writes)
 

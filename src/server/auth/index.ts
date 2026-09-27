@@ -30,6 +30,7 @@ export const auth = betterAuth({
           to,
           subject: `Your ${BRAND.name} sign-in link`,
           text: `Here's your link to sign in. It works once and lasts 15 minutes.\n\n${url}\n\nIf you didn't ask for this, you can ignore it.`,
+          signInLink: url,
         });
       },
     }),

@@ -40,9 +40,17 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# local database + uploaded superbills (PHI)
-data/
+# local uploads, outbox and keys stay out of git; reference data (payers, codes) is tracked
+data/*
+!data/payers/
+!data/codes/
 
 # test corpus: real documents never enter git
 /corpus/real/
 /corpus/results/
+
+# playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

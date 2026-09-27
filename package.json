@@ -8,10 +8,12 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "test:e2e": "bun run db:create:e2e && playwright test",
     "typecheck": "next typegen && tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "bun scripts/db/migrate.ts",
     "db:migrate:test": "bun scripts/db/migrate.ts --test",
+    "db:create:e2e": "bun scripts/db/create-e2e.ts",
     "corpus:generate": "bun scripts/corpus/generate.ts"
   },
   "dependencies": {
@@ -29,7 +31,11 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
     "@types/node": "^20",
     "@types/pg": "^8.23.1",
     "@types/react": "^19",
@@ -37,6 +43,8 @@
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
+    "fast-check": "^4.10.2",
+    "happy-dom": "^20.14.5",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^5.0.0"
