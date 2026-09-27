@@ -82,7 +82,7 @@ function clip(s: string, font: PDFFont, size: number, maxW: number) {
 
 const mdy = (s: string | null | undefined) => (s ? format(new Date(s + "T00:00:00"), "MM/dd/yyyy") : "—");
 
-export async function buildPacket(ctx: PacketContext, superbill?: { bytes: Buffer; mime: string }) {
+export async function buildPacket(ctx: PacketContext) {
   const { claim, plan, lines } = ctx;
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
@@ -142,21 +142,6 @@ export async function buildPacket(ctx: PacketContext, superbill?: { bytes: Buffe
     { size: 9, gap: 18 },
   );
   w.text("Signature: ______________________________________        Date: ________________", { size: 10 });
-
-  // Superbill attachment
-  if (superbill) {
-    if (superbill.mime === "application/pdf") {
-      const src = await PDFDocument.load(superbill.bytes);
-      const pages = await doc.copyPages(src, src.getPageIndices());
-      pages.forEach((p) => doc.addPage(p));
-    } else if (superbill.mime === "image/png" || superbill.mime === "image/jpeg") {
-      const img = superbill.mime === "image/png" ? await doc.embedPng(superbill.bytes) : await doc.embedJpg(superbill.bytes);
-      const page = doc.addPage(PAGE);
-      const scale = Math.min((PAGE[0] - 2 * M) / img.width, (PAGE[1] - 2 * M - 20) / img.height, 1);
-      page.drawText("Attachment: itemized superbill", { x: M, y: PAGE[1] - M, size: 10, font: bold });
-      page.drawImage(img, { x: M, y: PAGE[1] - M - 20 - img.height * scale, width: img.width * scale, height: img.height * scale });
-    }
-  }
 
   return doc.save();
 }

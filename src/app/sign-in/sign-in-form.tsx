@@ -22,7 +22,7 @@ export function SignInForm({ linkProblem }: { linkProblem: boolean }) {
     setStatus({ kind: "busy" });
     const result = await authClient.signIn.passkey();
     if (result?.error) return setStatus({ kind: "problem" });
-    router.push("/");
+    router.push("/home");
     router.refresh();
   }
 

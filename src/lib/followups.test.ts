@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { type ExistingFollowUp, type FollowUpClaim, type FollowUpPlan, RULES, computeFollowUps, staleFollowUps, timelyFilingDeadline } from "./followups";
-import { parseExtraction } from "./extraction";
 
 const DAY = 86_400;
 const plan: FollowUpPlan = { timelyFilingDays: 180 };
@@ -49,17 +48,5 @@ describe("staleFollowUps", () => {
     const existing = [fu("status_inquiry", 1), fu("escalation", 2, "sent"), fu("regulator_escalation", 3, "drafted")];
     const stale = staleFollowUps({ ...base, status: "paid" }, existing);
     expect(stale.map((s) => s.type)).toEqual(["status_inquiry", "regulator_escalation"]);
-  });
-});
-
-describe("parseExtraction", () => {
-  it("tolerates prose around the JSON and applies defaults", () => {
-    const raw = `Here you go:\n{"providerName":"Dr. X","providerNpi":null,"providerTaxId":null,"providerAddress":null,"providerPhone":null,"patientName":null,"placeOfService":"11","diagnosisCodes":["M54.5"],"lineItems":[{"serviceDate":"2026-06-01","cptCode":"97110","modifier":null,"description":null,"charge":120}],"totalCharged":120,"totalPaid":null,"notes":null}`;
-    const x = parseExtraction(raw);
-    expect(x.lineItems[0].units).toBe(1);
-    expect(x.diagnosisCodes).toEqual(["M54.5"]);
-  });
-  it("rejects malformed output", () => {
-    expect(() => parseExtraction("no json here")).toThrow();
   });
 });

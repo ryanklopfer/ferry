@@ -31,7 +31,7 @@ const AREAS: [RegExp, RegExp, string][] = [
   [/^\/ops(\/|$)/, /\brequireStaff\(/, "requireStaff()"],
 ];
 
-// "(public)/i/[token]/page.tsx" is served at /i/token: route groups add no segment.
+// "(public)/offline/page.tsx" is served at /offline: route groups add no segment.
 function urlFor(file: string): string {
   const segments = path.dirname(file).split(path.sep).filter((s) => s !== "." && !/^\(.*\)$/.test(s));
   return `/${segments.map((s) => s.replace(/^\[+\.*|\]+$/g, "")).join("/")}`;
@@ -63,7 +63,7 @@ describe("the page checker", () => {
   it("maps files to the URL Next serves", () => {
     expect(urlFor("page.tsx")).toBe("/");
     expect(urlFor("(public)/offline/page.tsx")).toBe("/offline");
-    expect(urlFor("(public)/i/[token]/page.tsx")).toBe("/i/token");
+    expect(urlFor("i/[token]/page.tsx")).toBe("/i/token");
     expect(urlFor("app/clients/[id]/page.tsx")).toBe("/app/clients/id");
   });
 
@@ -88,6 +88,7 @@ describe("the page checker", () => {
     expect(page("(public)/pricing/page.tsx", "export default function P() {}")).toHaveLength(1);
     expect(page("pricing/page.tsx", "export default function P() {}")).toHaveLength(1);
     expect(page("(public)/for-clients/page.tsx", "export default function P() {}")).toEqual([]);
+    expect(page("i/[token]/page.tsx", "export default function P() {}")).toEqual([]);
   });
 
   it("lets a signed-in page outside the areas use any guard", () => {

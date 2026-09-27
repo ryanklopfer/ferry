@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { ESLint } from "eslint";
 import { describe, expect, it } from "vitest";
 
@@ -161,5 +162,12 @@ describe("import boundaries", () => {
     expect(await flagged("src/components/line-items-editor.tsx", inner, "ferry/no-phi-cache")).toHaveLength(1);
     expect(await flagged("src/ui/client-list.tsx", inner, "ferry/no-phi-cache")).toHaveLength(1);
     expect(await flagged("src/app/(public)/page.tsx", directive, "ferry/no-phi-cache")).toEqual([]);
+  });
+
+  it("keeps the invite page outside (public), so the cache ban covers it", async () => {
+    const directive = '"use cache";\nexport default async function Page() {\n  return null;\n}\n';
+    expect(existsSync("src/app/i/[token]/page.tsx")).toBe(true);
+    expect(existsSync("src/app/(public)/i")).toBe(false);
+    expect(await flagged("src/app/i/[token]/page.tsx", directive, "ferry/no-phi-cache")).toHaveLength(1);
   });
 });
