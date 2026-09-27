@@ -1,3 +1,4 @@
+import { APP_ICONS, type AppIcon } from "../core/pwa/icons";
 import { dataClass, DeployConfigError, deployTier, type Env, isDevDatabase, type Tier } from "./deploy";
 import { modeFor, VENDORS } from "./integrations/mode";
 import { errorName, log } from "./log";
@@ -12,7 +13,7 @@ export class BootRefused extends Error {
 
 const message = (e: unknown) => (e instanceof DeployConfigError ? e.message : errorName(e));
 
-export function assertBootable(env: Env = process.env): Tier {
+export function assertBootable(env: Env = process.env, icons: readonly AppIcon[] = APP_ICONS): Tier {
   let tier: Tier;
   try {
     tier = deployTier(env);
@@ -34,6 +35,8 @@ export function assertBootable(env: Env = process.env): Tier {
       failures.push(e instanceof DeployConfigError && e.message.startsWith(`${vendor}:`) ? e.message : `${vendor}: ${message(e)}`);
     }
   }
+  const placeholders = icons.filter((i) => i.placeholder).map((i) => i.src);
+  if (tier === "prod" && placeholders.length) failures.push(`icons: placeholder app icons are not allowed in the prod tier (${placeholders.join(", ")}); the approved artwork is F11`);
   if (failures.length) throw new BootRefused(failures);
   return tier;
 }

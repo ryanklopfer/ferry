@@ -118,7 +118,8 @@ This repo is the whole product: a Next.js 16 web app (installable on phones with
 
 ```sh
 bun install
-bun run dev          # http://localhost:3000
+bun run dev          # http://localhost:3000 (runs build:sw first)
+bun run build:sw     # bundle src/pwa/sw.ts → public/sw.js and capture worklets → public/worklets/
 bun run test         # vitest
 bun run typecheck    # next typegen && tsc --noEmit
 bun run lint

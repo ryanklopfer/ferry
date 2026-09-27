@@ -617,7 +617,7 @@ Why: Split from N3 so the phone test on Sep 29 doesn't wait on the access-model 
 - [x] relay.test.ts: fs write spies and log() spies record zero audio bytes and zero writes
 - [x] relay-boot.test.ts: spawning the relay with FERRY_DEPLOY_TIER=prod and a fixture vendor exits non-zero, naming the vendor
 
-### [ ] S18a — Installable web app shell: manifest, service worker, install prompt, offline page (split from S18, moved up)
+### [x] S18a — Installable web app shell: manifest, service worker, install prompt, offline page (split from S18, moved up)
 
 Scheduled: Tue Sep 29 · Status: modified · Size: M · PRD: P0-5.1, P0-7.3, P0-9.1
 
@@ -648,12 +648,12 @@ Why: D4 makes the installable web app the launch phone app. The Sep 29 mic test 
 
 #### Acceptance
 
-- [ ] proxy.test.ts: signed out, /manifest.webmanifest and /sw.js return 200
-- [ ] cache-policy.test.ts table: /app/**, /c/**, /i/** and /api/** are network_only; only /offline, hashed /_next/static, fonts, icons and /worklets/* are precached
-- [ ] e2e/pwa.spec.ts: CDP Page.getInstallabilityErrors returns no errors
-- [ ] e2e/pwa.spec.ts: after signed-in pages are visited, Cache Storage holds no /app, /c, /i or /api entries; signing out empties it
-- [ ] offline-copy.test.ts: the offline page text contains no promise to send later
-- [ ] boot.test.ts: the prod tier refuses to boot while any icon is flagged placeholder; the prelaunch tier allows it
+- [x] proxy.test.ts: signed out, /manifest.webmanifest and /sw.js return 200
+- [x] cache-policy.test.ts table: /app/**, /c/**, /i/** and /api/** are network_only; only /offline, hashed /_next/static, fonts, icons and /worklets/* are precached
+- [x] e2e/pwa.spec.ts: CDP Page.getInstallabilityErrors returns no errors
+- [x] e2e/pwa.spec.ts: after signed-in pages are visited, Cache Storage holds no /app, /c, /i or /api entries; signing out empties it
+- [x] offline-copy.test.ts: the offline page text contains no promise to send later
+- [x] boot.test.ts: the prod tier refuses to boot while any icon is flagged placeholder; the prelaunch tier allows it
 
 ### [ ] N3b — Phone recorder, dev:phone tunnel and device matrix (Gate A)
 

@@ -15,7 +15,7 @@ export default defineConfig({
   use: { baseURL: `http://localhost:${PORT}`, trace: "retain-on-failure" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: `bunx next dev --port ${PORT}`,
+    command: `bun run build:sw && bunx next dev --port ${PORT}`,
     url: `http://localhost:${PORT}/sign-in`,
     reuseExistingServer: false,
     timeout: 180_000,

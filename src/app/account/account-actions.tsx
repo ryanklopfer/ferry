@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { authClient } from "@/app/auth-client";
+import { clearAppCaches } from "@/ui/pwa";
 
 export function AddPasskey() {
   const router = useRouter();
@@ -39,16 +40,16 @@ export function RemovePasskey({ id }: { id: string }) {
   );
 }
 
+// A full page load afterwards, not a client-side push, so no page data from the session stays in memory either.
 export function SignOut() {
-  const router = useRouter();
   return (
     <button
       className="btn-secondary"
       type="button"
       onClick={async () => {
         await authClient.signOut();
-        router.push("/sign-in");
-        router.refresh();
+        await clearAppCaches();
+        window.location.replace("/sign-in");
       }}
     >
       Sign out

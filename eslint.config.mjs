@@ -101,6 +101,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Bundled by `bun run build:sw` from src/pwa and src/ui/capture, which are linted.
+    "public/sw.js",
+    "public/worklets/**",
   ]),
 ]);
 

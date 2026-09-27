@@ -40,6 +40,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# service worker and audio worklets are built from src by `bun run build:sw`
+/public/sw.js
+/public/worklets/
+
 # local uploads, outbox and keys stay out of git; reference data (payers, codes) is tracked
 data/*
 !data/payers/

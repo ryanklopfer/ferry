@@ -3,7 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const APP = path.join(process.cwd(), "src", "app");
-const PUBLIC_PAGES = new Set(["sign-in/page.tsx"]);
+const PUBLIC_PAGES = new Set(["sign-in/page.tsx", "(public)/offline/page.tsx"]);
 const PUBLIC_ROUTES = new Set(["api/auth/[...all]/route.ts"]);
 
 function find(dir: string, name: string): string[] {

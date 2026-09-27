@@ -7,7 +7,7 @@ const request = (path: string, cookie?: string) =>
   new NextRequest(`http://localhost:3000${path}`, cookie ? { headers: { cookie } } : undefined);
 
 describe("proxy matcher", () => {
-  it.each(["/", "/plans", "/claims/1/edit", "/account", "/api/claims/1/packet", "/api/v1/claims"])("guards %s", (path) => {
+  it.each(["/", "/plans", "/claims/1/edit", "/account", "/api/claims/1/packet", "/api/v1/claims", "/home", "/offline-notes", "/offline/x", "/sw.jsx", "/swajs", "/manifest.webmanifest.bak", "/app/icons/x.png", "/iconsx"])("guards %s", (path) => {
     expect(matcher.test(path)).toBe(true);
   });
 
@@ -17,6 +17,13 @@ describe("proxy matcher", () => {
       expect(matcher.test(path)).toBe(false);
     },
   );
+});
+
+// Signed out, the proxy never sees these, so Next serves them with a 200 (e2e/pwa.spec.ts fetches each one).
+describe("app shell files, signed out", () => {
+  it.each(["/manifest.webmanifest", "/sw.js", "/offline", "/icons/icon-192.png", "/icons/maskable-512.png", "/worklets/pcm.js"])("%s is not redirected to sign-in", (path) => {
+    expect(matcher.test(path)).toBe(false);
+  });
 });
 
 describe("proxy", () => {
