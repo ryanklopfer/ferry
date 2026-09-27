@@ -56,6 +56,32 @@ describe("import boundaries", () => {
     expect(await flagged("src/server/integrations/llm/anthropic.ts", code, "ferry/no-direct-anthropic")).toEqual([]);
   });
 
+  it("keeps disk, storage and database writes out of the capture relay and capture core, including files added later", async () => {
+    const rule = "ferry/no-capture-persistence";
+    const bad = [
+      'import fs from "node:fs";\nexport default fs;\n',
+      'import { writeFileSync } from "node:fs";\nexport default writeFileSync;\n',
+      'import { writeFile } from "node:fs/promises";\nexport default writeFile;\n',
+      'import { appendFile } from "fs/promises";\nexport default appendFile;\n',
+      'import fs from "fs";\nexport default fs;\n',
+      'export { writeFile } from "node:fs/promises";\n',
+      'import { putObject } from "@/server/storage";\nexport default putObject;\n',
+      'import { db } from "@/server/db";\nexport default db;\n',
+      'import { capturesRepo } from "@/server/db/repos/captures";\nexport default capturesRepo;\n',
+      'export const load = () => import("node:fs");\n',
+      "export const save = (b: Uint8Array) => Bun.write(\"/tmp/a.pcm\", b);\n",
+      "export const open = () => Bun.file(\"/tmp/a.pcm\");\n",
+      "export const save = (b: Uint8Array) => globalThis.Bun.write(\"/tmp/a.pcm\", b);\n",
+    ];
+    for (const file of ["src/server/relay/scribe-stream.ts", "src/core/capture/segments.ts"]) {
+      for (const code of bad) expect(await flagged(file, code, rule), `${file}: ${code}`).not.toHaveLength(0);
+    }
+    expect(await flagged("src/server/relay/x.ts", 'import { db } from "../db";\nexport default db;\n', rule)).not.toHaveLength(0);
+    expect(await flagged("src/core/capture/x.ts", 'import { put } from "../../server/storage";\nexport default put;\n', rule)).not.toHaveLength(0);
+    expect(await flagged("src/server/relay/server.ts", 'import { log } from "@/server/log";\nimport { importDictation } from "@/server/services/captures";\nexport default [log, importDictation];\n', rule)).toEqual([]);
+    expect(await flagged("src/server/relay/relay.test.ts", 'import fs from "node:fs";\nexport default fs;\n', rule)).toEqual([]);
+  });
+
   it("bans 'use cache' and unstable_cache on PHI paths, but not on public pages", async () => {
     const directive = '"use cache";\nexport default async function Page() {\n  return null;\n}\n';
     const inner = 'export async function load() {\n  "use cache";\n  return 1;\n}\n';

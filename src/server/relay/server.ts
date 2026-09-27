@@ -11,7 +11,8 @@ import { verifyRelayToken } from "./token";
 // The relay counts audio and keeps connection intervals in memory. It never writes audio or text to
 // disk, the database or logs; logs carry the capture id and counts only.
 
-type Capture = { subject: string; bytes: number; intervals: Interval[]; socket: WebSocket | null };
+// lastSeq: seq runs across reconnects of a capture, so a frame resent after a reconnect is acked but not counted twice.
+type Capture = { subject: string; bytes: number; lastSeq: number; intervals: Interval[]; socket: WebSocket | null };
 
 export type CaptureStats = { audioMs: number; intervals: Interval[]; gaps: Gap[] };
 export type Relay = { port: number; stats(captureId: string): CaptureStats | null; close(): Promise<void> };
@@ -28,9 +29,9 @@ function refuse(socket: Duplex, httpStatus: 401 | 404, code: string) {
 
 const bytesOf = (data: RawData): Uint8Array => (Array.isArray(data) ? Buffer.concat(data) : data instanceof ArrayBuffer ? new Uint8Array(data) : data);
 
-function control(data: RawData): ClientMessage | null {
+function control(bytes: Uint8Array): ClientMessage | null {
   try {
-    const parsed = ClientMessage.safeParse(JSON.parse(Buffer.from(bytesOf(data)).toString("utf8")));
+    const parsed = ClientMessage.safeParse(JSON.parse(Buffer.from(bytes).toString("utf8")));
     return parsed.success ? parsed.data : null;
   } catch {
     return null;
@@ -41,12 +42,14 @@ const send = (ws: WebSocket, message: RelayMessage) => ws.send(JSON.stringify(me
 
 export async function startRelay({ port, secret, host = "127.0.0.1", now = Date.now }: RelayOptions): Promise<Relay> {
   const captures = new Map<string, Capture>();
+  // jti → exp of every token already used; a token opens one connection only.
+  const usedTokens = new Map<string, number>();
   const server = http.createServer((_req, res) => res.writeHead(404).end());
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_PAYLOAD });
 
   function attach(ws: WebSocket, captureId: string, subject: string) {
     let capture = captures.get(captureId);
-    if (!capture) captures.set(captureId, (capture = { subject, bytes: 0, intervals: [], socket: null }));
+    if (!capture) captures.set(captureId, (capture = { subject, bytes: 0, lastSeq: -1, intervals: [], socket: null }));
     else if (capture.subject !== subject) return ws.close(CLOSE.invalidFrame, "wrong_subject");
     const c = capture;
 
@@ -61,28 +64,35 @@ export async function startRelay({ port, secret, host = "127.0.0.1", now = Date.
     c.socket = ws;
     const interval: Interval = { startedAt: now(), endedAt: null, endReason: null };
     c.intervals.push(interval);
-    let reason: EndReason = "disconnected";
-    let ending = false;
-    const live = () => c.socket === ws && !ending;
+    // Ends this connection's interval at once, so a reconnect racing the close handshake can't relabel it.
+    const end = (reason: EndReason) => {
+      if (interval.endedAt === null) Object.assign(interval, { endedAt: now(), endReason: reason });
+      if (c.socket === ws) c.socket = null;
+    };
 
     ws.on("message", (data, isBinary) => {
-      if (!live()) return;
+      if (c.socket !== ws) return;
+      const bytes = bytesOf(data);
+      // Bun's ws ignores maxPayload, so the limit is enforced here too.
+      if (bytes.byteLength > MAX_PAYLOAD) return ws.close(CLOSE.tooBig, "too_big");
       if (isBinary) {
-        const frame = decodeFrame(bytesOf(data));
+        const frame = decodeFrame(bytes);
         if (!frame || frame.header.captureId !== captureId) return ws.close(CLOSE.invalidFrame, "invalid_frame");
-        c.bytes += frame.pcm.byteLength;
-        return send(ws, { type: "ack", seq: frame.header.seq, audioMs: msForBytes(c.bytes) });
+        const { seq, msOffset } = frame.header;
+        if (seq > c.lastSeq && msOffset >= Math.floor(msForBytes(c.bytes))) {
+          c.lastSeq = seq;
+          c.bytes += frame.pcm.byteLength;
+        }
+        return send(ws, { type: "ack", seq, audioMs: msForBytes(c.bytes) });
       }
-      const message = control(data);
+      const message = control(bytes);
       if (!message) return ws.close(CLOSE.invalidFrame, "invalid_frame");
-      ending = true;
-      reason = message.reason;
+      end(message.reason);
       ws.close(CLOSE.ended, message.reason);
     });
     ws.on("error", (e) => log("relay.socket_error", { captureId, error: e }));
     ws.on("close", () => {
-      if (interval.endedAt === null) Object.assign(interval, { endedAt: now(), endReason: reason });
-      if (c.socket === ws) c.socket = null;
+      end("disconnected");
       log("relay.closed", { captureId, ms: msForBytes(c.bytes), code: interval.endReason });
     });
 
@@ -100,6 +110,10 @@ export async function startRelay({ port, secret, host = "127.0.0.1", now = Date.
     if (verified.claims.captureId !== id) return refuse(socket, 401, "wrong_capture");
     const existing = captures.get(id);
     if (existing && existing.subject !== verified.claims.subject) return refuse(socket, 401, "wrong_subject");
+    const t = now();
+    for (const [jti, exp] of usedTokens) if (exp < t) usedTokens.delete(jti);
+    if (usedTokens.has(verified.claims.jti)) return refuse(socket, 401, "token_used");
+    usedTokens.set(verified.claims.jti, verified.claims.exp);
     wss.handleUpgrade(req, socket, head, (ws) => attach(ws, id, verified.claims.subject));
   });
 

@@ -1,3 +1,4 @@
+import path from "node:path";
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
@@ -45,6 +46,27 @@ const ferry = {
         };
       },
     },
+    "no-capture-persistence": {
+      meta: { type: "problem", schema: [], messages: { persist: "Capture code never writes audio or text to disk, storage or the database: no fs, @/server/storage, @/server/db or Bun file APIs. Persist only through @/server/services with a SystemCtx." } },
+      create(context) {
+        const dir = path.dirname(context.filename);
+        const banned = (source) => {
+          if (typeof source !== "string") return false;
+          const target = source.startsWith(".") ? `@/${path.relative(path.join(import.meta.dirname, "src"), path.resolve(dir, source)).split(path.sep).join("/")}` : source;
+          return /^(node:)?fs(\/|$)|^bun:sqlite$|^@\/server\/(storage|db)(\/|$)/.test(target);
+        };
+        const check = (node, source) => banned(source) && context.report({ node, messageId: "persist" });
+        return {
+          ImportDeclaration: (n) => check(n, n.source.value),
+          ExportNamedDeclaration: (n) => n.source && check(n, n.source.value),
+          ExportAllDeclaration: (n) => check(n, n.source.value),
+          ImportExpression: (n) => (n.source.type === "Literal" ? check(n, n.source.value) : context.report({ node: n, messageId: "persist" })),
+          CallExpression: (n) => n.callee.type === "Identifier" && n.callee.name === "require" && (n.arguments[0]?.type === "Literal" ? check(n, n.arguments[0].value) : context.report({ node: n, messageId: "persist" })),
+          // Bun.write and Bun.file reach the disk without an import; the relay has no other use for Bun.
+          Identifier: (n) => n.name === "Bun" && context.report({ node: n, messageId: "persist" }),
+        };
+      },
+    },
     "no-phi-cache": {
       meta: { type: "problem", schema: [], messages: { cache: "Caching is banned on PHI paths: no 'use cache', unstable_cache or cacheLife here." } },
       create(context) {
@@ -61,6 +83,8 @@ const crossCutting = [
   { plugins: { ferry } },
   { files: ["**/*.{ts,tsx,mts,js,mjs}"], ignores: ["src/lib/ai.ts", "src/server/integrations/llm/**"], rules: { "ferry/no-direct-anthropic": "error" } },
   { files: ["src/**"], ignores: ["src/app/(public)/**"], rules: { "ferry/no-phi-cache": "error" } },
+  // Audio and transcript text must never reach disk from the relay or capture core (tests spy on fs and are exempt).
+  { files: ["src/server/relay/**", "src/core/capture/**"], ignores: ["**/*.test.ts"], rules: { "ferry/no-capture-persistence": "error" } },
 ];
 
 const eslintConfig = defineConfig([

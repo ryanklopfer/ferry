@@ -1,7 +1,11 @@
 import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import WebSocket from "ws";
+import { CLOSE, encodeFrame } from "@/core/capture/protocol";
+import { FRAME_BYTES } from "@/core/capture/pcm";
 import { modeEnvVar, VENDORS } from "@/server/integrations/mode";
+import { issueRelayToken } from "./token";
 
 const MAIN = path.join(__dirname, "main.ts");
 const SECRET = "b".repeat(32);
@@ -32,7 +36,16 @@ describe("relay entrypoint", () => {
     expect(r.stdout).not.toContain("relay.listening");
   });
 
-  it("boots and listens under bun in the dev tier", async () => {
+  it("refuses to start in the prelaunch tier, which serves public pages only", () => {
+    const off = Object.fromEntries(VENDORS.map((v) => [modeEnvVar(v), "off"]));
+    const r = run({ ...off, NODE_ENV: "production", FERRY_DEPLOY_TIER: "prelaunch" });
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toContain('"event":"boot.refused"');
+    expect(r.stderr).toContain("prelaunch");
+    expect(r.stdout).not.toContain("relay.listening");
+  });
+
+  it("boots and listens under bun in the dev tier, counts a frame and enforces the 4 KiB message limit", async () => {
     const child = spawn("bun", [MAIN], { env: baseEnv({ FERRY_DEPLOY_TIER: "dev" }) });
     try {
       const line = await new Promise<string>((resolve, reject) => {
@@ -48,7 +61,24 @@ describe("relay entrypoint", () => {
         });
         child.on("exit", (code) => reject(new Error(`exited ${code}`)));
       });
-      expect(JSON.parse(line).port).toBeGreaterThan(0);
+      const { port } = JSON.parse(line);
+      expect(port).toBeGreaterThan(0);
+
+      // Bun's ws ignores maxPayload; the relay must still refuse an oversize message itself.
+      const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/capture/cap_bun?token=${encodeURIComponent(issueRelayToken({ captureId: "cap_bun", subject: "devRun:boot" }, SECRET, Date.now()))}`);
+      const messages: { type: string; audioMs?: number }[] = [];
+      ws.on("message", (d) => messages.push(JSON.parse(d.toString())));
+      const closed = new Promise<number>((resolve) => ws.on("close", (code) => resolve(code)));
+      await new Promise((resolve, reject) => {
+        ws.on("open", resolve);
+        ws.on("error", reject);
+      });
+      ws.send(encodeFrame({ captureId: "cap_bun", seq: 0, msOffset: 0 }, new Uint8Array(FRAME_BYTES)));
+      const end = Date.now() + 5_000;
+      while (!messages.some((m) => m.type === "ack") && Date.now() < end) await new Promise((r) => setTimeout(r, 10));
+      expect(messages.find((m) => m.type === "ack")).toEqual({ type: "ack", seq: 0, audioMs: 100 });
+      ws.send(new Uint8Array(10_000));
+      expect(await closed).toBe(CLOSE.tooBig);
     } finally {
       child.kill("SIGTERM");
     }

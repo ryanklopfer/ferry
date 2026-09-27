@@ -3,6 +3,8 @@ import { FRAME_BYTES } from "./pcm";
 
 // Browser → relay. Binary messages are audio frames: a u16 little-endian header length, the JSON
 // header, then up to one 100 ms frame of 16 kHz s16le PCM. Text messages are JSON control messages.
+// seq and msOffset run across every connection of a capture: after a reconnect the client resends
+// unacked frames with their original seq and msOffset, and the relay counts each frame once.
 
 export const CaptureId = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 
@@ -23,7 +25,7 @@ export const RelayMessage = z.discriminatedUnion("type", [
 ]);
 export type RelayMessage = z.infer<typeof RelayMessage>;
 
-export const CLOSE = { superseded: 4001, invalidFrame: 4002, ended: 1000 } as const;
+export const CLOSE = { superseded: 4001, invalidFrame: 4002, ended: 1000, tooBig: 1009 } as const;
 
 const MAX_HEADER_BYTES = 256;
 

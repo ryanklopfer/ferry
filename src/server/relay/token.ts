@@ -1,13 +1,14 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { CaptureId } from "@/core/capture/protocol";
 import type { Env } from "@/server/deploy";
 
-// A relay token lets one browser stream audio for one capture for 60 seconds. The subject is the
+// A relay token lets one browser open one connection for one capture within 60 seconds; the relay
+// refuses a second use of its jti, so every reconnect needs a fresh token. The subject is the
 // tenant (from N12) or devRun:<id> for the phone spike; a capture never changes subject.
 export const TOKEN_TTL_MS = 60_000;
 
-const Claims = z.strictObject({ captureId: CaptureId, subject: z.string().regex(/^[A-Za-z0-9_:-]{1,100}$/), exp: z.int() });
+const Claims = z.strictObject({ captureId: CaptureId, subject: z.string().regex(/^[A-Za-z0-9_:-]{1,100}$/), jti: z.string().regex(/^[A-Za-z0-9_-]{22,64}$/), exp: z.int() });
 export type RelayClaims = z.infer<typeof Claims>;
 
 export type Verified = { ok: true; claims: RelayClaims } | { ok: false; code: "token_missing" | "token_invalid" | "token_expired" };
@@ -28,7 +29,7 @@ export function relaySecret(env: Env = process.env): string {
 const sign = (payload: string, secret: string) => createHmac("sha256", secret).update(payload).digest("base64url");
 
 export function issueRelayToken(binding: { captureId: string; subject: string }, secret: string, now: number): string {
-  const payload = Buffer.from(JSON.stringify(Claims.parse({ ...binding, exp: now + TOKEN_TTL_MS }))).toString("base64url");
+  const payload = Buffer.from(JSON.stringify(Claims.parse({ ...binding, jti: randomBytes(16).toString("base64url"), exp: now + TOKEN_TTL_MS }))).toString("base64url");
   return `${payload}.${sign(payload, secret)}`;
 }
 

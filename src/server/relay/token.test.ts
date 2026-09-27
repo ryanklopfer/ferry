@@ -8,8 +8,16 @@ const claims = { captureId: "cap_01", subject: "devRun:r1" };
 describe("relay tokens", () => {
   it("verifies a fresh token and returns its binding", () => {
     const token = issueRelayToken(claims, SECRET, NOW);
-    expect(verifyRelayToken(token, SECRET, NOW + TOKEN_TTL_MS)).toEqual({ ok: true, claims: { ...claims, exp: NOW + TOKEN_TTL_MS } });
+    expect(verifyRelayToken(token, SECRET, NOW + TOKEN_TTL_MS)).toEqual({ ok: true, claims: { ...claims, jti: expect.stringMatching(/^[A-Za-z0-9_-]{22}$/), exp: NOW + TOKEN_TTL_MS } });
     expect(TOKEN_TTL_MS).toBe(60_000);
+  });
+
+  it("gives every token its own jti, so the relay can refuse a reused one", () => {
+    const jti = (t: string) => {
+      const v = verifyRelayToken(t, SECRET, NOW);
+      return v.ok ? v.claims.jti : null;
+    };
+    expect(jti(issueRelayToken(claims, SECRET, NOW))).not.toBe(jti(issueRelayToken(claims, SECRET, NOW)));
   });
 
   it("refuses a missing, expired, forged or tampered token", () => {

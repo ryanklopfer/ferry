@@ -60,10 +60,12 @@ const until = async (check: () => boolean, ms = 3000) => {
   }
 };
 
-async function send(client: Client, captureId: string, frames: number) {
-  for (let seq = 0; seq < frames; seq++) client.ws.send(encodeFrame({ captureId, seq, msOffset: seq * 100 }, AUDIO));
-  await until(() => client.messages.some((m) => m.type === "ack" && m.seq === frames - 1));
+async function send(client: Client, captureId: string, frames: number, from = 0) {
+  for (let seq = from; seq < from + frames; seq++) client.ws.send(encodeFrame({ captureId, seq, msOffset: seq * 100 }, AUDIO));
+  await until(() => client.messages.some((m) => m.type === "ack" && m.seq === from + frames - 1));
 }
+
+const acks = (client: Client) => client.messages.filter((m) => m.type === "ack");
 
 describe("capture relay", () => {
   it("refuses missing, expired, forged and wrong-capture tokens", async () => {
@@ -110,12 +112,51 @@ describe("capture relay", () => {
     expect(second.ws.readyState).toBe(WebSocket.OPEN);
     await until(() => second.messages.some((m) => m.type === "ready"));
     expect(second.messages[0]).toEqual({ type: "ready", captureId: "cap_twice", audioMs: 1_000 });
-    await send(second, "cap_twice", 5);
+    await send(second, "cap_twice", 5, 10);
     expect(relay.stats("cap_twice")?.audioMs).toBe(1_500);
     expect(relay.stats("cap_twice")?.intervals).toEqual([
       { startedAt: expect.any(Number), endedAt: expect.any(Number), endReason: "disconnected" },
       { startedAt: expect.any(Number), endedAt: null, endReason: null },
     ]);
+  });
+
+  it("counts a duplicate or resent frame once, and acks it", async () => {
+    const first = await connect("cap_dupes");
+    await send(first, "cap_dupes", 3);
+    for (let i = 0; i < 3; i++) first.ws.send(encodeFrame({ captureId: "cap_dupes", seq: 2, msOffset: 200 }, AUDIO));
+    await until(() => acks(first).length === 6);
+    expect(acks(first).slice(3)).toEqual(Array(3).fill({ type: "ack", seq: 2, audioMs: 300 }));
+
+    // After a reconnect the client resends what it never saw acked, then carries on.
+    const second = await connect("cap_dupes");
+    await send(second, "cap_dupes", 3, 1);
+    expect(acks(second)).toEqual([
+      { type: "ack", seq: 1, audioMs: 300 },
+      { type: "ack", seq: 2, audioMs: 300 },
+      { type: "ack", seq: 3, audioMs: 400 },
+    ]);
+    // A higher seq whose audio overlaps what was already counted is not counted either.
+    second.ws.send(encodeFrame({ captureId: "cap_dupes", seq: 9, msOffset: 100 }, AUDIO));
+    await until(() => acks(second).length === 4);
+    expect(relay.stats("cap_dupes")?.audioMs).toBe(400);
+  });
+
+  it("lets a token open one connection only, so a copied token can't take over a capture", async () => {
+    const t = token("cap_once");
+    const first = await connect("cap_once", t);
+    await expect(connect("cap_once", t)).rejects.toThrow("refused 401");
+    expect(first.ws.readyState).toBe(WebSocket.OPEN);
+    first.ws.close();
+    await first.closed;
+    await expect(connect("cap_once", t)).rejects.toThrow("refused 401");
+    expect(relay.stats("cap_once")?.intervals).toHaveLength(1);
+  });
+
+  it("closes a connection that sends more than 4 KiB in one message", async () => {
+    const client = await connect("cap_big");
+    client.ws.send(new Uint8Array(10_000));
+    expect((await client.closed).code).toBe(CLOSE.tooBig);
+    expect(relay.stats("cap_big")?.audioMs).toBe(0);
   });
 
   it("refuses a second connection for the same capture under a different subject", async () => {
@@ -142,6 +183,31 @@ describe("capture relay", () => {
       const stats = timed.stats("cap_gap");
       expect(stats?.intervals[0].endReason).toBe("backgrounded");
       expect(stats?.gaps).toEqual([{ from: Date.UTC(2026, 8, 29, 18, 1, 0), to: Date.UTC(2026, 8, 29, 18, 1, 30), durationMs: 30_000, reason: "backgrounded" }]);
+    } finally {
+      await timed.close();
+    }
+  });
+
+  it("keeps the client's reason for ending when it reconnects before the old socket has finished closing", async () => {
+    let t = Date.UTC(2026, 8, 29, 18, 0, 0);
+    const timed = await startRelay({ port: 0, secret: SECRET, now: () => t });
+    try {
+      const at = (id: string) => `ws://127.0.0.1:${timed.port}/ws/capture/${id}?token=${encodeURIComponent(issueRelayToken({ captureId: id, subject: SUBJECT }, SECRET, t))}`;
+      const a = new WebSocket(at("cap_race"));
+      open.push(a);
+      await new Promise((r) => a.on("open", r));
+      t += 60_000;
+      a.send(JSON.stringify({ type: "end", reason: "backgrounded" }));
+      // The old client stops reading, so the relay's close handshake with it can't finish.
+      (a as unknown as { _socket: { pause(): void } })._socket.pause();
+      await until(() => timed.stats("cap_race")?.intervals[0].endedAt !== null);
+      t += 5_000;
+      const b = new WebSocket(at("cap_race"));
+      open.push(b);
+      await new Promise((r) => b.on("open", r));
+      const stats = timed.stats("cap_race");
+      expect(stats?.intervals.map((i) => i.endReason)).toEqual(["backgrounded", null]);
+      expect(stats?.gaps).toEqual([{ from: Date.UTC(2026, 8, 29, 18, 1, 0), to: Date.UTC(2026, 8, 29, 18, 1, 5), durationMs: 5_000, reason: "backgrounded" }]);
     } finally {
       await timed.close();
     }

@@ -11,6 +11,12 @@ try {
   process.exit(1);
 }
 
+// Prelaunch serves public pages only, so there is nothing to capture.
+if (tier === "prelaunch") {
+  process.stderr.write(`${JSON.stringify({ event: "boot.refused", kind: "relay", reason: "The relay does not run in the prelaunch tier (public pages only)" })}\n`);
+  process.exit(1);
+}
+
 const { relaySecret, RelaySecretMissing } = await import("./token");
 const { startRelay } = await import("./server");
 
