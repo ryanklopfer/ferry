@@ -21,6 +21,12 @@ describe("cachePolicy", () => {
     "/api/fonts/x.woff2",
     "/c/icons/x.png",
     "/i/worklets/pcm.js",
+    "/ops",
+    "/ops/queue/q_1",
+    "/ops/x.woff2",
+    "/dev",
+    "/dev/seed",
+    "/dev/fonts/x.woff2",
   ])("%s is network_only", (path) => {
     expect(policy(path)).toBe("network_only");
   });
@@ -50,6 +56,9 @@ describe("cachePolicy", () => {
     "/_next/static/chunks/app/page.js",
     "/_next/image?url=%2Fx.png&w=64&q=75",
     "/_next/webpack-hmr",
+    // Fonts are stored only from /fonts/ and next/font's media folder.
+    "/home/x.woff2",
+    "/account/fonts.woff",
     "/sw.js",
     "/manifest.webmanifest",
     "/favicon.ico",
@@ -57,7 +66,7 @@ describe("cachePolicy", () => {
     expect(policy(path)).not.toBe("precache");
   });
 
-  it.each(["/", "/sign-in", "/home", "/start", "/account", "/offline/x", "/offline-ish", "/apple", "/careers", "/items", "/apiary"])(
+  it.each(["/", "/sign-in", "/home", "/start", "/account", "/offline/x", "/offline-ish", "/apple", "/careers", "/items", "/apiary", "/opsx", "/devices"])(
     "%s is a navigation with the offline fallback",
     (path) => {
       expect(policy(path)).toBe("navigate_with_offline_fallback");

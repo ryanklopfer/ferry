@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
+import { SIGNED_IN_PREFIXES } from "./src/core/pwa/cache-policy";
 
-// Signed-in areas and the API must never be kept by a browser, proxy or the service worker.
-const NO_STORE = ["/app", "/c", "/i", "/api"].map((prefix) => ({
+// Signed-in areas and the API must never be kept by a browser, proxy or the service worker. Next keeps a
+// Cache-Control set here on app-router pages, prerendered ones included (checked against next start on 16.3.4).
+const NO_STORE = SIGNED_IN_PREFIXES.map((prefix) => ({
   source: `${prefix}/:path*`,
   headers: [{ key: "Cache-Control", value: "no-store" }],
 }));

@@ -10,10 +10,10 @@ function setDevice(userAgent: string, standalone = false) {
   vi.spyOn(window, "matchMedia").mockImplementation((query: string) => ({ matches: standalone && query === "(display-mode: standalone)", media: query }) as MediaQueryList);
 }
 
-function installEvent() {
+function installEvent(outcome: "accepted" | "dismissed" = "accepted") {
   const e = new Event("beforeinstallprompt", { cancelable: true }) as Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
   e.prompt = vi.fn(async () => {});
-  e.userChoice = Promise.resolve({ outcome: "accepted" });
+  e.userChoice = Promise.resolve({ outcome });
   return e;
 }
 
@@ -36,6 +36,19 @@ describe("InstallPrompt", () => {
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Install Ferry" })));
     expect(e.prompt).toHaveBeenCalledOnce();
     expect(screen.queryByRole("complementary")).toBeNull();
+  });
+
+  it("leaves no dead Install button when the browser's dialog is cancelled, and comes back on the next prompt", async () => {
+    setDevice(ANDROID);
+    render(<InstallPrompt />);
+    act(() => void window.dispatchEvent(installEvent("dismissed")));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Install Ferry" })));
+    expect(screen.queryByRole("complementary")).toBeNull();
+
+    const again = installEvent();
+    act(() => void window.dispatchEvent(again));
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Install Ferry" })));
+    expect(again.prompt).toHaveBeenCalledOnce();
   });
 
   it("shows an Add to Home Screen sheet on iOS, which has no install prompt", () => {

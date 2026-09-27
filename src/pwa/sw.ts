@@ -21,8 +21,11 @@ declare const __SHELL_VERSION__: string;
 const CACHE = `ferry-shell-${__SHELL_VERSION__}`;
 const PRECACHE = [OFFLINE_PATH, ...APP_ICONS.map((i) => i.src)];
 
+// The shell is public; fetching it without cookies keeps anything session-specific out of it.
+const precacheShell = () => caches.open(CACHE).then((c) => c.addAll(PRECACHE.map((p) => new Request(p, { credentials: "omit" }))));
+
 sw.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE)).then(() => sw.skipWaiting()));
+  e.waitUntil(precacheShell().then(() => sw.skipWaiting()));
 });
 
 sw.addEventListener("activate", (e) => {
@@ -47,9 +50,12 @@ async function cacheFirst(request: Request): Promise<Response> {
   return response;
 }
 
-async function navigateWithFallback(request: Request): Promise<Response> {
+async function navigateWithFallback(e: FetchEvent): Promise<Response> {
   try {
-    return await fetch(request);
+    const response = await fetch(e.request);
+    // Sign-out empties Cache Storage, so the next page that loads puts the shell back for the offline fallback.
+    e.waitUntil(caches.match(OFFLINE_PATH).then((hit) => (hit ? undefined : precacheShell())).catch(() => {}));
+    return response;
   } catch {
     return (await caches.match(OFFLINE_PATH)) ?? Response.error();
   }
@@ -60,7 +66,7 @@ sw.addEventListener("fetch", (e) => {
   if (request.method !== "GET") return;
   const policy = cachePolicy(request.url, sw.location.origin);
   if (policy === "precache") return e.respondWith(cacheFirst(request));
-  if (policy === "navigate_with_offline_fallback" && request.mode === "navigate") return e.respondWith(navigateWithFallback(request));
+  if (policy === "navigate_with_offline_fallback" && request.mode === "navigate") return e.respondWith(navigateWithFallback(e));
 });
 
 // Sign-out: nothing a signed-in session loaded may outlive it on this device.

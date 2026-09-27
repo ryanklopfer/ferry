@@ -2,9 +2,10 @@ export type CachePolicy = "precache" | "network_only" | "navigate_with_offline_f
 
 export const OFFLINE_PATH = "/offline";
 
-// Signed-in areas and the API. Nothing under them is ever put in Cache Storage.
-const NEVER_STORED = /^\/(?:app|c|i|api)(?:\/|$)/;
-const FONT = /\.(?:woff2?|ttf|otf)$/i;
+// Signed-in areas (clinician, client, invite, staff, dev tier) and the API. Nothing under them is ever put in Cache Storage.
+export const SIGNED_IN_PREFIXES = ["/app", "/c", "/i", "/ops", "/dev", "/api"] as const;
+const NEVER_STORED = new RegExp(`^(?:${SIGNED_IN_PREFIXES.join("|")})(?:/|$)`);
+const FONT = /^\/(?:fonts|_next\/static\/media)\/.*\.(?:woff2?|ttf|otf)$/i;
 // Production chunks end in a content hash; dev chunks ("…_1igg3k2._.js") keep their name across edits.
 const HASHED_STEM = /(?:^|\.)(?=[0-9a-z_-]*\d)[0-9a-z_-]{8,}$/i;
 

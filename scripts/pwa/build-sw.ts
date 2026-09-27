@@ -10,8 +10,20 @@ const root = fileURLToPath(new URL("../..", import.meta.url));
 const rel = (...p: string[]) => path.join(root, ...p);
 
 const list = (dir: string, match: RegExp) => (fs.existsSync(rel(dir)) ? fs.readdirSync(rel(dir)).filter((f) => match.test(f)).sort().map((f) => path.join(dir, f)) : []);
+const tree = (dir: string): string[] =>
+  fs
+    .readdirSync(rel(dir), { withFileTypes: true })
+    .filter((d) => !d.name.startsWith("."))
+    .flatMap((d) => (d.isDirectory() ? tree(path.join(dir, d.name)) : [path.join(dir, d.name)]));
 const worklets = list("src/ui/capture", /-worklet\.ts$/);
-const versioned = [...list("src/pwa", /\.ts$/), ...list("src/core/pwa", /^(?!.*\.test\.ts$).*\.ts$/), ...worklets, ...list("public/icons", /\.png$/)];
+
+// Everything next build reads, so each deploy that can change /offline or the hashed chunks installs a new worker,
+// whose install fetches a fresh /offline and whose activate drops the previous deploy's cache.
+const versioned = [
+  ...tree("src").filter((f) => !/\.test\.tsx?$/.test(f)),
+  ...tree("public").filter((f) => f !== "public/sw.js" && !f.startsWith("public/worklets/")),
+  ...["package.json", "bun.lock", "next.config.ts", "postcss.config.mjs", "tsconfig.json"],
+].sort();
 
 const hash = createHash("sha256");
 for (const f of versioned) hash.update(f).update(fs.readFileSync(rel(f)));

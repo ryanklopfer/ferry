@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
+import nextConfig from "../next.config";
 import { config, proxy } from "./proxy";
 
 const matcher = new RegExp(`^${config.matcher[0]}$`);
@@ -42,5 +43,12 @@ describe("proxy", () => {
   it("lets a request with a session cookie through to the real check", () => {
     const response = proxy(request("/plans", "better-auth.session_token=anything"));
     expect(response.headers.get("x-middleware-next")).toBe("1");
+  });
+});
+
+describe("next.config headers", () => {
+  it.each(["/app", "/c", "/i", "/ops", "/dev", "/api"])("%s and everything under it is sent with Cache-Control: no-store", async (prefix) => {
+    const rules = (await nextConfig.headers?.()) ?? [];
+    expect(rules.find((r) => r.source === `${prefix}/:path*`)?.headers).toEqual([{ key: "Cache-Control", value: "no-store" }]);
   });
 });

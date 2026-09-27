@@ -55,16 +55,17 @@ export function InstallPrompt() {
   const install = async () => {
     if (!deferred) return;
     await deferred.prompt();
-    const { outcome } = await deferred.userChoice;
+    await deferred.userChoice;
+    // A prompt event works once. If the browser offers install again it fires a new one, which brings the banner back.
     setDeferred(null);
-    if (outcome === "accepted") setMode("hidden");
+    setMode("hidden");
   };
 
   return (
     <aside aria-label={`Install ${BRAND.name}`} className="mx-auto flex w-full max-w-5xl items-center gap-3 px-4 pt-3 text-sm">
       <p className="flex-1 text-stone-700">Keep {BRAND.name} on your home screen. It opens like an app.</p>
       {mode === "prompt" ? (
-        <button className="btn-secondary" type="button" onClick={install} disabled={!deferred}>Install {BRAND.name}</button>
+        <button className="btn-secondary" type="button" onClick={install}>Install {BRAND.name}</button>
       ) : (
         <button className="btn-secondary" type="button" onClick={() => setSheet(true)}>Add to Home Screen</button>
       )}

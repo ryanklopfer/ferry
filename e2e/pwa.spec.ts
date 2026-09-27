@@ -3,8 +3,11 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { chromium, expect, type Page, test } from "@playwright/test";
-import { cachePolicy } from "@/core/pwa/cache-policy";
+import { cachePolicy, OFFLINE_PATH } from "@/core/pwa/cache-policy";
+import { APP_ICONS } from "@/core/pwa/icons";
 import { signInLinkFor } from "./helpers/outbox";
+
+const SHELL = [OFFLINE_PATH, ...APP_ICONS.map((i) => i.src)].sort();
 
 const cachedPaths = (page: Page) =>
   page.evaluate(async () => {
@@ -16,6 +19,17 @@ const cachedPaths = (page: Page) =>
 async function controlledByWorker(page: Page) {
   await page.evaluate(() => navigator.serviceWorker.ready);
   await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller))).toBe(true);
+}
+
+async function signIn(page: Page) {
+  const address = `pwa-${randomBytes(4).toString("hex")}@example.test`;
+  await page.goto("/sign-in");
+  await page.getByLabel("Your email").fill(address);
+  await page.getByRole("button", { name: "Send me a link" }).click();
+  await expect(page.getByText("Check your email.")).toBeVisible();
+  await page.goto(await signInLinkFor(address));
+  await expect(page).not.toHaveURL(/sign-in/);
+  await controlledByWorker(page);
 }
 
 test("the app shell loads signed out", async ({ request }) => {
@@ -62,14 +76,7 @@ test("Chromium finds no installability errors", async ({ baseURL }) => {
 });
 
 test("signed-in pages and the API never reach Cache Storage, and signing out empties it", async ({ page }) => {
-  const address = `pwa-${randomBytes(4).toString("hex")}@example.test`;
-  await page.goto("/sign-in");
-  await page.getByLabel("Your email").fill(address);
-  await page.getByRole("button", { name: "Send me a link" }).click();
-  await expect(page.getByText("Check your email.")).toBeVisible();
-  await page.goto(await signInLinkFor(address));
-  await expect(page).not.toHaveURL(/sign-in/);
-  await controlledByWorker(page);
+  await signIn(page);
 
   for (const path of ["/", "/account", "/app", "/app/clients", "/c", "/c/trips", "/i/tok_synthetic", "/api/v1/claims"]) {
     const r = await page.goto(path);
@@ -86,11 +93,35 @@ test("signed-in pages and the API never reach Cache Storage, and signing out emp
   expect(cached.filter((u) => /^\/(?:app|c|i|api)(?:\/|$)/.test(new URL(u).pathname))).toEqual([]);
   expect(cached.filter((u) => cachePolicy(u, origin) !== "precache")).toEqual([]);
 
-  // The page sign-out lands on loads nothing, so anything in Cache Storage afterwards survived the sign-out.
-  await page.context().route("**/sign-in", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>signed out</title>" }));
+  // Sign-out finishes clearing before it navigates, so Cache Storage is read (from the worker) when that navigation
+  // is requested. The page it lands on loads nothing, so afterwards the only entries are the public shell, which
+  // the worker fetches again signed out for the offline fallback.
+  const [worker] = page.context().serviceWorkers();
+  let atSignOut: string[] | undefined;
+  await page.context().route("**/sign-in", async (route) => {
+    atSignOut = await worker.evaluate(() => caches.keys());
+    await route.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>signed out</title>" });
+  });
   await page.getByRole("button", { name: "Sign out" }).click();
   await page.waitForURL(/\/sign-in$/);
   await expect(page).toHaveTitle("signed out");
-  expect(await page.evaluate(() => caches.keys())).toEqual([]);
-  expect(await cachedPaths(page)).toEqual([]);
+  expect(atSignOut).toEqual([]);
+  await expect.poll(async () => (await cachedPaths(page)).map((u) => new URL(u).pathname).sort()).toEqual(SHELL);
+});
+
+test("after signing out, a page that can't load offline still shows the offline page", async ({ page, context }) => {
+  await signIn(page);
+  await page.goto("/account");
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await page.waitForURL(/\/sign-in$/);
+  await expect(page.getByLabel("Your email")).toBeVisible();
+  await expect.poll(async () => (await cachedPaths(page)).map((u) => new URL(u).pathname)).toContain(OFFLINE_PATH);
+
+  await context.setOffline(true);
+  try {
+    await page.goto("/start");
+    await expect(page.getByRole("heading", { name: "No signal right now." })).toBeVisible();
+  } finally {
+    await context.setOffline(false);
+  }
 });
