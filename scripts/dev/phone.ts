@@ -29,6 +29,8 @@ const env: NodeJS.ProcessEnv = {
   FERRY_SPIKE_K: k,
   RELAY_SECRET: randomBytes(32).toString("base64url"),
   RELAY_PORT: String(PORTS.relay),
+  // next.config.ts admits *.trycloudflare.com as a dev origin only while this is set.
+  FERRY_DEV_PHONE: "1",
 };
 delete env.FERRY_RELAY_URL;
 

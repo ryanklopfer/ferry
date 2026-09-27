@@ -39,8 +39,9 @@ test("the app shell loads signed out", async ({ request }) => {
     expect(r.status(), path).toBe(200);
   }
   const manifest = await (await request.get("/manifest.webmanifest")).json();
-  // The suite's server runs with FERRY_SPIKE_K for e2e/mic-spike.spec.ts; without it start_url is /home (manifest.test.ts).
-  expect(manifest).toMatchObject({ name: "Ferry", start_url: `/dev/mic?k=${E2E_SPIKE_K}`, display: "standalone", theme_color: "#FFF6EC" });
+  expect(manifest).toMatchObject({ name: "Ferry", start_url: "/home", display: "standalone", theme_color: "#FFF6EC" });
+  // The suite's server runs with FERRY_SPIKE_K (e2e/mic-spike.spec.ts); the shared manifest must never hand it out.
+  expect(JSON.stringify(manifest)).not.toContain(E2E_SPIKE_K);
 });
 
 test("a page that can't load offline shows the offline page", async ({ page, context }) => {

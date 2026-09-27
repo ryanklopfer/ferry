@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { config } from "@/proxy";
 import { devRunId } from "@/server/dev-spike";
 import { verifyRelayToken } from "@/server/relay/token";
-import { POST } from "../api/dev/relay-token/route";
+import { GET, POST } from "../api/dev/relay-token/route";
 import FileInputPage from "./file-input/page";
 import MicPage from "./mic/page";
 
@@ -39,7 +39,7 @@ beforeEach(() => setEnv("dev", K));
 afterEach(() => vi.unstubAllEnvs());
 
 describe("dev pages, signed out", () => {
-  it.each(["/dev/mic", "/dev/file-input", "/api/dev/relay-token"])("the proxy lets %s through without a session; the route enforces tier and k", (path) => {
+  it.each(["/dev/mic", "/dev/file-input", "/api/dev/relay-token", "/api/dev/manifest"])("the proxy lets %s through without a session; the route enforces tier and k", (path) => {
     expect(matcher.test(path)).toBe(false);
   });
 
@@ -95,6 +95,12 @@ describe("dev pages without k, or outside the dev tier, are 404", () => {
     expect((await pageStatus(MicPage, query)).status).toBe(404);
     expect((await pageStatus(FileInputPage, query)).status).toBe(404);
     expect((await POST(tokenRequest({ ...query, captureId: "cap_spike3" }))).status).toBe(404);
+  });
+
+  it("any other method on /api/dev/relay-token is 404, never 405, with or without k", () => {
+    expect(GET().status).toBe(404);
+    setEnv("prod", K);
+    expect(GET().status).toBe(404);
   });
 
   it("POST /api/dev/relay-token with no body or a non-JSON body is 404", async () => {

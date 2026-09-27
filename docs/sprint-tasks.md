@@ -702,11 +702,13 @@ Why: Recording in an installed iOS web app is the most likely thing to sink laun
 #### Acceptance
 
 - [ ] e2e/mic-spike.spec.ts: Chromium with --use-fake-device-for-media-stream and --use-file-for-fake-audio-capture=corpus/synthetic/audio/tone-10s.wav records for 10 s; the relay reports 10,000 ms ± 300
-  - Written; it skips until macOS grants microphone access to the app running Playwright (Chromium asks the OS even for the fake device). The same path with a WebAudio tone in place of the mic passes on every run (10,100 ms).
+  - Written; it skips until macOS grants microphone access to the app running Playwright (Chromium asks the OS even for the fake device). It skips only when getUserMedia hangs; a rejection fails the test. The same path with a WebAudio tone in place of the mic passes on every run (10,100 ms). Tick this only after the test passes rather than skips.
 - [x] dev-routes.test.ts: signed out with a valid k, /dev/mic returns 200 in the dev tier
 - [x] dev-routes.test.ts: without k, or in any other tier, /dev/mic, /dev/file-input and /api/dev/relay-token return 404
 - [x] dev-phone.test.ts: dev:phone refuses without FERRY_DATA_CLASS=synthetic and outside the dev tier
+  - Review fix: it also refuses while any vendor is live or test, Caddy passes only the spike's paths to Next (sign-in and the app are 404 on the tunnel), and *.trycloudflare.com is an allowed dev origin only while dev:phone runs. N13's Oct 11 device test of the real product path must widen the Caddy path list deliberately.
 - [x] manifest.test.ts: start_url is /dev/mic?k=… only with FERRY_SPIKE_K in the dev tier, and /home otherwise
+  - Review fix: the shared /manifest.webmanifest loads signed out, so it is always /home and never carries k. /dev/mic links its own manifest at /api/dev/manifest?k=…, which 404s like the other dev routes and starts at /dev/mic?k=….
 - [ ] Gate A: Ryan's run fills the device matrix. Pass bar: 5 minutes continuous in at least one iPhone mode, and every lock, call or app switch shows as a visible gap, never silent loss. If installed mode fails, launch records in a Safari tab. The Android file-input row records whether a gallery copy was left. Both results feed D4.
 
 ### [x] N2a — Access model: contexts, roles, guards and staff:grant

@@ -9,8 +9,9 @@ const NO_STORE = SIGNED_IN_PREFIXES.map((prefix) => ({
 }));
 
 const nextConfig: NextConfig = {
-  // bun run dev:phone serves next dev to a phone through a cloudflared quick tunnel; only next dev reads this.
-  allowedDevOrigins: ["*.trycloudflare.com"],
+  // bun run dev:phone serves next dev to a phone through a cloudflared quick tunnel and sets FERRY_DEV_PHONE.
+  // Plain next dev keeps the default, so a page on some other trycloudflare host can't reach dev resources.
+  allowedDevOrigins: process.env.FERRY_DEV_PHONE === "1" ? ["*.trycloudflare.com"] : [],
   async headers() {
     return [
       ...NO_STORE,

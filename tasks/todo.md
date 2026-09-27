@@ -7,7 +7,7 @@ From the 2026-09-27 replan in `docs/sprint-tasks.md` (execution order). N0 (docs
 - [x] S18a — Installable web app shell: manifest, service worker, install prompt, offline page
 - [x] N2a — Access model: contexts, roles, guards and staff:grant
 
-- [x] N3b — Phone recorder, `dev:phone` tunnel and device matrix (code done; Gate A is Ryan's run)
+- [ ] N3b — Phone recorder, `dev:phone` tunnel and device matrix (code done, 2 criteria open: the fake-mic e2e and Gate A, both in the manual checks below)
 
 Then Wed Sep 30: N2b.
 

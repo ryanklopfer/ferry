@@ -4,14 +4,15 @@ import { CLOSE, encodeFrame, RelayMessage } from "@/core/capture/protocol";
 // Browser side of a capture: mic → AudioContext → PCM worklet → WebSocket to the relay. No MediaRecorder
 // (HealthScribe streaming takes only pcm, ogg-opus or flac) and nothing is kept once the relay has acked it.
 // Loss is measured against the wall clock, so a lock, call or app switch that stops the audio shows as a gap
-// with its cause instead of disappearing.
+// with its cause instead of disappearing. Frames that arrive while the mic track is muted or ended are silence
+// the browser renders in place of the mic, so they are not audio: they are left out and show as a gap.
 
 export const GAP_MS = 1_000;
 const TICK_MS = 250;
 const FLOWING_MS = 500;
 // Frames kept for resending after a reconnect: five minutes. Older ones are dropped and counted.
 const MAX_UNACKED = 3_000;
-const DISRUPTIONS = ["hidden", "pagehide", "context_suspended", "context_interrupted", "context_closed", "track_muted", "track_ended"];
+const DISRUPTIONS = ["hidden", "pagehide", "context_suspended", "context_interrupted", "context_closed", "track_muted", "track_ended", "processor_error"];
 
 export type RecorderState = "idle" | "starting" | "recording" | "stopping" | "stopped" | "failed";
 export type WakeLockStatus = "none" | "held" | "released" | "unsupported" | "failed";
@@ -69,9 +70,9 @@ export function createRecorder({ captureId, grant, onChange, workletUrl = "/work
   let stream: MediaStream | null = null;
   let source: MediaStreamAudioSourceNode | null = null;
   let ws: WebSocket | null = null;
+  let connecting = false;
   let wakeLock: WakeLockSentinel | null = null;
   let seq = 0;
-  let audioStartedAt: number | null = null;
   let lostMs = 0;
   let ticker: ReturnType<typeof setInterval> | undefined;
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
@@ -93,14 +94,14 @@ export function createRecorder({ captureId, grant, onChange, workletUrl = "/work
 
   const causeOf = (from: number, to: number) => s.events.find((e) => DISRUPTIONS.includes(e.kind) && e.at >= from - GAP_MS && e.at <= to)?.kind ?? "unexplained";
 
-  // Audio missing = wall time since the first frame minus audio produced minus gaps already recorded. It is
-  // recorded only once frames flow again (or at stop), so a burst of frames queued while the page was frozen
-  // counts as audio, not as a gap.
+  // Audio missing = wall time since recording started minus audio produced minus gaps already recorded, so audio
+  // that never arrives at all is a gap too. It is recorded only once frames flow again (or at stop), so a burst of
+  // frames queued while the page was frozen counts as audio, not as a gap.
   function checkLoss(stopping = false) {
-    if (audioStartedAt === null || s.lastFrameAt === null) return;
+    if (s.startedAt === null) return;
     const t = now();
-    if (t - s.lastFrameAt >= FLOWING_MS && !stopping) return;
-    const missing = t - audioStartedAt - s.producedMs - lostMs;
+    if (t - (s.lastFrameAt ?? s.startedAt) >= FLOWING_MS && !stopping) return;
+    const missing = t - s.startedAt - s.producedMs - lostMs;
     if (missing < GAP_MS) return;
     const from = t - missing;
     s.gaps.push({ from, to: from + missing, durationMs: Math.round(missing), cause: causeOf(from, from + missing) });
@@ -109,9 +110,8 @@ export function createRecorder({ captureId, grant, onChange, workletUrl = "/work
   }
 
   function onFrame(buffer: ArrayBuffer) {
-    if (!live()) return;
+    if (!live() || !s.micLive) return;
     const t = now();
-    if (audioStartedAt === null) audioStartedAt = t - FRAME_MS;
     s.producedMs += FRAME_MS;
     s.lastFrameAt = t;
     const frame = { seq, bytes: encodeFrame({ captureId, seq, msOffset: seq * FRAME_MS }, new Uint8Array(buffer)) };
@@ -153,13 +153,16 @@ export function createRecorder({ captureId, grant, onChange, workletUrl = "/work
 
   // Each connection needs a fresh single-use token; unacked frames are resent with their original seq.
   async function connect() {
-    if (!live() || ws) return;
+    if (!live() || ws || connecting) return;
+    connecting = true;
     let g: RelayGrant;
     try {
       g = await grant();
     } catch {
       event("token_failed");
       return scheduleReconnect();
+    } finally {
+      connecting = false;
     }
     if (!live() || ws) return;
     const url = new URL(g.url, location.href);
@@ -275,6 +278,7 @@ export function createRecorder({ captureId, grant, onChange, workletUrl = "/work
       await context.audioWorklet.addModule(workletUrl);
       node = new AudioWorkletNode(context, "pcm", { numberOfInputs: 1, numberOfOutputs: 1, channelCount: 1, channelCountMode: "explicit" });
       node.port.onmessage = (e: MessageEvent<ArrayBuffer>) => onFrame(e.data);
+      listen(node, "processorerror", () => event("processor_error"));
       node.connect(context.destination);
       attachMic(mic);
       // Safari reports "interrupted" (a call, Siri, another app taking the mic), which the DOM types don't list.
@@ -330,7 +334,7 @@ export function createRecorder({ captureId, grant, onChange, workletUrl = "/work
     teardown();
     emit();
     // Give the relay up to 5 seconds to ack what is still in flight, then say why the capture ended.
-    for (const end = now() + 5_000; unacked.length && now() < end; ) {
+    for (const end = now() + 5_000; live() && unacked.length && now() < end; ) {
       if (!ws) void connect();
       await sleep(50);
     }
@@ -340,6 +344,8 @@ export function createRecorder({ captureId, grant, onChange, workletUrl = "/work
       socket.send(JSON.stringify({ type: "end", reason: "stopped" }));
       await Promise.race([closed, sleep(2_000)]);
     }
+    // fail() may have ended the capture while it drained (superseded); that outcome stands.
+    if (!live()) return;
     s.state = "stopped";
     s.stoppedAt = now();
     ws?.close();

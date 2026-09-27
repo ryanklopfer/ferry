@@ -1,7 +1,8 @@
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
-import { assertDevPhone, caddyfile, missingTools, qr, spikeUrl, tunnelUrlIn } from "./phone-setup";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { assertDevPhone, caddyfile, missingTools, qr, SPIKE_PATHS, spikeUrl, tunnelUrlIn } from "./phone-setup";
 
 const DEV = { FERRY_DEPLOY_TIER: "dev", DATABASE_URL: "postgres://localhost:5432/ferry_dev" };
 const MAIN = path.join(__dirname, "phone.ts");
@@ -30,8 +31,21 @@ describe("dev:phone refuses", () => {
     expect(() => assertDevPhone({ ...DEV, FERRY_DATA_CLASS: "synthetic", DATABASE_URL: "postgres://db.example.test/ferry" })).toThrow(/_dev or _test/);
   });
 
-  it("allows the dev tier with synthetic data", () => {
+  it.each(["live", "test"])("with any vendor in %s mode, naming the variable", (mode) => {
+    expect(() => assertDevPhone({ ...DEV, FERRY_DATA_CLASS: "synthetic", FERRY_EMAIL_MODE: mode })).toThrow(/FERRY_EMAIL_MODE/);
+    expect(() => assertDevPhone({ ...DEV, FERRY_DATA_CLASS: "synthetic", FERRY_EPHEMERAL_KEYS_MODE: mode })).toThrow(/FERRY_EPHEMERAL_KEYS_MODE/);
+  });
+
+  it("allows the dev tier with synthetic data and every vendor on fixture, local or off", () => {
     expect(() => assertDevPhone({ ...DEV, FERRY_DATA_CLASS: "synthetic" })).not.toThrow();
+    expect(() => assertDevPhone({ ...DEV, FERRY_DATA_CLASS: "synthetic", FERRY_KEYS_MODE: "local", FERRY_STORAGE_MODE: "local", FERRY_SMS_MODE: "off" })).not.toThrow();
+  });
+
+  it("exits non-zero before starting anything when a vendor is live", () => {
+    const r = run({ FERRY_DEPLOY_TIER: "dev", FERRY_DATA_CLASS: "synthetic", DATABASE_URL: "postgres://localhost:5432/ferry_dev", FERRY_EMAIL_MODE: "live" });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain("FERRY_EMAIL_MODE");
+    expect(r.stdout).not.toContain("build:sw");
   });
 
   it("exits non-zero before starting anything when the data class is not synthetic", () => {
@@ -57,13 +71,22 @@ describe("dev:phone setup", () => {
     expect(missingTools(() => true)).toEqual([]);
   });
 
-  it("routes /ws/* to the relay and everything else to next dev, on loopback only", () => {
+  it("routes /ws/* to the relay, only the spike's paths to next dev and 404s the rest, on loopback only", () => {
     const c = caddyfile({ caddy: 3080, next: 3000, relay: 3001 });
     expect(c).toContain("http://:3080");
     expect(c).toContain("bind 127.0.0.1");
     expect(c).toMatch(/handle \/ws\/\* \{\s+reverse_proxy 127\.0\.0\.1:3001/);
-    expect(c).toMatch(/handle \{\s+reverse_proxy 127\.0\.0\.1:3000/);
+    expect(c).toContain(`@spike path ${SPIKE_PATHS.join(" ")}`);
+    expect(c).toMatch(/handle @spike \{\s+reverse_proxy 127\.0\.0\.1:3000/);
+    expect(c).toMatch(/handle \{\s+respond 404\s+\}/);
+    expect(c.match(/reverse_proxy 127\.0\.0\.1:3000/g)).toHaveLength(1);
     expect(c).toContain("admin off");
+  });
+
+  it("keeps sign-in, the API and the app off the tunnel", () => {
+    for (const p of SPIKE_PATHS) expect(p).not.toMatch(/^\/(api\/(auth|v1)|sign-in|app|c|i|home|account)\b/);
+    expect(SPIKE_PATHS).not.toContain("/api/*");
+    expect(SPIKE_PATHS).not.toContain("/*");
   });
 
   it("finds the quick tunnel's URL in cloudflared's output", () => {
@@ -84,5 +107,25 @@ describe("dev:phone setup", () => {
     expect(lines[0]).toBe(" ".repeat(width));
     // Rows 0 and 1 of the top-left finder pattern, just inside the quiet zone.
     expect(lines[2].slice(4, 11)).toBe("█▀▀▀▀▀█");
+  });
+});
+
+describe("next.config.ts", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it("admits *.trycloudflare.com as a dev origin only while dev:phone runs", async () => {
+    vi.resetModules();
+    vi.stubEnv("FERRY_DEV_PHONE", undefined);
+    expect((await import("../../next.config")).default.allowedDevOrigins).toEqual([]);
+    vi.resetModules();
+    vi.stubEnv("FERRY_DEV_PHONE", "1");
+    expect((await import("../../next.config")).default.allowedDevOrigins).toEqual(["*.trycloudflare.com"]);
+  });
+
+  it("is what phone.ts sets for its children", () => {
+    expect(fs.readFileSync(MAIN, "utf8")).toMatch(/FERRY_DEV_PHONE: "1"/);
   });
 });

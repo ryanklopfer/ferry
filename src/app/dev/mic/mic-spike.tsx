@@ -23,7 +23,7 @@ export function MicSpike({ k }: { k: string }) {
     const id = newCaptureId();
     const r = createRecorder({
       captureId: id,
-      onChange: setSnapshot,
+      onChange: (next) => recorder.current === r && setSnapshot(next),
       grant: async () => {
         const res = await fetch("/api/dev/relay-token", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ k, captureId: id }) });
         if (!res.ok) throw new Error(`relay token ${res.status}`);
@@ -39,7 +39,8 @@ export function MicSpike({ k }: { k: string }) {
   const state = s?.state ?? "idle";
   const recording = state === "recording";
   const wallMs = s?.startedAt ? (s.stoppedAt ?? now) - s.startedAt : 0;
-  const stalledMs = recording && s?.lastFrameAt && now > s.lastFrameAt ? now - s.lastFrameAt : 0;
+  const lastAudioAt = s?.lastFrameAt ?? s?.startedAt;
+  const stalledMs = recording && lastAudioAt && now > lastAudioAt ? now - lastAudioAt : 0;
 
   return (
     <div className="mx-auto max-w-md space-y-4">

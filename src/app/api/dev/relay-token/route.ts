@@ -23,3 +23,6 @@ export async function POST(request: Request) {
   const token = issueRelayToken({ captureId: captureId.data, subject: `devRun:${devRunId(body.k)}` }, relaySecret(), Date.now());
   return Response.json({ token, url: relayUrlFor(captureId.data) }, { headers: { "cache-control": "no-store" } });
 }
+
+// Every other method answers 404 too, so outside the dev tier nothing shows the route exists.
+export { notFound as GET, notFound as PUT, notFound as PATCH, notFound as DELETE, notFound as OPTIONS };

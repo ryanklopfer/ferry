@@ -25,10 +25,8 @@ export function spikeKeyValid(given: unknown, env: Env = process.env): given is 
 // Relay tokens carry devRun:<id>, so a capture opened in one dev:phone run can't be joined from another.
 export const devRunId = (k: string) => digest(k).toString("base64url").slice(0, 16);
 
-export function manifestStartUrl(env: Env = process.env): string {
-  const k = spikeKey(env);
-  return k ? `/dev/mic?k=${encodeURIComponent(k)}` : "/home";
-}
+export const spikeManifestStartUrl = (k: string) => `/dev/mic?k=${encodeURIComponent(k)}`;
+export const spikeManifestUrl = (k: string) => `/api/dev/manifest?k=${encodeURIComponent(k)}`;
 
 // Behind dev:phone, Caddy serves the relay on the page's own origin; the e2e suite runs it on its own port.
 export function relayUrlFor(captureId: string, env: Env = process.env): string {

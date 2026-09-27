@@ -5,7 +5,7 @@ Ryan fills this in on the evening of Tue Sep 29. The results decide D4 on Sep 30
 ## Before you start (one time)
 
 1. Install the two tools (founder approval F-N3b): `brew install caddy cloudflared`.
-2. In the repo: `bun run dev:phone`. It refuses to start unless `FERRY_DATA_CLASS=synthetic` and the dev tier. It prints a QR code and a link to `/dev/mic?k=…`. The key changes every run, and the pages answer 404 without it.
+2. In the repo: `bun run dev:phone`. It refuses to start unless `FERRY_DATA_CLASS=synthetic`, the dev tier, and every vendor on fixture, local or off. Only the spike's pages go through the tunnel; sign-in and the app answer 404 there. It prints a QR code and a link to `/dev/mic?k=…`. The key changes every run, and the pages answer 404 without it.
 3. Scan the QR code with the phone's camera.
 
 ## What each column means
