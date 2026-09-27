@@ -13,7 +13,7 @@ describe("postgres round trip", () => {
   afterAll(() => pool.end());
 
   it("applies column defaults on insert", async () => {
-    const ctx = await createTestUser("defaults@example.test");
+    const ctx = await createTestUser("clinician", "defaults@example.test");
     const plan = await plansRepo.create(ctx, PLAN);
     expect(plan.id).toMatch(/^pln_/);
     expect(plan.timelyFilingDays).toBe(180);
@@ -26,14 +26,14 @@ describe("postgres round trip", () => {
   });
 
   it("stores diagnosis codes as JSON and reads them back as an array", async () => {
-    const ctx = await createTestUser("json@example.test");
+    const ctx = await createTestUser("clinician", "json@example.test");
     const plan = await plansRepo.create(ctx, PLAN);
     const claim = await claimsRepo.create(ctx, { planId: plan.id, diagnosisCodes: ["F41.1", "F33.1"], totalCharged: 22500 }, []);
     expect((await claimsRepo.get(ctx, claim.id))?.diagnosisCodes).toEqual(["F41.1", "F33.1"]);
   });
 
   it("keeps a date of service as the calendar day it was given", async () => {
-    const ctx = await createTestUser("dates@example.test");
+    const ctx = await createTestUser("clinician", "dates@example.test");
     const plan = await plansRepo.create(ctx, { ...PLAN, subscriberDob: "1989-03-14" });
     expect(plan.subscriberDob).toBe("1989-03-14");
     const claim = await claimsRepo.create(ctx, { planId: plan.id, serviceDateStart: "2026-12-31" }, []);
@@ -41,7 +41,7 @@ describe("postgres round trip", () => {
   });
 
   it("is emptied by resetDb, users included", async () => {
-    const ctx = await createTestUser("reset@example.test");
+    const ctx = await createTestUser("clinician", "reset@example.test");
     await plansRepo.create(ctx, PLAN);
     await resetDb();
     const { rows } = await pool.query("select (select count(*) from plans)::int + (select count(*) from users)::int as n");

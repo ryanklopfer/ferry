@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { notFound, redirect } from "next/navigation";
-import { requireCtx } from "@/server/auth/ctx";
+import { requireClinician } from "@/server/auth/ctx";
 import { NotOwnedError } from "@/server/errors";
 import * as claims from "@/server/services/claims";
 import * as followUps from "@/server/services/follow-ups";
@@ -30,7 +30,7 @@ async function mine<T>(work: Promise<T>): Promise<T> {
 }
 
 export async function createPlan(fd: FormData) {
-  const ctx = await requireCtx();
+  const ctx = await requireClinician();
   const plan = await plans.createPlan(ctx, {
     insurerName: str(fd, "insurerName") ?? "",
     planName: str(fd, "planName"),
@@ -56,7 +56,7 @@ export async function createPlan(fd: FormData) {
 }
 
 export async function createClaimFromUpload(fd: FormData) {
-  const ctx = await requireCtx();
+  const ctx = await requireClinician();
   const planId = str(fd, "planId");
   if (!planId) throw new Error("Choose an insurance plan first");
   const upload = fd.get("superbill");
@@ -66,7 +66,7 @@ export async function createClaimFromUpload(fd: FormData) {
 }
 
 export async function saveClaim(fd: FormData) {
-  const ctx = await requireCtx();
+  const ctx = await requireClinician();
   const id = str(fd, "id") ?? "";
   const [dates, cpts, mods, descs, units, charges, pointers, pos] = ["li_date", "li_cpt", "li_mod", "li_desc", "li_units", "li_charge", "li_dx", "li_pos"].map((k) => all(fd, k));
   const renderingName = str(fd, "renderingProviderName");
@@ -105,7 +105,7 @@ export async function saveClaim(fd: FormData) {
 }
 
 export async function markSubmitted(fd: FormData) {
-  const ctx = await requireCtx();
+  const ctx = await requireClinician();
   const id = str(fd, "id") ?? "";
   await mine(claims.markSubmitted(ctx, id, { submittedAt: noon(fd, "submittedAt"), channel: str(fd, "channel") ?? "portal", confirmationNumber: str(fd, "confirmationNumber"), note: str(fd, "note") }));
   revalidatePath(`/claims/${id}`);
@@ -113,7 +113,7 @@ export async function markSubmitted(fd: FormData) {
 }
 
 export async function recordOutcome(fd: FormData) {
-  const ctx = await requireCtx();
+  const ctx = await requireClinician();
   const id = str(fd, "id") ?? "";
   await mine(
     claims.recordOutcome(ctx, id, {
@@ -129,14 +129,14 @@ export async function recordOutcome(fd: FormData) {
 }
 
 export async function markAppealed(fd: FormData) {
-  const ctx = await requireCtx();
+  const ctx = await requireClinician();
   const id = str(fd, "id") ?? "";
   await mine(claims.markAppealed(ctx, id, { appealedAt: noon(fd, "appealedAt") }));
   revalidatePath(`/claims/${id}`);
 }
 
 export async function closeClaim(fd: FormData) {
-  const ctx = await requireCtx();
+  const ctx = await requireClinician();
   const id = str(fd, "id") ?? "";
   await mine(claims.closeClaim(ctx, id, { note: str(fd, "note") }));
   revalidatePath(`/claims/${id}`);
@@ -144,13 +144,13 @@ export async function closeClaim(fd: FormData) {
 }
 
 export async function generateFollowUpDraft(fd: FormData) {
-  const ctx = await requireCtx();
+  const ctx = await requireClinician();
   const claimId = await mine(followUps.generateDraft(ctx, str(fd, "id") ?? ""));
   revalidatePath(`/claims/${claimId}`);
 }
 
 export async function updateFollowUp(fd: FormData) {
-  const ctx = await requireCtx();
+  const ctx = await requireClinician();
   const action = str(fd, "action") as followUps.FollowUpAction["action"];
   const claimId = await mine(followUps.updateFollowUp(ctx, str(fd, "id") ?? "", { action, subject: str(fd, "subject"), body: str(fd, "body") }));
   revalidatePath(`/claims/${claimId}`);
@@ -158,7 +158,7 @@ export async function updateFollowUp(fd: FormData) {
 }
 
 export async function deleteClaim(fd: FormData) {
-  const ctx = await requireCtx();
+  const ctx = await requireClinician();
   await claims.deleteClaim(ctx, str(fd, "id") ?? "");
   revalidatePath("/");
   redirect("/");

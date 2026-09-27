@@ -16,27 +16,32 @@ function find(dir: string, name: string): string[] {
 
 const read = (rel: string) => fs.readFileSync(path.join(APP, rel), "utf8");
 
+// N2b makes these per-area: /app requireClinician, /c requireClient, /ops requireStaff.
+const PAGE_GUARD = /\brequire(Clinician|Client|Staff|SignedIn)\(/;
+const ROUTE_GUARD = /\b(getClinician|getSessionUser|require(Clinician|Client|Staff|SignedIn))\(/;
+const ACTION_GUARD = /^ {2}(const \w+ = )?await require(Clinician|Client|Staff|SignedIn)\(\);$/gm;
+
 // A new page, route or action that forgets the session check fails here, not in production.
 describe("every entry point verifies the session", () => {
-  it("pages call requireCtx", () => {
-    const unguarded = find(APP, "page.tsx").filter((p) => !PUBLIC_PAGES.has(p) && !read(p).includes("requireCtx("));
+  it("pages call a require guard", () => {
+    const unguarded = find(APP, "page.tsx").filter((p) => !PUBLIC_PAGES.has(p) && !PAGE_GUARD.test(read(p)));
     expect(unguarded).toEqual([]);
   });
 
-  it("route handlers call getCtx or requireCtx", () => {
-    const unguarded = find(APP, "route.ts").filter((p) => !PUBLIC_ROUTES.has(p) && !/(getCtx|requireCtx)\(/.test(read(p)));
+  it("route handlers check the session", () => {
+    const unguarded = find(APP, "route.ts").filter((p) => !PUBLIC_ROUTES.has(p) && !ROUTE_GUARD.test(read(p)));
     expect(unguarded).toEqual([]);
   });
 
-  it("every server action calls requireCtx", () => {
+  it("every server action starts with a require guard", () => {
     const files = [...find(APP, "actions.ts")].filter((p) => read(p).startsWith('"use server"'));
     expect(files.length).toBeGreaterThan(0);
     for (const file of files) {
       const source = read(file);
       const actions = source.match(/^export async function \w+/gm) ?? [];
-      const checks = source.match(/^ {2}(const ctx = )?await requireCtx\(\);$/gm) ?? [];
+      const checks = source.match(ACTION_GUARD) ?? [];
       expect(actions.length, `${file} exports no actions`).toBeGreaterThan(0);
-      expect(checks.length, `${file}: every action must start with await requireCtx()`).toBe(actions.length);
+      expect(checks.length, `${file}: every action must start with await requireClinician() (or another require guard)`).toBe(actions.length);
     }
   });
 });

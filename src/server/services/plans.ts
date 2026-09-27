@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Ctx } from "@/server/auth/ctx";
+import type { ClinicianOnlyCtx } from "@/server/auth/ctx";
 import { plansRepo } from "@/server/db/repos/plans";
 import type { Plan } from "./types";
 
@@ -29,11 +29,11 @@ export const PlanInputSchema = z.object({
 });
 export type PlanInput = z.input<typeof PlanInputSchema>;
 
-export function listPlans(ctx: Ctx): Promise<Plan[]> {
+export function listPlans(ctx: ClinicianOnlyCtx): Promise<Plan[]> {
   return plansRepo.list(ctx);
 }
 
-export function createPlan(ctx: Ctx, input: PlanInput): Promise<Plan> {
+export function createPlan(ctx: ClinicianOnlyCtx, input: PlanInput): Promise<Plan> {
   const v = PlanInputSchema.parse(input);
   return plansRepo.create(ctx, { ...v, patientName: v.patientName ?? v.subscriberName, patientDob: v.patientDob ?? v.subscriberDob });
 }

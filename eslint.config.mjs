@@ -28,6 +28,23 @@ const boundaries = [
   },
 ];
 
+const SRC = path.join(import.meta.dirname, "src");
+
+// "@/server/x" for both alias and relative specifiers, so one pattern covers either spelling.
+const toAlias = (filename, source) => (source.startsWith(".") ? `@/${path.relative(SRC, path.resolve(path.dirname(filename), source)).split(path.sep).join("/")}` : source);
+
+// Walks every way a module can be pulled in: import, re-export, dynamic import, require.
+const importVisitors = (check) => ({
+  ImportDeclaration: (n) => check(n, n.source.value),
+  ExportNamedDeclaration: (n) => n.source && check(n, n.source.value),
+  ExportAllDeclaration: (n) => check(n, n.source.value),
+  ImportExpression: (n) => check(n, n.source.type === "Literal" ? n.source.value : null),
+  CallExpression: (n) => n.callee.type === "Identifier" && n.callee.name === "require" && check(n, n.arguments[0]?.type === "Literal" ? n.arguments[0].value : null),
+});
+
+const SYSTEM_CTX_ALLOWED = /^src\/(server\/(jobs|relay)\/|app\/api\/webhooks\/|server\/services\/ops\.ts$|server\/auth\/system-ctx\.ts$)/;
+const INVITE_CTX_ALLOWED = /^src\/server\/services\/invites\.ts$/;
+
 // Rules that apply across layers, so they live in their own plugin instead of fighting over no-restricted-imports.
 const ferry = {
   rules: {
@@ -49,10 +66,9 @@ const ferry = {
     "no-capture-persistence": {
       meta: { type: "problem", schema: [], messages: { persist: "Capture code never writes audio or text to disk, storage or the database: no fs, @/server/storage, @/server/db or Bun file APIs. Persist only through @/server/services with a SystemCtx." } },
       create(context) {
-        const dir = path.dirname(context.filename);
         const banned = (source) => {
           if (typeof source !== "string") return false;
-          const target = source.startsWith(".") ? `@/${path.relative(path.join(import.meta.dirname, "src"), path.resolve(dir, source)).split(path.sep).join("/")}` : source;
+          const target = toAlias(context.filename, source);
           return /^(node:)?fs(\/|$)|^bun:sqlite$|^@\/server\/(storage|db)(\/|$)/.test(target);
         };
         const check = (node, source) => banned(source) && context.report({ node, messageId: "persist" });
@@ -64,6 +80,36 @@ const ferry = {
           CallExpression: (n) => n.callee.type === "Identifier" && n.callee.name === "require" && (n.arguments[0]?.type === "Literal" ? check(n, n.arguments[0].value) : context.report({ node: n, messageId: "persist" })),
           // Bun.write and Bun.file reach the disk without an import; the relay has no other use for Bun.
           Identifier: (n) => n.name === "Bun" && context.report({ node: n, messageId: "persist" }),
+        };
+      },
+    },
+    "ctx-constructors": {
+      meta: {
+        type: "problem",
+        schema: [],
+        messages: {
+          system: "systemCtx() is usable only in src/server/jobs, src/server/relay, src/app/api/webhooks and src/server/services/ops.ts.",
+          invite: "inviteCtx() is usable only inside src/server/services/invites.ts.",
+        },
+      },
+      create(context) {
+        const file = path.relative(import.meta.dirname, context.filename).split(path.sep).join("/");
+        const systemOk = SYSTEM_CTX_ALLOWED.test(file);
+        const inviteOk = INVITE_CTX_ALLOWED.test(file);
+        const seen = new Set();
+        const report = (node, messageId) => {
+          const key = `${messageId}:${node.range[0]}`;
+          if (seen.has(key)) return;
+          seen.add(key);
+          context.report({ node, messageId });
+        };
+        return {
+          ...importVisitors((node, source) => !systemOk && typeof source === "string" && toAlias(context.filename, source) === "@/server/auth/system-ctx" && report(node, "system")),
+          // The names themselves are reserved, so a namespace import, a re-export or an alias can't slip past.
+          Identifier: (n) => {
+            if (n.name === "systemCtx" && !systemOk) report(n, "system");
+            if (n.name === "inviteCtx" && !inviteOk) report(n, "invite");
+          },
         };
       },
     },
@@ -83,6 +129,8 @@ const crossCutting = [
   { plugins: { ferry } },
   { files: ["**/*.{ts,tsx,mts,js,mjs}"], ignores: ["src/lib/ai.ts", "src/server/integrations/llm/**"], rules: { "ferry/no-direct-anthropic": "error" } },
   { files: ["src/**"], ignores: ["src/app/(public)/**"], rules: { "ferry/no-phi-cache": "error" } },
+  // Contexts that act for a tenant without a signed-in clinician are built only where the plan allows (architecture §6).
+  { files: ["src/**", "scripts/**"], ignores: ["**/*.test.ts", "**/*.test.tsx"], rules: { "ferry/ctx-constructors": "error" } },
   // Audio and transcript text must never reach disk from the relay or capture core (tests spy on fs and are exempt).
   { files: ["src/server/relay/**", "src/core/capture/**"], ignores: ["**/*.test.ts"], rules: { "ferry/no-capture-persistence": "error" } },
 ];

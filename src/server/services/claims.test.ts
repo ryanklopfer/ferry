@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import type { Ctx } from "@/server/auth/ctx";
+import type { ClinicianCtx } from "@/server/auth/ctx";
 import { pool } from "@/server/db";
 import { NotOwnedError } from "@/server/errors";
 import { createTestUser, resetDb } from "@/server/db/testing";
@@ -27,8 +27,8 @@ const input = (over: Partial<ClaimInput> = {}): ClaimInput => ({
 });
 
 describe("claims service", () => {
-  let a: Ctx;
-  let b: Ctx;
+  let a: ClinicianCtx;
+  let b: ClinicianCtx;
   let planId: string;
 
   beforeAll(() => {
@@ -36,8 +36,8 @@ describe("claims service", () => {
   });
   beforeEach(async () => {
     await resetDb();
-    a = await createTestUser("a@example.test");
-    b = await createTestUser("b@example.test");
+    a = await createTestUser("clinician", "a@example.test");
+    b = await createTestUser("clinician", "b@example.test");
     planId = (await createPlan(a, { insurerName: "Aetna", memberId: "W268417359", subscriberName: "Devon Price" })).id;
   });
   afterAll(async () => {

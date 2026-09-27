@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
-import { getCtx } from "@/server/auth/ctx";
+import { getSessionUser } from "@/server/auth/ctx";
 import { SignInForm } from "./sign-in-form";
 
 export default async function SignInPage({ searchParams }: PageProps<"/sign-in">) {
-  if (await getCtx()) redirect("/");
+  if (await getSessionUser()) redirect("/");
   const { error } = await searchParams;
   return (
     <div className="mx-auto max-w-sm space-y-6 pt-10">

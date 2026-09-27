@@ -1,7 +1,7 @@
 import { format } from "date-fns";
 import { headers } from "next/headers";
 import { auth } from "@/server/auth";
-import { requireCtx } from "@/server/auth/ctx";
+import { requireSignedIn } from "@/server/auth/ctx";
 import { AddPasskey, RemovePasskey, SignOut } from "./account-actions";
 import { endSession } from "./actions";
 
@@ -13,7 +13,7 @@ function device(userAgent: string | null | undefined): string {
 }
 
 export default async function AccountPage() {
-  await requireCtx();
+  await requireSignedIn();
   const h = await headers();
   const [current, sessions, passkeys] = await Promise.all([
     auth.api.getSession({ headers: h }),

@@ -1,5 +1,7 @@
 import { randomBytes } from "node:crypto";
-import type { Ctx } from "@/server/auth/ctx";
+import { auth } from "@/server/auth";
+import type { ClinicianCtx, Role, SelfCtx, StaffCtx } from "@/server/auth/ctx";
+import { sentInThisProcess } from "@/server/integrations/email";
 import { db, pool } from "./index";
 import { users } from "./schema";
 
@@ -12,8 +14,22 @@ export async function resetDb(): Promise<void> {
   await pool.query(`TRUNCATE ${list} RESTART IDENTITY CASCADE`);
 }
 
-export async function createTestUser(email: string): Promise<Ctx> {
+type TestUser = { pending: { userId: string }; clinician: ClinicianCtx; client: SelfCtx; staff: StaffCtx };
+
+export async function createTestUser<R extends Role>(role: R, email = `${role}-${randomBytes(4).toString("hex")}@example.test`): Promise<TestUser[R]> {
   const id = `usr_test_${randomBytes(8).toString("hex")}`;
-  await db.insert(users).values({ id, name: email.split("@")[0], email, emailVerified: true, role: "patient" });
-  return { userId: id, role: "patient" };
+  await db.insert(users).values({ id, name: email.split("@")[0], email, emailVerified: true, role });
+  const byRole: TestUser = { pending: { userId: id }, clinician: { scope: "clinician", userId: id }, client: { scope: "self", userId: id }, staff: { scope: "staff", userId: id } };
+  return byRole[role];
+}
+
+// Signs in through the real magic-link flow (fixture email) and returns request headers carrying the session cookie.
+export async function signedInHeaders(email: string): Promise<Headers> {
+  sentInThisProcess.length = 0;
+  await auth.api.signInMagicLink({ body: { email, callbackURL: "/" }, headers: new Headers() });
+  const link = new URL(sentInThisProcess.at(-1)!.text.match(/https?:\/\/\S+/)![0]);
+  const query = Object.fromEntries(link.searchParams) as { token: string; callbackURL?: string };
+  const response = await auth.api.magicLinkVerify({ query, headers: new Headers(), asResponse: true });
+  const cookie = response.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
+  return new Headers({ cookie });
 }

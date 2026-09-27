@@ -82,6 +82,31 @@ describe("import boundaries", () => {
     expect(await flagged("src/server/relay/relay.test.ts", 'import fs from "node:fs";\nexport default fs;\n', rule)).toEqual([]);
   });
 
+  it("lets only jobs, the relay, webhooks and services/ops.ts import systemCtx", async () => {
+    const rule = "ferry/ctx-constructors";
+    const code = 'import { systemCtx } from "@/server/auth/system-ctx";\nexport default systemCtx;\n';
+    for (const file of ["src/app/app/clients/page.tsx", "src/app/app/x/actions.ts", "src/app/api/v1/claims/route.ts", "src/server/services/claims.ts", "src/server/db/repos/claims.ts", "src/ui/x.tsx"]) {
+      expect(await flagged(file, code, rule), file).not.toHaveLength(0);
+    }
+    expect(await flagged("src/app/app/x/page.tsx", 'import * as s from "../../../server/auth/system-ctx";\nexport default s;\n', rule)).not.toHaveLength(0);
+    expect(await flagged("src/app/app/x/page.tsx", 'export const load = () => import("@/server/auth/system-ctx");\n', rule)).not.toHaveLength(0);
+    expect(await flagged("src/app/app/x/page.tsx", 'import { systemCtx as s } from "@/server/somewhere-else";\nexport default s;\n', rule)).not.toHaveLength(0);
+    for (const file of ["src/server/jobs/tick.ts", "src/server/relay/server.ts", "src/app/api/webhooks/stripe/route.ts", "src/server/services/ops.ts"]) {
+      expect(await flagged(file, code, rule), file).toEqual([]);
+    }
+  });
+
+  it("lets only src/server/services/invites.ts use inviteCtx", async () => {
+    const rule = "ferry/ctx-constructors";
+    const code = 'import { inviteCtx } from "@/server/services/invites";\nexport default inviteCtx;\n';
+    for (const file of ["src/app/i/[token]/page.tsx", "src/server/services/clients.ts", "src/server/services/ops.ts", "src/server/jobs/x.ts", "src/server/db/repos/links.ts"]) {
+      expect(await flagged(file, code, rule), file).not.toHaveLength(0);
+    }
+    expect(await flagged("src/server/services/clients.ts", 'import * as invites from "./invites";\nexport default invites.inviteCtx;\n', rule)).not.toHaveLength(0);
+    expect(await flagged("src/server/services/clients.ts", 'import { acceptInvite } from "./invites";\nexport default acceptInvite;\n', rule)).toEqual([]);
+    expect(await flagged("src/server/services/invites.ts", 'export function inviteCtx() {\n  return null;\n}\n', rule)).toEqual([]);
+  });
+
   it("bans 'use cache' and unstable_cache on PHI paths, but not on public pages", async () => {
     const directive = '"use cache";\nexport default async function Page() {\n  return null;\n}\n';
     const inner = 'export async function load() {\n  "use cache";\n  return 1;\n}\n';

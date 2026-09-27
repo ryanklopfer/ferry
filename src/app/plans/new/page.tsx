@@ -1,9 +1,9 @@
 import { createPlan } from "@/app/actions";
 import { Field } from "@/components/ui";
-import { requireCtx } from "@/server/auth/ctx";
+import { requireClinician } from "@/server/auth/ctx";
 
 export default async function NewPlanPage() {
-  await requireCtx();
+  await requireClinician();
   return (
     <form action={createPlan} className="mx-auto max-w-2xl space-y-6">
       <h1 className="text-xl font-semibold">Add an insurance plan</h1>

@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { listPlans } from "@/server/services/plans";
 import { Empty } from "@/components/ui";
-import { requireCtx } from "@/server/auth/ctx";
+import { requireClinician } from "@/server/auth/ctx";
 
 export const dynamic = "force-dynamic";
 
 export default async function PlansPage() {
-  const ctx = await requireCtx();
+  const ctx = await requireClinician();
   const plans = await listPlans(ctx);
   return (
     <div className="space-y-4">

@@ -1,11 +1,11 @@
 import { draftFollowUp } from "@/lib/ai";
-import type { Ctx } from "@/server/auth/ctx";
+import type { ClinicianOnlyCtx } from "@/server/auth/ctx";
 import { NotOwnedError } from "@/server/errors";
 import { eventsRepo } from "@/server/db/repos/events";
 import { followUpsRepo } from "@/server/db/repos/follow-ups";
 import { getClaim } from "./claims";
 
-export async function generateDraft(ctx: Ctx, id: string): Promise<string> {
+export async function generateDraft(ctx: ClinicianOnlyCtx, id: string): Promise<string> {
   const followUp = await followUpsRepo.get(ctx, id);
   if (!followUp) throw new NotOwnedError("Follow-up");
   const view = await getClaim(ctx, followUp.claimId);
@@ -18,7 +18,7 @@ export async function generateDraft(ctx: Ctx, id: string): Promise<string> {
 
 export type FollowUpAction = { action: "sent" | "dismiss" | "save"; subject: string | null; body: string | null };
 
-export async function updateFollowUp(ctx: Ctx, id: string, input: FollowUpAction): Promise<string> {
+export async function updateFollowUp(ctx: ClinicianOnlyCtx, id: string, input: FollowUpAction): Promise<string> {
   const followUp = await followUpsRepo.get(ctx, id);
   if (!followUp) throw new NotOwnedError("Follow-up");
   if (input.action === "sent") {

@@ -1,8 +1,8 @@
-import { getCtx } from "@/server/auth/ctx";
+import { getClinician } from "@/server/auth/ctx";
 import { getSuperbill } from "@/server/services/documents";
 
 export async function GET(_req: Request, { params }: RouteContext<"/api/claims/[id]/superbill">) {
-  const ctx = await getCtx();
+  const ctx = await getClinician();
   if (!ctx) return new Response("Unauthorized", { status: 401 });
   const { id } = await params;
   const superbill = await getSuperbill(ctx, id);

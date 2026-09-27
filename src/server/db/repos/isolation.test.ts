@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import type { Ctx } from "@/server/auth/ctx";
+import type { ClinicianCtx } from "@/server/auth/ctx";
 import { pool } from "@/server/db";
 import { createTestUser, resetDb } from "@/server/db/testing";
 import { claimsRepo } from "./claims";
@@ -12,7 +12,7 @@ import { providersRepo } from "./providers";
 const PLAN = { insurerName: "Cigna", memberId: "U4827193 01", subscriberName: "Samira Haddad", patientName: "Samira Haddad" };
 const LINE = { serviceDate: "2026-08-04", cptCode: "90834", modifiers: [], description: "Psychotherapy, 45 min", units: 1, charge: 17500, diagnosisPointers: [1], placeOfService: "11" };
 
-async function seed(ctx: Ctx) {
+async function seed(ctx: ClinicianCtx) {
   const plan = await plansRepo.create(ctx, PLAN);
   const provider = await providersRepo.upsertByNpiOrName(ctx, { name: "Rachel Steinberg, LCSW", npi: "1999000023", taxId: "00-1000002", taxIdType: "EIN" });
   const claim = await claimsRepo.create(ctx, { planId: plan.id, billingProviderId: provider.id, billingProviderName: provider.name, diagnosisCodes: ["F33.1"], totalCharged: 17500 }, [LINE]);
@@ -23,14 +23,14 @@ async function seed(ctx: Ctx) {
 }
 
 describe("tenant isolation", () => {
-  let a: Ctx;
-  let b: Ctx;
+  let a: ClinicianCtx;
+  let b: ClinicianCtx;
   let mine: Awaited<ReturnType<typeof seed>>;
 
   beforeEach(async () => {
     await resetDb();
-    a = await createTestUser("a@example.test");
-    b = await createTestUser("b@example.test");
+    a = await createTestUser("clinician", "a@example.test");
+    b = await createTestUser("clinician", "b@example.test");
     mine = await seed(a);
   });
   afterAll(() => pool.end());

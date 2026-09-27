@@ -6,12 +6,12 @@ import { fromCents } from "@/lib/extraction";
 import { Field } from "@/components/ui";
 import { LineItemsEditor } from "@/components/line-items-editor";
 import { SuperbillPreview } from "@/components/superbill-preview";
-import { requireCtx } from "@/server/auth/ctx";
+import { requireClinician } from "@/server/auth/ctx";
 
 export const dynamic = "force-dynamic";
 
 export default async function EditClaimPage({ params }: PageProps<"/claims/[id]/edit">) {
-  const ctx = await requireCtx();
+  const ctx = await requireClinician();
   const { id } = await params;
   const view = await getClaim(ctx, id);
   if (!view) notFound();

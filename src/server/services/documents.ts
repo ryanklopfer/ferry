@@ -1,16 +1,16 @@
 import { buildPacket } from "@/lib/packet";
-import type { Ctx } from "@/server/auth/ctx";
+import type { ClinicianOnlyCtx } from "@/server/auth/ctx";
 import { eventsRepo } from "@/server/db/repos/events";
 import { getFile } from "@/server/storage/local";
 import { getClaim } from "./claims";
 
-export async function getSuperbill(ctx: Ctx, claimId: string): Promise<{ bytes: Buffer; mime: string } | null> {
+export async function getSuperbill(ctx: ClinicianOnlyCtx, claimId: string): Promise<{ bytes: Buffer; mime: string } | null> {
   const view = await getClaim(ctx, claimId);
   if (!view?.superbill) return null;
   return { bytes: await getFile(view.superbill.storageKey), mime: view.superbill.mime };
 }
 
-export async function buildClaimPacket(ctx: Ctx, claimId: string): Promise<{ pdf: Uint8Array; filename: string } | null> {
+export async function buildClaimPacket(ctx: ClinicianOnlyCtx, claimId: string): Promise<{ pdf: Uint8Array; filename: string } | null> {
   const view = await getClaim(ctx, claimId);
   if (!view) return null;
   const superbill = view.superbill ? { bytes: await getFile(view.superbill.storageKey), mime: view.superbill.mime } : undefined;

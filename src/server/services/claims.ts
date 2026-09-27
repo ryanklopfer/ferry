@@ -5,7 +5,7 @@ import { aiEnabled, extractSuperbill } from "@/lib/ai";
 import { toCents } from "@/lib/extraction";
 import { appealDeadline, computeFollowUps, staleFollowUps, timelyFilingDeadline } from "@/lib/followups";
 import { fromSec, toEngineClaim, toEngineFollowUp } from "@/lib/followups-adapter";
-import type { Ctx } from "@/server/auth/ctx";
+import type { ClinicianOnlyCtx } from "@/server/auth/ctx";
 import { newId } from "@/server/db/ids";
 import { type ClaimPatch, claimsRepo } from "@/server/db/repos/claims";
 import { documentsRepo } from "@/server/db/repos/documents";
@@ -60,13 +60,13 @@ export const ClaimInputSchema = z.object({
 });
 export type ClaimInput = z.input<typeof ClaimInputSchema>;
 
-async function owned(ctx: Ctx, id: string): Promise<Claim> {
+async function owned(ctx: ClinicianOnlyCtx, id: string): Promise<Claim> {
   const claim = await claimsRepo.get(ctx, id);
   if (!claim) throw new NotOwnedError("Claim");
   return claim;
 }
 
-async function syncFollowUps(ctx: Ctx, claimId: string): Promise<void> {
+async function syncFollowUps(ctx: ClinicianOnlyCtx, claimId: string): Promise<void> {
   const claim = await claimsRepo.get(ctx, claimId);
   if (!claim) return;
   const plan = await plansRepo.get(ctx, claim.planId);
@@ -80,7 +80,7 @@ async function syncFollowUps(ctx: Ctx, claimId: string): Promise<void> {
   await followUpsRepo.createMany(ctx, claimId, proposed.map((p) => ({ type: p.type, dueAt: fromSec(p.dueAt) })));
 }
 
-async function setStatus(ctx: Ctx, id: string, status: ClaimStatus, patch: ClaimPatch, note?: string | null): Promise<void> {
+async function setStatus(ctx: ClinicianOnlyCtx, id: string, status: ClaimStatus, patch: ClaimPatch, note?: string | null): Promise<void> {
   await owned(ctx, id);
   await claimsRepo.update(ctx, id, { ...patch, status });
   await eventsRepo.append(ctx, id, `status:${status}`, note ?? undefined);
@@ -88,12 +88,12 @@ async function setStatus(ctx: Ctx, id: string, status: ClaimStatus, patch: Claim
   logFor(id)("claim.status", { userId: ctx.userId, status });
 }
 
-export async function listClaims(ctx: Ctx) {
+export async function listClaims(ctx: ClinicianOnlyCtx) {
   const [rows, followUps] = await Promise.all([claimsRepo.list(ctx), followUpsRepo.open(ctx)]);
   return { rows, followUps };
 }
 
-export async function getClaim(ctx: Ctx, id: string): Promise<ClaimView | null> {
+export async function getClaim(ctx: ClinicianOnlyCtx, id: string): Promise<ClaimView | null> {
   const claim = await claimsRepo.get(ctx, id);
   if (!claim) return null;
   const plan = await plansRepo.get(ctx, claim.planId);
@@ -120,7 +120,7 @@ export async function getClaim(ctx: Ctx, id: string): Promise<ClaimView | null> 
 
 export type Upload = { name: string; type: string; bytes: Buffer };
 
-export async function createClaimFromUpload(ctx: Ctx, input: { planId: string; file?: Upload | null }): Promise<Claim> {
+export async function createClaimFromUpload(ctx: ClinicianOnlyCtx, input: { planId: string; file?: Upload | null }): Promise<Claim> {
   const plan = await plansRepo.get(ctx, input.planId);
   if (!plan) throw new NotOwnedError("Plan");
   const file = input.file && input.file.bytes.length > 0 ? input.file : null;
@@ -185,7 +185,7 @@ export async function createClaimFromUpload(ctx: Ctx, input: { planId: string; f
   return claim;
 }
 
-export async function saveClaim(ctx: Ctx, id: string, input: ClaimInput): Promise<void> {
+export async function saveClaim(ctx: ClinicianOnlyCtx, id: string, input: ClaimInput): Promise<void> {
   await owned(ctx, id);
   const v = ClaimInputSchema.parse(input);
   for (const line of v.lines) {
@@ -230,13 +230,13 @@ export async function saveClaim(ctx: Ctx, id: string, input: ClaimInput): Promis
   await syncFollowUps(ctx, id);
 }
 
-export function markSubmitted(ctx: Ctx, id: string, input: { submittedAt: Date; channel: string; confirmationNumber: string | null; note: string | null }): Promise<void> {
+export function markSubmitted(ctx: ClinicianOnlyCtx, id: string, input: { submittedAt: Date; channel: string; confirmationNumber: string | null; note: string | null }): Promise<void> {
   return setStatus(ctx, id, "submitted", { submittedAt: input.submittedAt, submissionChannel: input.channel, confirmationNumber: input.confirmationNumber }, input.note);
 }
 
 export type Outcome = Extract<ClaimStatus, "acknowledged" | "paid" | "denied" | "info_requested">;
 
-export function recordOutcome(ctx: Ctx, id: string, input: { outcome: Outcome; decisionAt: Date; amountReimbursed: number | null; reason: string | null; confirmationNumber: string | null }): Promise<void> {
+export function recordOutcome(ctx: ClinicianOnlyCtx, id: string, input: { outcome: Outcome; decisionAt: Date; amountReimbursed: number | null; reason: string | null; confirmationNumber: string | null }): Promise<void> {
   const patch: ClaimPatch = { decisionAt: input.decisionAt };
   if (input.outcome === "paid") patch.amountReimbursed = input.amountReimbursed ?? 0;
   if (input.outcome === "denied") patch.denialReason = input.reason;
@@ -245,15 +245,15 @@ export function recordOutcome(ctx: Ctx, id: string, input: { outcome: Outcome; d
   return setStatus(ctx, id, input.outcome, patch, input.reason);
 }
 
-export function markAppealed(ctx: Ctx, id: string, input: { appealedAt: Date }): Promise<void> {
+export function markAppealed(ctx: ClinicianOnlyCtx, id: string, input: { appealedAt: Date }): Promise<void> {
   return setStatus(ctx, id, "appealed", { decisionAt: input.appealedAt }, "Appeal sent");
 }
 
-export function closeClaim(ctx: Ctx, id: string, input: { note: string | null }): Promise<void> {
+export function closeClaim(ctx: ClinicianOnlyCtx, id: string, input: { note: string | null }): Promise<void> {
   return setStatus(ctx, id, "closed", {}, input.note);
 }
 
-export async function deleteClaim(ctx: Ctx, id: string): Promise<void> {
+export async function deleteClaim(ctx: ClinicianOnlyCtx, id: string): Promise<void> {
   const docs = await documentsRepo.forClaim(ctx, id);
   if (!(await claimsRepo.remove(ctx, id))) return;
   await Promise.all(docs.map((d) => deleteFile(d.storageKey)));

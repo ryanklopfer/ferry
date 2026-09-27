@@ -20,7 +20,7 @@ export const users = pgTable("users", {
     .defaultNow()
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
-  role: text("role").default("patient").notNull(),
+  role: text("role").default("pending").notNull(),
 });
 
 export const sessions = pgTable(

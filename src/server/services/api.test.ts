@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { ClaimDetailSchema, ClaimListSchema } from "@/core/api/claims";
-import type { Ctx } from "@/server/auth/ctx";
+import type { ClinicianCtx } from "@/server/auth/ctx";
 import { pool } from "@/server/db";
 import { createTestUser, resetDb } from "@/server/db/testing";
 import { getClaimDetail, listClaimSummaries } from "./api";
@@ -8,14 +8,14 @@ import { createClaimFromUpload, saveClaim } from "./claims";
 import { createPlan } from "./plans";
 
 describe("api v1 claim shapes", () => {
-  let a: Ctx;
-  let b: Ctx;
+  let a: ClinicianCtx;
+  let b: ClinicianCtx;
   let claimId: string;
 
   beforeEach(async () => {
     await resetDb();
-    a = await createTestUser("a@example.test");
-    b = await createTestUser("b@example.test");
+    a = await createTestUser("clinician", "a@example.test");
+    b = await createTestUser("clinician", "b@example.test");
     const plan = await createPlan(a, { insurerName: "Aetna", memberId: "W268417359", subscriberName: "Devon Price" });
     claimId = (await createClaimFromUpload(a, { planId: plan.id })).id;
     await saveClaim(a, claimId, {

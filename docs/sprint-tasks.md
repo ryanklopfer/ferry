@@ -708,7 +708,7 @@ Why: Recording in an installed iOS web app is the most likely thing to sink laun
 - [ ] manifest.test.ts: start_url is /dev/mic?k=… only with FERRY_SPIKE_K in the dev tier, and /home otherwise
 - [ ] Gate A: Ryan's run fills the device matrix. Pass bar: 5 minutes continuous in at least one iPhone mode, and every lock, call or app switch shows as a visible gap, never silent loss. If installed mode fails, launch records in a Safari tab. The Android file-input row records whether a gallery copy was left. Both results feed D4.
 
-### [ ] N2a — Access model: contexts, roles, guards and staff:grant
+### [x] N2a — Access model: contexts, roles, guards and staff:grant
 
 Scheduled: Tue Sep 29 · Status: new · Size: M · PRD: P0-9.2, P0-11.1, R12
 
@@ -777,11 +777,13 @@ Why: Today the context is `Ctx {userId, role}` with roles patient|provider|staff
 
 #### Acceptance
 
-- [ ] ctx.test.ts: @ts-expect-error proves a ClientCtx, InviteCtx or StaffCtx can't be passed to any claimsRepo method; scope narrowing compiles
-- [ ] auth.test.ts: a new magic-link user gets role 'pending'; a role in the sign-up body is ignored (existing role-injection test kept); an unknown role is denied
-- [ ] staff-grant.test.ts: the script sets role staff for an existing user and refuses an unknown email
-- [ ] boundaries.test.ts: importing systemCtx from src/app/app/**, or inviteCtx outside src/server/services/invites.ts, fails lint
-- [ ] Existing api, isolation and schema tests migrated to createTestUser('clinician') and green; typecheck and lint green
+Plan: `docs/plans/slice-n2a.md`. The systemCtx/inviteCtx boundary is the ESLint rule `ferry/ctx-constructors` rather than `no-restricted-imports`, which each layer already sets (a second config object would replace it).
+
+- [x] ctx.test.ts: @ts-expect-error proves a ClientCtx, InviteCtx or StaffCtx can't be passed to any claimsRepo method; scope narrowing compiles
+- [x] auth.test.ts: a new magic-link user gets role 'pending'; a role in the sign-up body is ignored (existing role-injection test kept); an unknown role is denied
+- [x] staff-grant.test.ts: the script sets role staff for an existing user and refuses an unknown email
+- [x] boundaries.test.ts: importing systemCtx from src/app/app/**, or inviteCtx outside src/server/services/invites.ts, fails lint
+- [x] Existing api, isolation and schema tests migrated to createTestUser('clinician') and green; typecheck and lint green
 
 ### [ ] N2b — Public routes, /start fork, proxy PUBLIC_PATHS and patient-MVP deletions
 

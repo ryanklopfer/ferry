@@ -1,5 +1,5 @@
 import type { ClaimDetail, ClaimSummary } from "@/core/api/claims";
-import type { Ctx } from "@/server/auth/ctx";
+import type { ClinicianOnlyCtx } from "@/server/auth/ctx";
 import { getClaim, listClaims } from "./claims";
 import type { Claim, Plan } from "./types";
 
@@ -18,12 +18,12 @@ const summary = (claim: Claim, plan: Plan): ClaimSummary => ({
   updatedAt: claim.updatedAt.toISOString(),
 });
 
-export async function listClaimSummaries(ctx: Ctx): Promise<{ claims: ClaimSummary[] }> {
+export async function listClaimSummaries(ctx: ClinicianOnlyCtx): Promise<{ claims: ClaimSummary[] }> {
   const { rows } = await listClaims(ctx);
   return { claims: rows.map(({ claim, plan }) => summary(claim, plan)) };
 }
 
-export async function getClaimDetail(ctx: Ctx, id: string): Promise<ClaimDetail | null> {
+export async function getClaimDetail(ctx: ClinicianOnlyCtx, id: string): Promise<ClaimDetail | null> {
   const view = await getClaim(ctx, id);
   if (!view) return null;
   const { claim, plan, lines, followUps, events, superbill, deadlines } = view;

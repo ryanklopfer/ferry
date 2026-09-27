@@ -3,11 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { auth } from "@/server/auth";
-import { requireCtx } from "@/server/auth/ctx";
+import { requireSignedIn } from "@/server/auth/ctx";
 
 // Done on the server so another session's token never reaches the browser.
 export async function endSession(fd: FormData) {
-  await requireCtx();
+  await requireSignedIn();
   const id = String(fd.get("id") ?? "");
   const h = await headers();
   const sessions = await auth.api.listSessions({ headers: h });

@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import type { Ctx } from "@/server/auth/ctx";
+import type { ClinicianCtx } from "@/server/auth/ctx";
 import { pool } from "@/server/db";
 import { createTestUser, resetDb } from "@/server/db/testing";
 import { claimsRepo } from "./claims";
@@ -14,12 +14,12 @@ const LINES = [
 ];
 
 describe("claim line model", () => {
-  let ctx: Ctx;
+  let ctx: ClinicianCtx;
   let planId: string;
 
   beforeEach(async () => {
     await resetDb();
-    ctx = await createTestUser("lines@example.test");
+    ctx = await createTestUser("clinician", "lines@example.test");
     planId = (await plansRepo.create(ctx, { insurerName: "Aetna", memberId: "W268417359", subscriberName: "Devon Price", patientName: "Devon Price" })).id;
   });
   afterAll(() => pool.end());

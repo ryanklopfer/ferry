@@ -2,12 +2,12 @@ import Link from "next/link";
 import { listClaims } from "@/server/services/claims";
 import { FOLLOW_UP_LABELS } from "@/lib/followups";
 import { Empty, StatusBadge, fmtIso, money, relative } from "@/components/ui";
-import { requireCtx } from "@/server/auth/ctx";
+import { requireClinician } from "@/server/auth/ctx";
 
 export const dynamic = "force-dynamic";
 
 export default async function Dashboard() {
-  const ctx = await requireCtx();
+  const ctx = await requireClinician();
   const { rows, followUps } = await listClaims(ctx);
   const now = new Date();
   const weekOut = new Date(now.getTime() + 7 * 86_400_000);

@@ -18,7 +18,7 @@ export const auth = betterAuth({
   emailAndPassword: { enabled: false },
   user: {
     additionalFields: {
-      role: { type: "string", required: true, defaultValue: "patient", input: false },
+      role: { type: "string", required: true, defaultValue: "pending", input: false },
     },
   },
   plugins: [
