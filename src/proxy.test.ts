@@ -8,11 +8,11 @@ const request = (path: string, cookie?: string) =>
   new NextRequest(`http://localhost:3000${path}`, cookie ? { headers: { cookie } } : undefined);
 
 describe("proxy matcher", () => {
-  it.each(["/", "/plans", "/claims/1/edit", "/account", "/api/claims/1/packet", "/api/v1/claims", "/home", "/offline-notes", "/offline/x", "/sw.jsx", "/swajs", "/manifest.webmanifest.bak", "/app/icons/x.png", "/iconsx"])("guards %s", (path) => {
+  it.each(["/", "/plans", "/claims/1/edit", "/account", "/api/claims/1/packet", "/api/v1/claims", "/home", "/offline-notes", "/offline/x", "/sw.jsx", "/swajs", "/manifest.webmanifest.bak", "/app/icons/x.png", "/iconsx", "/dev", "/devices", "/app/dev/mic", "/api/devx", "/api/v1/dev/x"])("guards %s", (path) => {
     expect(matcher.test(path)).toBe(true);
   });
 
-  it.each(["/sign-in", "/api/auth/magic-link/verify", "/_next/static/chunks/app.js", "/_next/image", "/_next/hmr", "/_next/webpack-hmr", "/favicon.ico"])(
+  it.each(["/sign-in", "/api/auth/magic-link/verify", "/_next/static/chunks/app.js", "/_next/image", "/_next/hmr", "/_next/webpack-hmr", "/favicon.ico", "/dev/mic", "/dev/file-input", "/api/dev/relay-token"])(
     "leaves %s alone",
     (path) => {
       expect(matcher.test(path)).toBe(false);

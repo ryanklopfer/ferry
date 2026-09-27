@@ -20,16 +20,20 @@ const read = (rel: string) => fs.readFileSync(path.join(APP, rel), "utf8");
 const PAGE_GUARD = /\brequire(Clinician|Client|Staff|SignedIn)\(/;
 const ROUTE_GUARD = /\b(getClinician|getSessionUser|require(Clinician|Client|Staff|SignedIn))\(/;
 const ACTION_GUARD = /^ {2}(const \w+ = )?await require(Clinician|Client|Staff|SignedIn)\(\);$/gm;
+// The phone spike's pages have no session; they 404 unless the dev tier and this run's key check passes.
+const DEV_SPIKE = /^(api\/)?dev\//;
+const SPIKE_GUARD = /\bspikeKeyValid\(/;
+const guarded = (p: string, guard: RegExp) => (DEV_SPIKE.test(p) ? SPIKE_GUARD : guard).test(read(p));
 
 // A new page, route or action that forgets the session check fails here, not in production.
 describe("every entry point verifies the session", () => {
   it("pages call a require guard", () => {
-    const unguarded = find(APP, "page.tsx").filter((p) => !PUBLIC_PAGES.has(p) && !PAGE_GUARD.test(read(p)));
+    const unguarded = find(APP, "page.tsx").filter((p) => !PUBLIC_PAGES.has(p) && !guarded(p, PAGE_GUARD));
     expect(unguarded).toEqual([]);
   });
 
   it("route handlers check the session", () => {
-    const unguarded = find(APP, "route.ts").filter((p) => !PUBLIC_ROUTES.has(p) && !ROUTE_GUARD.test(read(p)));
+    const unguarded = find(APP, "route.ts").filter((p) => !PUBLIC_ROUTES.has(p) && !guarded(p, ROUTE_GUARD));
     expect(unguarded).toEqual([]);
   });
 

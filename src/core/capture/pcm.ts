@@ -34,3 +34,26 @@ export function toS16le(samples: Int16Array): Uint8Array {
   samples.forEach((v, i) => view.setInt16(i * BYTES_PER_SAMPLE, v, true));
   return bytes;
 }
+
+// The audio thread hands over 128-sample render quanta; this collects them into whole 100 ms frames and
+// returns each as 16 kHz s16le bytes, so downsampling always sees exactly one frame.
+export function createFramer(inRate: number): (chunk: Float32Array) => Uint8Array[] {
+  const size = (inRate * FRAME_MS) / 1000;
+  if (!Number.isInteger(inRate) || inRate < SAMPLE_RATE || !Number.isInteger(size)) throw new RangeError(`inRate must be an integer of at least ${SAMPLE_RATE} with whole ${FRAME_MS} ms frames`);
+  const frame = new Float32Array(size);
+  let filled = 0;
+  return (chunk) => {
+    const out: Uint8Array[] = [];
+    for (let i = 0; i < chunk.length; ) {
+      const n = Math.min(size - filled, chunk.length - i);
+      frame.set(chunk.subarray(i, i + n), filled);
+      filled += n;
+      i += n;
+      if (filled === size) {
+        out.push(toS16le(downsampleToS16(frame, inRate)));
+        filled = 0;
+      }
+    }
+    return out;
+  };
+}

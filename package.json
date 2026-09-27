@@ -8,6 +8,7 @@
     "build:sw": "bun scripts/pwa/build-sw.ts",
     "start": "next start",
     "relay": "bun src/server/relay/main.ts",
+    "dev:phone": "bun scripts/dev/phone.ts",
     "lint": "eslint",
     "test": "vitest run",
     "test:e2e": "bun run db:create:e2e && playwright test",
@@ -17,6 +18,7 @@
     "db:migrate:test": "bun scripts/db/migrate.ts --test",
     "db:create:e2e": "bun scripts/db/create-e2e.ts",
     "corpus:generate": "bun scripts/corpus/generate.ts",
+    "corpus:audio": "bun scripts/corpus/audio.ts",
     "staff:grant": "bun scripts/ops/staff-grant.ts"
   },
   "dependencies": {
@@ -51,6 +53,7 @@
     "fast-check": "^4.10.2",
     "happy-dom": "^20.14.5",
     "tailwindcss": "^4",
+    "toqr": "^0.1.1",
     "typescript": "^5",
     "vitest": "^5.0.0"
   },

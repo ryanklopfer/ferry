@@ -9,6 +9,8 @@ const NO_STORE = SIGNED_IN_PREFIXES.map((prefix) => ({
 }));
 
 const nextConfig: NextConfig = {
+  // bun run dev:phone serves next dev to a phone through a cloudflared quick tunnel; only next dev reads this.
+  allowedDevOrigins: ["*.trycloudflare.com"],
   async headers() {
     return [
       ...NO_STORE,

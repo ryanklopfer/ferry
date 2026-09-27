@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
-import { E2E_DATABASE_URL, e2eServerEnv } from "./e2e/env";
+import { E2E_DATABASE_URL, E2E_RELAY_PORT, e2eServerEnv } from "./e2e/env";
 
 const PORT = 3100;
 
@@ -14,11 +14,15 @@ export default defineConfig({
   reporter: "list",
   use: { baseURL: `http://localhost:${PORT}`, trace: "retain-on-failure" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-  webServer: {
-    command: `bun run build:sw && bunx next dev --port ${PORT}`,
-    url: `http://localhost:${PORT}/sign-in`,
-    reuseExistingServer: false,
-    timeout: 180_000,
-    env: e2eServerEnv(PORT),
-  },
+  webServer: [
+    {
+      command: `bun run build:sw && bunx next dev --port ${PORT}`,
+      url: `http://localhost:${PORT}/sign-in`,
+      reuseExistingServer: false,
+      timeout: 180_000,
+      env: e2eServerEnv(PORT),
+    },
+    // The capture relay answers 404 to plain HTTP, so readiness is the open port.
+    { command: "bun run relay", port: E2E_RELAY_PORT, reuseExistingServer: false, timeout: 30_000, env: e2eServerEnv(PORT) },
+  ],
 });

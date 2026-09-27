@@ -11,4 +11,6 @@ export function proxy(request: NextRequest) {
 
 // Everything under _next/ is framework assets and the dev hot-reload socket, never app data. The app shell
 // (manifest, service worker, worklets, icons, offline page) must load signed out; N2b folds it into PUBLIC_PATHS.
-export const config = { matcher: ["/((?!sign-in|api/auth|_next/|favicon.ico|manifest\\.webmanifest$|sw\\.js$|worklets/|icons/|offline$).*)"] };
+// /dev/ and /api/dev/ are the phone spike's pages: each route 404s itself outside the dev tier or without the
+// per-run key (src/server/dev-spike.ts), so they need no session here.
+export const config = { matcher: ["/((?!sign-in|api/auth|_next/|favicon.ico|manifest\\.webmanifest$|sw\\.js$|worklets/|icons/|offline$|dev/|api/dev/).*)"] };

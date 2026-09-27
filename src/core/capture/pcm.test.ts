@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { downsampleToS16, FRAME_BYTES, FRAME_SAMPLES, msForBytes, toS16le } from "./pcm";
+import { createFramer, downsampleToS16, FRAME_BYTES, FRAME_SAMPLES, msForBytes, toS16le } from "./pcm";
 
 const sine = (rate: number, hz: number, amplitude: number, ms = 100) => Float32Array.from({ length: (rate * ms) / 1000 }, (_, i) => amplitude * Math.sin((2 * Math.PI * hz * i) / rate));
 
@@ -50,5 +50,33 @@ describe("toS16le", () => {
   it("counts 32 bytes per millisecond", () => {
     expect(msForBytes(FRAME_BYTES)).toBe(100);
     expect(msForBytes(FRAME_BYTES * 50)).toBe(5_000);
+  });
+});
+
+describe("createFramer", () => {
+  const quanta = (samples: Float32Array, size = 128) => Array.from({ length: Math.ceil(samples.length / size) }, (_, i) => samples.subarray(i * size, (i + 1) * size));
+
+  it.each([48_000, 44_100, 16_000])("turns 128-sample render quanta at %i Hz into whole 100 ms frames of 3,200 bytes", (rate) => {
+    const push = createFramer(rate);
+    const frames = quanta(sine(rate, 440, 0.5, 1_000)).flatMap((q) => push(q));
+    expect(frames).toHaveLength(10);
+    for (const f of frames) expect(f.byteLength).toBe(FRAME_BYTES);
+  });
+
+  it("holds a partial frame until the rest arrives, then matches downsampling the whole frame", () => {
+    const frame = sine(48_000, 440, 0.5);
+    const push = createFramer(48_000);
+    expect(push(frame.subarray(0, 3_000))).toEqual([]);
+    const [out] = push(frame.subarray(3_000));
+    expect(out).toEqual(toS16le(downsampleToS16(frame, 48_000)));
+  });
+
+  it("emits more than one frame from a chunk longer than a frame", () => {
+    expect(createFramer(16_000)(new Float32Array(3_300))).toHaveLength(2);
+  });
+
+  it("refuses rates below 16 kHz and rates without a whole number of samples per 100 ms", () => {
+    expect(() => createFramer(8_000)).toThrow(RangeError);
+    expect(() => createFramer(44_101)).toThrow(RangeError);
   });
 });

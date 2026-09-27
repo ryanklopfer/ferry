@@ -702,10 +702,11 @@ Why: Recording in an installed iOS web app is the most likely thing to sink laun
 #### Acceptance
 
 - [ ] e2e/mic-spike.spec.ts: Chromium with --use-fake-device-for-media-stream and --use-file-for-fake-audio-capture=corpus/synthetic/audio/tone-10s.wav records for 10 s; the relay reports 10,000 ms ± 300
-- [ ] dev-routes.test.ts: signed out with a valid k, /dev/mic returns 200 in the dev tier
-- [ ] dev-routes.test.ts: without k, or in any other tier, /dev/mic, /dev/file-input and /api/dev/relay-token return 404
-- [ ] dev-phone.test.ts: dev:phone refuses without FERRY_DATA_CLASS=synthetic and outside the dev tier
-- [ ] manifest.test.ts: start_url is /dev/mic?k=… only with FERRY_SPIKE_K in the dev tier, and /home otherwise
+  - Written; it skips until macOS grants microphone access to the app running Playwright (Chromium asks the OS even for the fake device). The same path with a WebAudio tone in place of the mic passes on every run (10,100 ms).
+- [x] dev-routes.test.ts: signed out with a valid k, /dev/mic returns 200 in the dev tier
+- [x] dev-routes.test.ts: without k, or in any other tier, /dev/mic, /dev/file-input and /api/dev/relay-token return 404
+- [x] dev-phone.test.ts: dev:phone refuses without FERRY_DATA_CLASS=synthetic and outside the dev tier
+- [x] manifest.test.ts: start_url is /dev/mic?k=… only with FERRY_SPIKE_K in the dev tier, and /home otherwise
 - [ ] Gate A: Ryan's run fills the device matrix. Pass bar: 5 minutes continuous in at least one iPhone mode, and every lock, call or app switch shows as a visible gap, never silent loss. If installed mode fails, launch records in a Safari tab. The Android file-input row records whether a gallery copy was left. Both results feed D4.
 
 ### [x] N2a — Access model: contexts, roles, guards and staff:grant

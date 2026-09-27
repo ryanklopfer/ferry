@@ -5,6 +5,7 @@ import path from "node:path";
 import { chromium, expect, type Page, test } from "@playwright/test";
 import { cachePolicy, OFFLINE_PATH } from "@/core/pwa/cache-policy";
 import { APP_ICONS } from "@/core/pwa/icons";
+import { E2E_SPIKE_K } from "./env";
 import { signInLinkFor } from "./helpers/outbox";
 
 const SHELL = [OFFLINE_PATH, ...APP_ICONS.map((i) => i.src)].sort();
@@ -38,7 +39,8 @@ test("the app shell loads signed out", async ({ request }) => {
     expect(r.status(), path).toBe(200);
   }
   const manifest = await (await request.get("/manifest.webmanifest")).json();
-  expect(manifest).toMatchObject({ name: "Ferry", start_url: "/home", display: "standalone", theme_color: "#FFF6EC" });
+  // The suite's server runs with FERRY_SPIKE_K for e2e/mic-spike.spec.ts; without it start_url is /home (manifest.test.ts).
+  expect(manifest).toMatchObject({ name: "Ferry", start_url: `/dev/mic?k=${E2E_SPIKE_K}`, display: "standalone", theme_color: "#FFF6EC" });
 });
 
 test("a page that can't load offline shows the offline page", async ({ page, context }) => {
