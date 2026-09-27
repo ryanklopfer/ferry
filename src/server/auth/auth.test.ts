@@ -108,6 +108,19 @@ describe("magic link sign-in", () => {
     }
   });
 
+  it("refuses a signed-in user who tries to set their own role", async () => {
+    const { url } = await requestLink();
+    const { headers } = await openLink(url);
+    for (const role of ["clinician", "staff", "client"]) {
+      await expect(auth.api.updateUser({ body: { role } as never, headers }), role).rejects.toThrow();
+      const response = await auth.handler(new Request("http://localhost:3000/api/auth/update-user", { method: "POST", headers: { cookie: headers.get("cookie")!, "content-type": "application/json", origin: "http://localhost:3000" }, body: JSON.stringify({ role }) }));
+      expect(response.status, role).toBeGreaterThanOrEqual(400);
+    }
+    const [user] = await db.select().from(schema.users).where(eq(schema.users.email, ADDRESS));
+    expect(user.role).toBe("pending");
+    expect((await sessionFromHeaders(headers))?.role).toBe("pending");
+  });
+
   it("keeps the role of an existing user who signs in again", async () => {
     await createTestUser("clinician", ADDRESS);
     const { url } = await requestLink();

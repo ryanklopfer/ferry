@@ -107,6 +107,49 @@ describe("import boundaries", () => {
     expect(await flagged("src/server/services/invites.ts", 'export function inviteCtx() {\n  return null;\n}\n', rule)).toEqual([]);
   });
 
+  it("stops anything outside the auth module from assembling a context by hand", async () => {
+    const rule = "ferry/ctx-constructors";
+    const bad = [
+      'import { listClaimSummaries } from "@/server/services/api";\nexport const leak = (t: string) => listClaimSummaries({ scope: "system", userId: t, job: "x" });\n',
+      'import { requireSignedIn } from "@/server/auth/ctx";\nexport const as = async () => ({ scope: "clinician", userId: (await requireSignedIn()).userId });\n',
+      "export const c = { scope: `client`, userId: \"u\", clientId: \"c\", actorId: \"a\" };\n",
+      'export const s = { "scope": "staff", userId: "u" };\n',
+      'import type { SystemCtx } from "@/server/auth/ctx";\nexport const s = { userId: "u" } as unknown as SystemCtx;\n',
+      'import type { ClinicianCtx } from "@/server/auth/ctx";\nexport const c = <ClinicianCtx>{ userId: "u" };\n',
+    ];
+    for (const file of ["src/app/app/x/page.tsx", "src/app/api/v1/claims/route.ts", "src/server/services/claims.ts", "src/server/jobs/tick.ts", "scripts/ops/x.ts"]) {
+      for (const code of bad.filter((c) => !(file.endsWith(".tsx") && c.includes("<ClinicianCtx>")))) expect(await flagged(file, code, rule), `${file}: ${code}`).not.toHaveLength(0);
+    }
+    expect(await flagged("src/app/manifest.ts", 'export const m = { scope: "/", start_url: "/" };\n', rule)).toEqual([]);
+    expect(await flagged("src/server/auth/ctx.ts", 'export const c = { scope: "clinician", userId: "u" };\n', rule)).toEqual([]);
+    expect(await flagged("src/server/services/invites.ts", 'export const i = { scope: "invite", userId: "u", clientId: "c", actorId: "a", linkId: "l" };\n', rule)).toEqual([]);
+  });
+
+  it("lets only staff:grant, acceptInvite and Start free change a role", async () => {
+    const rule = "ferry/privileged-imports";
+    const setRole = 'import { setRoleOnServer } from "@/server/services/roles";\nexport default setRoleOnServer;\n';
+    const becomeStaff = '"use server";\nimport { requireSignedIn } from "@/server/auth/ctx";\nimport { setRoleOnServer } from "@/server/services/roles";\nexport async function becomeStaff() {\n  const u = await requireSignedIn();\n  await setRoleOnServer(u.userId, "staff");\n}\n';
+    expect(await flagged("src/app/app/x/actions.ts", becomeStaff, rule)).toHaveLength(1);
+    for (const file of ["src/app/app/x/page.tsx", "src/app/api/v1/me/route.ts", "src/server/services/claims.ts", "src/server/jobs/x.ts", "src/server/auth/ctx.ts"]) {
+      expect(await flagged(file, setRole, rule), file).toHaveLength(1);
+    }
+    expect(await flagged("src/server/services/claims.ts", 'import * as r from "./roles";\nexport default r;\n', rule)).toHaveLength(1);
+    for (const file of ["scripts/ops/staff-grant.ts", "src/server/services/invites.ts", "src/server/services/clinician.ts"]) {
+      expect(await flagged(file, setRole, rule), file).toEqual([]);
+    }
+    const repo = 'import { usersRepo } from "@/server/db/repos/users";\nexport default usersRepo;\n';
+    expect(await flagged("src/server/services/claims.ts", repo, rule)).toHaveLength(1);
+    expect(await flagged("scripts/ops/x.ts", repo, rule)).toHaveLength(1);
+    expect(await flagged("src/server/services/roles.ts", repo, rule)).toEqual([]);
+    expect(await flagged("src/server/services/invites.ts", repo, rule)).toEqual([]);
+  });
+
+  it("keeps the test-user helper, which mints any role, out of non-test code", async () => {
+    const code = 'import { createTestUser } from "@/server/db/testing";\nexport default createTestUser;\n';
+    expect(await flagged("src/server/services/x.ts", code, "ferry/privileged-imports")).toHaveLength(1);
+    expect(await flagged("src/server/services/x.test.ts", code, "ferry/privileged-imports")).toEqual([]);
+  });
+
   it("bans 'use cache' and unstable_cache on PHI paths, but not on public pages", async () => {
     const directive = '"use cache";\nexport default async function Page() {\n  return null;\n}\n';
     const inner = 'export async function load() {\n  "use cache";\n  return 1;\n}\n';

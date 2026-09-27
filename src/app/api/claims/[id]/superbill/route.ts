@@ -3,7 +3,7 @@ import { getSuperbill } from "@/server/services/documents";
 
 export async function GET(_req: Request, { params }: RouteContext<"/api/claims/[id]/superbill">) {
   const ctx = await getClinician();
-  if (!ctx) return new Response("Unauthorized", { status: 401 });
+  if (typeof ctx === "number") return new Response(ctx === 401 ? "Unauthorized" : "Not found", { status: ctx });
   const { id } = await params;
   const superbill = await getSuperbill(ctx, id);
   if (!superbill) return new Response("Not found", { status: 404 });

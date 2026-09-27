@@ -3,7 +3,7 @@ import { buildClaimPacket } from "@/server/services/documents";
 
 export async function GET(_req: Request, { params }: RouteContext<"/api/claims/[id]/packet">) {
   const ctx = await getClinician();
-  if (!ctx) return new Response("Unauthorized", { status: 401 });
+  if (typeof ctx === "number") return new Response(ctx === 401 ? "Unauthorized" : "Not found", { status: ctx });
   const { id } = await params;
   const packet = await buildClaimPacket(ctx, id);
   if (!packet) return new Response("Not found", { status: 404 });

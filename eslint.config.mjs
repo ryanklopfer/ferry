@@ -44,6 +44,17 @@ const importVisitors = (check) => ({
 
 const SYSTEM_CTX_ALLOWED = /^src\/(server\/(jobs|relay)\/|app\/api\/webhooks\/|server\/services\/ops\.ts$|server\/auth\/system-ctx\.ts$)/;
 const INVITE_CTX_ALLOWED = /^src\/server\/services\/invites\.ts$/;
+// Only the auth module, the invite service and the test helper assemble a context by hand; everything else gets one from a guard or constructor.
+const CTX_LITERAL_ALLOWED = /^src\/(server\/auth\/|server\/services\/invites\.ts$|server\/db\/testing\.ts$)/;
+const CTX_SCOPES = new Set(["clinician", "self", "client", "invite", "system", "staff"]);
+const CTX_TYPES = new Set(["ClinicianCtx", "SelfCtx", "ClientCtx", "InviteCtx", "SystemCtx", "StaffCtx", "Ctx", "ClinicianOnlyCtx"]);
+
+// Modules that change roles or mint test users, and the only files that may import them (tests are exempt via config).
+const PRIVILEGED_MODULES = [
+  { module: "@/server/services/roles", allowed: /^(scripts\/ops\/|src\/server\/services\/(invites|clinician)\.ts$)/, message: "Roles are set only by staff:grant (scripts/ops), acceptInvite (services/invites.ts) and Start free (services/clinician.ts)." },
+  { module: "@/server/db/repos/users", allowed: /^src\/server\/services\/(roles|invites)\.ts$/, message: "The users repo changes roles; only services/roles.ts and services/invites.ts may use it." },
+  { module: "@/server/db/testing", allowed: /^$/, message: "@/server/db/testing creates users with any role; only tests may import it." },
+];
 
 // Rules that apply across layers, so they live in their own plugin instead of fighting over no-restricted-imports.
 const ferry = {
@@ -90,12 +101,16 @@ const ferry = {
         messages: {
           system: "systemCtx() is usable only in src/server/jobs, src/server/relay, src/app/api/webhooks and src/server/services/ops.ts.",
           invite: "inviteCtx() is usable only inside src/server/services/invites.ts.",
+          literal: "Build a context only through a guard (requireClinician, getClinician, ...) or its constructor, never as an object literal or a cast.",
         },
       },
       create(context) {
         const file = path.relative(import.meta.dirname, context.filename).split(path.sep).join("/");
         const systemOk = SYSTEM_CTX_ALLOWED.test(file);
         const inviteOk = INVITE_CTX_ALLOWED.test(file);
+        const literalOk = CTX_LITERAL_ALLOWED.test(file);
+        const scopeValue = (v) => (v.type === "Literal" ? v.value : v.type === "TemplateLiteral" && v.expressions.length === 0 ? v.quasis[0].value.cooked : null);
+        const isCtxType = (t) => t?.type === "TSTypeReference" && t.typeName.type === "Identifier" && CTX_TYPES.has(t.typeName.name);
         const seen = new Set();
         const report = (node, messageId) => {
           const key = `${messageId}:${node.range[0]}`;
@@ -110,7 +125,25 @@ const ferry = {
             if (n.name === "systemCtx" && !systemOk) report(n, "system");
             if (n.name === "inviteCtx" && !inviteOk) report(n, "invite");
           },
+          Property: (n) => {
+            const key = n.key.type === "Identifier" && !n.computed ? n.key.name : n.key.type === "Literal" ? n.key.value : null;
+            if (!literalOk && n.parent.type === "ObjectExpression" && key === "scope" && CTX_SCOPES.has(scopeValue(n.value))) report(n, "literal");
+          },
+          TSAsExpression: (n) => !literalOk && isCtxType(n.typeAnnotation) && report(n, "literal"),
+          TSTypeAssertion: (n) => !literalOk && isCtxType(n.typeAnnotation) && report(n, "literal"),
         };
+      },
+    },
+    "privileged-imports": {
+      meta: { type: "problem", schema: [], messages: { restricted: "{{message}}" } },
+      create(context) {
+        const file = path.relative(import.meta.dirname, context.filename).split(path.sep).join("/");
+        return importVisitors((node, source) => {
+          if (typeof source !== "string") return;
+          const target = toAlias(context.filename, source);
+          const hit = PRIVILEGED_MODULES.find((m) => m.module === target && !m.allowed.test(file));
+          if (hit) context.report({ node, messageId: "restricted", data: { message: hit.message } });
+        });
       },
     },
     "no-phi-cache": {
@@ -130,7 +163,7 @@ const crossCutting = [
   { files: ["**/*.{ts,tsx,mts,js,mjs}"], ignores: ["src/lib/ai.ts", "src/server/integrations/llm/**"], rules: { "ferry/no-direct-anthropic": "error" } },
   { files: ["src/**"], ignores: ["src/app/(public)/**"], rules: { "ferry/no-phi-cache": "error" } },
   // Contexts that act for a tenant without a signed-in clinician are built only where the plan allows (architecture §6).
-  { files: ["src/**", "scripts/**"], ignores: ["**/*.test.ts", "**/*.test.tsx"], rules: { "ferry/ctx-constructors": "error" } },
+  { files: ["src/**", "scripts/**"], ignores: ["**/*.test.ts", "**/*.test.tsx"], rules: { "ferry/ctx-constructors": "error", "ferry/privileged-imports": "error" } },
   // Audio and transcript text must never reach disk from the relay or capture core (tests spy on fs and are exempt).
   { files: ["src/server/relay/**", "src/core/capture/**"], ignores: ["**/*.test.ts"], rules: { "ferry/no-capture-persistence": "error" } },
 ];

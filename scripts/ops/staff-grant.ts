@@ -1,6 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { grantStaff, RoleRefused } from "../../src/server/auth/roles";
+import { grantStaff, RoleRefused } from "../../src/server/services/roles";
 import { pool } from "../../src/server/db";
 
 // bun run staff:grant <email>

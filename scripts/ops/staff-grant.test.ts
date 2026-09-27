@@ -3,6 +3,7 @@ import path from "node:path";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { db, pool, schema } from "@/server/db";
+import { databaseUrl } from "@/server/db/env";
 import { createTestUser, resetDb } from "@/server/db/testing";
 import { staffGrant } from "./staff-grant";
 
@@ -67,7 +68,7 @@ describe("staff:grant", () => {
 
   it("runs as `bun run staff:grant <email>`", async () => {
     await createTestUser("pending", "cli@example.test");
-    const env: NodeJS.ProcessEnv = { ...process.env, DATABASE_URL: "postgres://localhost:5432/ferry_test" };
+    const env: NodeJS.ProcessEnv = { ...process.env, DATABASE_URL: databaseUrl() };
     delete env.VITEST;
     const run = (email: string) => spawnSync("bun", ["run", "staff:grant", email], { cwd: path.join(__dirname, "..", ".."), env, encoding: "utf8", timeout: 20_000 });
     const unknown = run("missing@example.test");

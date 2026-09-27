@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "./index";
 
-export const ROLES = ["pending", "clinician", "client", "staff"] as const;
+const ROLES = ["pending", "clinician", "client", "staff"] as const;
 export type Role = (typeof ROLES)[number];
 
 // userId is always the tenant (the clinician) for contexts that reach tenant repos. See architecture §6.
@@ -36,9 +36,11 @@ export async function requireSignedIn(): Promise<SessionUser> {
   return user;
 }
 
-export async function getClinician(): Promise<ClinicianCtx | null> {
+// For route handlers, which answer rather than redirect: 401 when signed out, 404 for any other role (as the page guards do).
+export async function getClinician(): Promise<ClinicianCtx | 401 | 404> {
   const user = await getSessionUser();
-  return user?.role === "clinician" ? { scope: "clinician", userId: user.userId } : null;
+  if (!user) return 401;
+  return user.role === "clinician" ? { scope: "clinician", userId: user.userId } : 404;
 }
 
 async function requireRole(role: Role): Promise<string> {
