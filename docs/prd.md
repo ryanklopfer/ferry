@@ -87,7 +87,7 @@ Spec requirement IDs (R1–R13) are noted where they match.
 **P0-5 Capture** (R5)
 - [ ] In-room recording on phone or computer; dictation; typed rough notes
 - [ ] Interrupted recording keeps what was captured and marks the gap
-- [ ] Audio deleted once the note is generated; the screen says so (R9)
+- [ ] Audio streams through AWS HealthScribe and is never written to our disk or S3; HealthScribe's transcript and note files are deleted from S3 once imported; the screen says "Audio deleted" (R9)
 
 **P0-6 Notes** (R6)
 - [ ] Note in the clinician's chosen format, with suggested CPT and ICD-10 codes the clinician can change
@@ -164,8 +164,13 @@ Spec requirement IDs (R1–R13) are noted where they match.
 | Q-L2 | Recording consent in all-party-consent states (e.g. CA, FL, WA): is the in-app client consent enough? | Attorney | Yes, before real recordings |
 | Q-L3 | Letters draw only on progress notes, never psychotherapy notes: confirm the line and how the UI keeps them apart | Attorney | Yes, before letters go live |
 | Q-L4 | Can marketing say "HIPAA compliant"? Prefer "signed BAA on every plan" until counsel agrees | Attorney | No |
-| Q-E1 | AWS HealthScribe vs Transcribe Medical streaming + Claude for notes | Engineering | No, decide in the capture slice |
+| ~~Q-E1~~ | Resolved 2026-09-27 by Ryan: all PHI runs on AWS under the AWS BAA, and session notes come from **AWS HealthScribe** (see Decisions) | — | — |
 | Q-E2 | Where clients' sessions come from when the clinician's EHR schedules them (manual add at launch) | Engineering | No |
+
+## Decisions
+
+- **2026-09-27, Ryan: AWS for everything that touches client data, and AWS HealthScribe as the scribe.** HealthScribe is HIPAA-eligible under the AWS BAA, streams live over the AWS SDK for JavaScript, writes a transcript and a clinical note to our own S3 bucket, and AWS does not retain the audio or train on it. It runs in **us-east-1 only**, so the whole PHI stack (ECS Fargate, RDS, S3, KMS, Bedrock, SES, HealthScribe) lives in us-east-1. Note templates map as: DAP → `DAP`, BIRP → `BIRP`, SOAP → `BEHAVIORAL_SOAP`, intake → `HISTORY_AND_PHYSICAL`; `GIRPP` and `SIRP` come free. A session can stream up to 2 hours and be resumed within 5 hours with the same session id, which is how an interrupted recording continues. HealthScribe returns no billing codes, so CPT and ICD-10 suggestions come from Claude on Bedrock, validated against code tables. Dictation and typed notes also go through Claude on Bedrock. The browser cannot hold HealthScribe's signed HTTP/2 stream, so audio goes phone → our server over a WebSocket → HealthScribe. HealthScribe's S3 output is imported, sealed, and deleted from S3.
+  Sources: [HealthScribe streaming](https://docs.aws.amazon.com/transcribe/latest/dg/health-scribe-streaming.html), [note templates](https://docs.aws.amazon.com/transcribe/latest/APIReference/API_streaming_ClinicalNoteGenerationSettings.html), [HealthScribe FAQs](https://aws.amazon.com/healthscribe/faqs/).
 
 ## What this changes in the existing plan
 
