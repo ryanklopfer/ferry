@@ -1,0 +1,672 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ferry | Spec</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Playfair+Display:ital,wght@1,700&amp;family=Bricolage+Grotesque:wght@600;800&amp;family=Figtree:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <script>
+    try {
+      var savedTheme = localStorage.getItem("spec-theme");
+      if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+    } catch (error) {}
+  </script>
+  <style>
+    :root {
+      --canvas: #efece4;
+      --dot: rgba(28, 27, 24, 0.13);
+      --surface: #ffffff;
+      --ink: #1c1b18;
+      --ink-2: #66635b;
+      --ink-3: #98948a;
+      --chip: #f1eee7;
+      --line: rgba(28, 27, 24, 0.16);
+      --line-soft: rgba(28, 27, 24, 0.08);
+      --shadow: 0 18px 40px rgba(28, 27, 24, 0.14);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --canvas: #14140f;
+        --dot: rgba(243, 241, 235, 0.11);
+        --surface: #232320;
+        --ink: #f3f1eb;
+        --ink-2: #a6a39b;
+        --ink-3: #726f67;
+        --chip: #2c2b27;
+        --line: rgba(243, 241, 235, 0.16);
+        --line-soft: rgba(243, 241, 235, 0.09);
+        --shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+      }
+    }
+    :root[data-theme="dark"] {
+      --canvas: #14140f;
+      --dot: rgba(243, 241, 235, 0.11);
+      --surface: #232320;
+      --ink: #f3f1eb;
+      --ink-2: #a6a39b;
+      --ink-3: #726f67;
+      --chip: #2c2b27;
+      --line: rgba(243, 241, 235, 0.16);
+      --line-soft: rgba(243, 241, 235, 0.09);
+      --shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--canvas); color-scheme: light dark; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--canvas);
+      color: var(--ink);
+      font: 13px/1.5 "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    button { font: inherit; color: inherit; }
+    img { display: block; max-width: 100%; }
+    h1, h2, h3, p, ol, ul { margin: 0; padding: 0; }
+    ol, ul { list-style: none; }
+
+    .bar {
+      height: 60px;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      border-bottom: 1px solid var(--line-soft);
+    }
+    .brand { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 14px; }
+    .brand h1 { font: italic 700 24px/1 "Playfair Display", Georgia, serif; white-space: nowrap; }
+    .brand p { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .seg { display: flex; gap: 4px; padding: 3px; border-radius: 999px; background: var(--chip); align-self: flex-start; }
+    .seg button {
+      padding: 6px 14px;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--ink-2);
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .seg button[aria-selected="true"] { background: var(--ink); color: var(--canvas); }
+    .seg button:focus-visible, .theme:focus-visible, .expand:focus-visible { outline: 2px solid var(--ink-3); outline-offset: 2px; }
+    .theme { width: 34px; height: 34px; border: 1px solid var(--line); border-radius: 50%; background: transparent; cursor: pointer; }
+
+    .panel { display: none; height: calc(100vh - 60px); min-height: 640px; }
+    .panel.active { display: flex; }
+
+    .canvas {
+      flex: 1;
+      min-width: 0;
+      padding: 16px 24px 20px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 32px;
+      background-image: radial-gradient(var(--dot) 1px, transparent 1px);
+      background-size: 22px 22px;
+    }
+    .frame { margin: 0; flex: none; }
+    .frame figcaption { height: 24px; display: flex; gap: 6px; align-items: baseline; color: var(--ink-2); font-size: 12px; font-weight: 600; white-space: nowrap; }
+    .frame figcaption span { color: var(--ink-3); font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+    .expand { margin-left: auto; padding: 0 2px; border: 0; background: none; color: var(--ink); font-size: 12px; font-weight: 600; text-decoration: underline; cursor: pointer; }
+    .device {
+      position: relative;
+      width: calc(390px * var(--s, 1));
+      height: calc(800px * var(--s, 1));
+      overflow: hidden;
+      border-radius: calc(34px * var(--s, 1));
+      background: #faf8f3;
+      box-shadow: var(--shadow), 0 0 0 1px var(--line);
+    }
+    .screen { position: absolute; top: 0; left: 0; width: 390px; height: 800px; overflow: hidden; transform: scale(var(--s, 1)); transform-origin: 0 0; color: #1c1b18; }
+    .device.desk { width: calc(1280px * var(--sd, 0.4)); height: calc(var(--dh, 800px) * var(--sd, 0.4)); border-radius: calc(14px * var(--sd, 0.4) + 4px); }
+    .device.desk .screen { width: 1280px; height: var(--dh, 800px); overflow-y: auto; overflow-x: hidden; transform: scale(var(--sd, 0.4)); }
+    .frame.full { position: fixed; inset: 0; z-index: 20; padding: 16px 24px; background: var(--canvas); }
+
+    .rail {
+      width: 500px;
+      flex: none;
+      padding: 16px 24px 18px;
+      font-size: 12.5px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      border-left: 1px solid var(--line-soft);
+      background: var(--canvas);
+    }
+    .label { color: var(--ink-3); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+    .brief p { margin-top: 3px; }
+    .brief p + p { margin-top: 8px; }
+    .list { display: flex; flex-direction: column; gap: 4px; }
+    .list li { display: flex; gap: 10px; padding: 0 4px; border-radius: 6px; }
+    .list li > b { flex: none; min-width: 24px; color: var(--ink-3); font-size: 11px; font-weight: 700; padding-top: 1px; }
+    .list small { display: block; color: var(--ink-3); font-size: 11px; }
+    .pane[hidden] { display: none; }
+    .open li { color: var(--ink-2); }
+    .open b { color: var(--ink); }
+
+    .reqs { margin-top: 12px; }
+    .reqs .label { margin: 10px 0 4px; }
+    .reqs .label:first-child { margin-top: 0; }
+    .open { margin-top: 12px; }
+    .open .list { margin-top: 5px; }
+    .bullets { margin: 6px 0 16px; padding-left: 16px; list-style: disc; display: flex; flex-direction: column; gap: 7px; }
+    .bullets.numbered { list-style: decimal; }
+    .bullets li { padding-left: 2px; }
+    .bullets b { font-weight: 600; }
+
+    /* Ferry screens: FERRY_BRAND.md tokens and the Ferry Design System site; light only */
+    .fy {
+      --cream: #FFF6EC; --white: #FFFFFF; --peach: #F0704F; --blush: #FFD9C2;
+      --sea: #2EA88F; --sea-deep: #176D5C; --mint: #E5F5F0; --navy: #17263F;
+      --slate: #566680; --mist: #EEF1F6; --on-navy: #C7D2E6;
+      background: var(--cream);
+      color: var(--navy);
+      font: 400 16px/1.55 "Figtree", "Helvetica Neue", Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .fy h1, .fy h2, .fy h3, .fy .d { font-family: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif; font-weight: 800; }
+    .fy svg.i { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+    .fy .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; line-height: 1.2; white-space: nowrap; }
+    .fy .chip.blush { background: var(--blush); color: var(--navy); }
+    .fy .chip.mint { background: var(--mint); color: var(--sea-deep); }
+    .fy .chip.mist { background: var(--mist); color: var(--navy); }
+    .fy .chip svg.i { width: 16px; height: 16px; }
+    .fy .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 999px; font: 700 17px/1 "Figtree", sans-serif; color: var(--navy); cursor: pointer; text-decoration: none; white-space: nowrap; }
+    .fy .btn.p { height: 60px; padding: 0 28px; background: var(--peach); }
+    .fy .btn.s { height: 56px; padding: 0 24px; font-size: 15px; background: var(--white); }
+    .fy .btn.s.b { background: var(--blush); }
+    .fy .btn.t { height: 48px; padding: 0 14px; font-size: 15px; background: transparent; }
+    .fy .money { color: var(--sea-deep); }
+    .fy .mark { display: inline-flex; align-items: center; gap: 8px; font: 800 26px/1 "Bricolage Grotesque", sans-serif; letter-spacing: -0.03em; }
+    .fy .mark svg { width: 32px; height: 32px; }
+    .fy .prog { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .fy .prog i { height: 8px; border-radius: 999px; background: var(--sea); }
+    .fy .prog i.pend { background: var(--blush); }
+    .fy .prog span { font-size: 12px; font-weight: 700; color: var(--sea-deep); }
+    .fy .prog span.pend { color: var(--slate); }
+
+    /* Homepage (1280 desktop) */
+    .h-banner { display: block; padding: 12px 20px; background: var(--navy); color: var(--cream); font-size: 14px; font-weight: 700; text-align: center; }
+    .h-head { display: flex; align-items: center; justify-content: space-between; gap: 24px; max-width: 1200px; margin: 0 auto; padding: 20px 32px; }
+    .h-nav { display: flex; gap: 4px; padding: 6px; border-radius: 999px; background: var(--white); }
+    .h-nav a { padding: 10px 16px; border-radius: 999px; font-size: 14px; font-weight: 700; color: var(--slate); text-decoration: none; }
+    .h-cta { display: flex; align-items: center; gap: 16px; font-size: 15px; font-weight: 700; }
+    .h-cta a { color: var(--navy); text-decoration: none; }
+    .h-cta .btn.p { height: 48px; padding: 0 22px; font-size: 15px; }
+    .fw { max-width: 1200px; margin: 0 auto; padding: 0 32px; }
+    .h-hero { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 56px; align-items: center; padding: 48px 0 72px; }
+    .h-hero-copy { display: flex; flex-direction: column; gap: 24px; align-items: flex-start; }
+    .h-display { font-size: 66px; line-height: 1; letter-spacing: -0.03em; }
+    .h-lead { font-size: 19px; line-height: 1.55; color: var(--slate); max-width: 560px; }
+    .h-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    .h-fine { font-size: 13px; font-weight: 700; color: var(--slate); }
+    .h-stack { display: flex; flex-direction: column; padding: 12px; }
+    .card { display: flex; flex-direction: column; gap: 10px; padding: 22px; border-radius: 28px; background: var(--white); }
+    .card.row { padding: 16px 18px; border-radius: 22px; }
+    .between { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .lbl { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--slate); }
+    .lbl svg.i { width: 16px; height: 16px; }
+    .meta { font-size: 13px; line-height: 1.45; color: var(--slate); }
+    .h-promise { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding-bottom: 88px; }
+    .h-promise div { display: flex; align-items: center; gap: 14px; padding: 24px 26px; border-radius: 28px; background: var(--white); font: 800 28px/1.1 "Bricolage Grotesque", sans-serif; letter-spacing: -0.02em; }
+    .h-promise svg.i { width: 28px; height: 28px; color: var(--peach); }
+    .h-sec { display: flex; flex-direction: column; gap: 32px; padding-bottom: 96px; }
+    .h-sechead { display: flex; flex-direction: column; gap: 12px; }
+    .h-h2 { font-size: 44px; line-height: 1.05; letter-spacing: -0.02em; }
+    .h-h3 { font-size: 22px; line-height: 1.15; letter-spacing: -0.01em; }
+    .h-body { font-size: 16px; color: var(--slate); }
+    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .ichip { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 999px; background: var(--blush); }
+    .h-segs { display: flex; gap: 4px; padding: 6px; border-radius: 999px; background: var(--white); align-self: flex-start; }
+    .h-segs button { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px; border: 0; border-radius: 999px; background: transparent; font: 700 15px "Figtree", sans-serif; color: var(--slate); cursor: pointer; }
+    .h-segs button svg.i { width: 18px; height: 18px; }
+    .h-segs button[aria-pressed="true"] { background: var(--blush); color: var(--navy); }
+    .h-how { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+    .h-panel { display: flex; flex-direction: column; gap: 12px; min-height: 220px; padding: 28px; border-radius: 28px; background: var(--blush); }
+    .h-panel[hidden] { display: none; }
+    .notice { display: flex; gap: 10px; align-items: center; padding: 14px 16px; border-radius: 16px; background: var(--mint); color: var(--sea-deep); font-size: 15px; font-weight: 600; }
+    .notice svg.i { width: 18px; height: 18px; }
+    .h-steps { display: flex; flex-direction: column; gap: 12px; }
+    .h-steps li { display: flex; gap: 18px; padding: 20px 22px; border-radius: 22px; background: var(--white); }
+    .h-steps li > span:last-child { display: flex; flex-direction: column; gap: 4px; }
+    .h-steps b { font-size: 17px; }
+    .h-num { font: 800 22px/1.2 "Bricolage Grotesque", sans-serif; color: var(--peach); }
+    .h-split { display: grid; grid-template-columns: 400px 1fr; gap: 48px; align-items: start; padding-bottom: 96px; }
+    .h-price .d { font-size: 52px; line-height: 1; letter-spacing: -0.03em; }
+    .h-price .d small { font: 600 16px/1 "Figtree", sans-serif; color: var(--slate); letter-spacing: 0; }
+    .h-price ul { display: flex; flex-direction: column; gap: 10px; margin: 8px 0 12px; font-size: 15px; flex: 1; }
+    .h-price li { display: flex; gap: 10px; align-items: center; }
+    .h-price li svg.i { width: 18px; height: 18px; color: var(--sea-deep); }
+    .h-price .btn { width: 100%; }
+    .h-price.star { outline: 3px solid var(--peach); outline-offset: -3px; }
+    .h-faq { max-width: 760px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+    .h-faq details { padding: 20px 24px; border-radius: 22px; background: var(--white); }
+    .h-faq summary { display: flex; justify-content: space-between; align-items: center; font-size: 17px; font-weight: 700; cursor: pointer; list-style: none; }
+    .h-faq summary::-webkit-details-marker { display: none; }
+    .h-faq summary::after { content: "+"; font: 800 24px/1 "Bricolage Grotesque", sans-serif; }
+    .h-faq details[open] summary::after { content: "\2212"; }
+    .h-faq details p { margin-top: 10px; color: var(--slate); }
+    .h-close { display: flex; flex-direction: column; align-items: center; gap: 20px; margin-bottom: 64px; padding: 72px 32px; border-radius: 28px; background: var(--navy); color: var(--cream); text-align: center; }
+    .h-close .h-display { color: var(--cream); }
+    .h-close .h-lead { color: var(--on-navy); }
+    .h-close svg.m { width: 56px; height: 56px; }
+    .h-foot { display: grid; grid-template-columns: 2fr repeat(3, 1fr); gap: 32px; padding-bottom: 48px; font-size: 14px; }
+    .h-foot div { display: flex; flex-direction: column; gap: 10px; }
+    .h-foot a { color: var(--slate); font-weight: 500; text-decoration: none; }
+    .h-foot .meta:last-child { grid-column: 1 / -1; }
+
+    /* After-session screen (390 phone) */
+    .a { height: 100%; padding: 40px 20px 22px; display: flex; flex-direction: column; gap: 11px; }
+    .a-top { display: flex; align-items: center; gap: 4px; margin-left: -12px; }
+    .a-top .btn.t { width: 44px; padding: 0; }
+    .a-top span { font-size: 13px; color: var(--slate); }
+    .a h1 { font-size: 30px; line-height: 1.05; letter-spacing: -0.02em; }
+    .a-meta { display: flex; gap: 6px; }
+    .a .card { gap: 0; }
+    .a .card header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .a .card h3 { font-size: 17px; letter-spacing: -0.01em; }
+    .a-note p { font-size: 14px; line-height: 1.45; }
+    .a-note p + p { margin-top: 6px; }
+    .a-note p b { display: block; font-size: 12px; font-weight: 700; color: var(--slate); }
+    .a-codes { display: flex; gap: 6px; }
+    .a-note footer { display: flex; justify-content: space-between; align-items: center; margin: 4px -8px -10px 0; font-size: 13px; color: var(--slate); }
+    .a-note footer .btn.t { height: 44px; font-size: 14px; }
+    .a-claim p, .a-letter p { font-size: 14px; line-height: 1.45; color: var(--slate); }
+    .a-claim .d { font-size: 18px; }
+    .a-letter .btn.s { height: 44px; margin-top: 10px; padding: 0 18px; font-size: 14px; align-self: flex-start; }
+    .a > * { flex-shrink: 0; }
+    .a .spacer { flex: 1 1 0; flex-shrink: 1; }
+    .a > .btn.p { width: 100%; }
+
+    @media (max-width: 860px) {
+      .bar { padding: 0 16px; gap: 10px; }
+      .brand p { display: none; }
+      .panel, .panel.active { height: auto; min-height: 0; }
+      .panel.active { flex-direction: column; }
+      .canvas { flex-direction: column; align-items: center; padding: 16px 16px 24px; }
+      .rail { width: auto; border-left: 0; border-top: 1px solid var(--line-soft); overflow: visible; }
+      .frame { max-width: 100%; }
+      .frame.full { padding: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="boat" viewBox="0 0 48 48"><rect x="18" y="11" width="14" height="13" rx="4" fill="#2EA88F"/><circle cx="25" cy="17.5" r="2.2" fill="#FFFFFF"/><path d="M6 26h36l-6 12H12z" fill="#F0704F" stroke="#F0704F" stroke-width="2" stroke-linejoin="round"/><path d="M4 44c3-3 7-3 10 0s7 3 10 0 7-3 10 0 7 3 10 0" fill="none" stroke="#17263F" stroke-width="3" stroke-linecap="round"/></symbol>
+    <symbol id="boat-rev" viewBox="0 0 48 48"><rect x="18" y="11" width="14" height="13" rx="4" fill="#2EA88F"/><circle cx="25" cy="17.5" r="2.2" fill="#FFFFFF"/><path d="M6 26h36l-6 12H12z" fill="#F0704F" stroke="#F0704F" stroke-width="2" stroke-linejoin="round"/><path d="M4 44c3-3 7-3 10 0s7 3 10 0 7-3 10 0 7 3 10 0" fill="none" stroke="#FFF6EC" stroke-width="3" stroke-linecap="round"/></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></symbol>
+    <symbol id="i-scan" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/></symbol>
+    <symbol id="i-pen" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.4 3.6a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
+    <symbol id="i-anchor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="3"/><path d="M12 22V8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+    <symbol id="i-hand" viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-4 0"/><path d="M14 10V4a2 2 0 0 0-4 0v2"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-6-2.3l-3.6-3.6a2 2 0 0 1 2.8-2.8L7 15"/></symbol>
+  </svg>
+
+  <header class="bar">
+    <div class="brand"><h1>Ferry</h1><p>Speak the session. We write the note and the letter, and file your client's claim.</p></div>
+    <button class="theme" id="theme" type="button" aria-label="Toggle color theme" title="Toggle color theme">◐</button>
+  </header>
+
+  <main>
+    <section class="panel active" id="panel-design">
+      <div class="canvas" id="canvas">
+        <figure class="frame" id="frame-1">
+          <figcaption>Main value screen <span>· Homepage, desktop, scroll inside</span><button class="expand" id="expand" type="button" aria-expanded="false">Full size</button></figcaption>
+          <div class="device desk"><div class="screen fy" id="screen-1" tabindex="0" aria-label="Homepage">
+            <a class="h-banner" href="#pricing">Free for 7 days, then $50 a month. Your clients file free.</a>
+            <header class="h-head">
+              <span class="mark"><svg aria-hidden="true"><use href="#boat"/></svg>Ferry</span>
+              <nav class="h-nav" aria-label="Site"><a href="#how">How it works</a><a href="#security">Security</a><a href="#pricing">Pricing</a><a href="#pricing">For groups</a></nav>
+              <div class="h-cta"><a href="#pricing">Log in</a><a class="btn p" href="#pricing">Start free</a></div>
+            </header>
+
+            <div class="fw">
+              <section class="h-hero">
+                <div class="h-hero-copy">
+                  <h1 class="h-display">Talk through the session. We'll handle the paperwork.</h1>
+                  <p class="h-lead">Ferry writes your notes as you speak, drafts the letters insurers ask for, and files every client's out-of-network claim until it's paid.</p>
+                  <div class="h-row"><a class="btn p" href="#pricing"><svg class="i"><use href="#i-mic"/></svg>Start free for 7 days</a><a class="btn s" href="#how">See how it works</a></div>
+                  <span class="h-fine">No card needed. Signed BAA on every plan.</span>
+                </div>
+                <div class="h-stack" aria-hidden="true">
+                  <div class="card row" style="transform:rotate(-3deg);max-width:300px;gap:8px">
+                    <span class="lbl"><svg class="i"><use href="#i-mic"/></svg>DAP note, ready</span>
+                    <span style="font-weight:700">"Sleeping 6 hours most nights, up from 4."</span>
+                    <span class="meta">Jordan · Today, 3:00 pm</span>
+                  </div>
+                  <div class="card row" style="max-width:320px;align-self:flex-end;margin-top:-12px">
+                    <span class="between"><span class="lbl"><svg class="i"><use href="#i-file"/></svg>Necessity letter</span><span class="chip mint">Sent across</span></span>
+                    <span class="meta">Drafted from 8 of your notes. You signed it in one tap.</span>
+                  </div>
+                  <div class="card" style="max-width:340px;transform:rotate(2deg);margin-top:-8px;gap:12px">
+                    <span class="between"><span class="lbl">Coming back to Jordan</span><span class="chip mint">On its way</span></span>
+                    <span class="d money" style="font-size:44px;line-height:1;letter-spacing:-0.03em">$126.00</span>
+                    <div class="prog"><i></i><i></i><i class="pend"></i><span>Snapped and sent</span><span>Your insurer has it</span><span class="pend">Money comes back</span></div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="h-promise">
+                <div><svg class="i"><use href="#i-clock"/></svg>Stop charting.</div>
+                <div><svg class="i"><use href="#i-pen"/></svg>Stop writing letters.</div>
+                <div><svg class="i"><use href="#i-anchor"/></svg>Keep your clients.</div>
+              </section>
+
+              <section class="h-sec">
+                <div class="h-sechead">
+                  <h2 class="h-h2">Built for how you actually work.</h2>
+                  <p class="h-lead">Speak it, dictate it, type it, or scan it. Ferry turns it into finished paperwork.</p>
+                </div>
+                <div class="grid3">
+                  <div class="card"><span class="ichip"><svg class="i"><use href="#i-mic"/></svg></span><h3 class="h-h3">Your note, in your format</h3><p class="h-body">Record in the room or on video, or talk for a minute after. SOAP, DAP, BIRP or intake, in your words.</p></div>
+                  <div class="card"><span class="ichip"><svg class="i"><use href="#i-scan"/></svg></span><h3 class="h-h3">Scan instead of type</h3><p class="h-body">Point your phone at an insurance card, a superbill or an insurer's letter. The details fill in on their own.</p></div>
+                  <div class="card"><span class="ichip"><svg class="i"><use href="#i-file"/></svg></span><h3 class="h-h3">Letters from your own notes</h3><p class="h-body">When an insurer asks why care is needed, the letter is already drafted. You read it and sign.</p></div>
+                </div>
+              </section>
+
+              <section class="h-sec" id="how">
+                <div class="h-sechead"><h2 class="h-h2">How it works</h2><p class="h-lead">Four ways in. One finished note, and a client who gets paid back.</p></div>
+                <div class="h-segs" role="group" aria-label="Ways to capture">
+                  <button type="button" aria-pressed="true" data-mode="live"><svg class="i"><use href="#i-mic"/></svg>Live session</button>
+                  <button type="button" aria-pressed="false" data-mode="dictate"><svg class="i"><use href="#i-send"/></svg>Dictate a summary</button>
+                  <button type="button" aria-pressed="false" data-mode="type"><svg class="i"><use href="#i-pen"/></svg>Type rough notes</button>
+                  <button type="button" aria-pressed="false" data-mode="scan"><svg class="i"><use href="#i-scan"/></svg>Scan a document</button>
+                </div>
+                <div class="h-how">
+                  <div>
+                    <div class="h-panel" data-panel="live"><div class="card row"><span class="between"><b>Jordan · Today, 3:00 pm</b><span class="chip mist">48 min</span></span><span class="meta">Recorded in the room on your phone.</span></div><div class="notice"><svg class="i"><use href="#i-check"/></svg>Audio deleted once your note is written.</div></div>
+                    <div class="h-panel" data-panel="dictate" hidden><div class="card row"><b>"Jordan slept better. Two panic episodes at work. Keep weekly CBT."</b><span class="meta">Dictated after the session.</span></div><div class="notice"><svg class="i"><use href="#i-check"/></svg>Turned into a full DAP note.</div></div>
+                    <div class="h-panel" data-panel="type" hidden><div class="card row"><b>sleep better, 2 panic at work, cont CBT</b><span class="meta">Typed between sessions.</span></div><div class="notice"><svg class="i"><use href="#i-check"/></svg>Same finished note.</div></div>
+                    <div class="h-panel" data-panel="scan" hidden><div class="card row"><span class="between"><b>Cigna PPO card · Jordan</b><span class="chip mint">Saved</span></span><span class="meta">Plan details filled in. The photo is deleted.</span></div><div class="notice"><svg class="i"><use href="#i-check"/></svg>Nothing to type.</div></div>
+                  </div>
+                  <ol class="h-steps">
+                    <li><span class="h-num">01</span><span><b>Talk</b><span class="h-body">Record the session, or dictate a summary once your client leaves.</span></span></li>
+                    <li><span class="h-num">02</span><span><b>Approve</b><span class="h-body">Your note arrives with suggested codes. Fix any line, then copy it to your EHR.</span></span></li>
+                    <li><span class="h-num">03</span><span><b>We take it from there</b><span class="h-body">Your client's claim goes out that day, and we chase it until it's paid.</span></span></li>
+                  </ol>
+                </div>
+              </section>
+
+              <section class="h-sec">
+                <div class="h-sechead"><h2 class="h-h2">Why clinicians hand it to Ferry</h2></div>
+                <div class="grid2">
+                  <div class="card"><span class="lbl"><svg class="i"><use href="#i-clock"/></svg>Notes</span><h3 class="h-h3">Leave on time.</h3><div class="h-row"><span class="chip mist">SOAP</span><span class="chip mist">DAP</span><span class="chip mist">BIRP</span><span class="chip mist">Intake</span></div></div>
+                  <div class="card"><span class="lbl"><svg class="i"><use href="#i-file"/></svg>Letters</span><h3 class="h-h3">Proof, already written.</h3><p class="h-body">Nothing goes to an insurer until you approve it.</p></div>
+                  <div class="card"><span class="lbl"><svg class="i"><use href="#i-anchor"/></svg>Claims</span><h3 class="h-h3">Clients get paid back.</h3><div class="prog"><i></i><i></i><i class="pend"></i><span>Snapped and sent</span><span>Your insurer has it</span><span class="pend">Money comes back</span></div></div>
+                  <div class="card"><span class="lbl"><svg class="i"><use href="#i-check"/></svg>Price</span><h3 class="h-h3">No per-claim fees.</h3><p class="h-body">One membership covers every note, letter and claim. Your clients never pay us.</p></div>
+                </div>
+              </section>
+
+              <section class="h-split" id="security">
+                <div class="h-sechead"><h2 class="h-h2">Your sessions stay yours.</h2><p class="h-lead">Built for therapy, where privacy is the whole point.</p></div>
+                <div class="grid2">
+                  <div class="card row"><h3 class="h-h3">Is there a BAA?</h3><p class="h-body">Yes. You sign it when you join, on every plan.</p></div>
+                  <div class="card row"><h3 class="h-h3">Do you keep recordings or scans?</h3><p class="h-body">No. Audio and photos are deleted once the details are saved.</p></div>
+                  <div class="card row"><h3 class="h-h3">Do you train AI on my notes?</h3><p class="h-body">Never. Your notes are used only for your notes and letters.</p></div>
+                  <div class="card row"><h3 class="h-h3">Who sees my notes?</h3><p class="h-body">Only you. Clients see their claim's progress, never your notes.</p></div>
+                </div>
+              </section>
+
+              <section class="h-sec" id="pricing">
+                <div class="h-sechead"><h2 class="h-h2">One price. Everything included.</h2></div>
+                <div class="grid3">
+                  <div class="card h-price"><h3 class="h-h3">Free trial</h3><p class="d">$0<small> for 7 days</small></p><p class="meta">No card needed.</p>
+                    <ul><li><svg class="i"><use href="#i-check"/></svg>Every feature</li><li><svg class="i"><use href="#i-check"/></svg>Unlimited notes</li><li><svg class="i"><use href="#i-check"/></svg>Signed BAA</li></ul>
+                    <a class="btn s b" href="#pricing">Start free</a></div>
+                  <div class="card h-price star"><span class="between"><h3 class="h-h3">Membership</h3><span class="chip blush">Most popular</span></span><p class="d">$50<small> a month</small></p><p class="meta">Cancel anytime.</p>
+                    <ul><li><svg class="i"><use href="#i-check"/></svg>Unlimited notes and dictation</li><li><svg class="i"><use href="#i-check"/></svg>Phone app with scanning</li><li><svg class="i"><use href="#i-check"/></svg>Necessity and appeal letters</li><li><svg class="i"><use href="#i-check"/></svg>Clients' claims filed free for them</li><li><svg class="i"><use href="#i-check"/></svg>Works with any EHR</li></ul>
+                    <a class="btn p" href="#pricing">Start free for 7 days</a></div>
+                  <div class="card h-price"><h3 class="h-h3">Groups</h3><p class="d">Custom</p><p class="meta">Priced by practice size.</p>
+                    <ul><li><svg class="i"><use href="#i-check"/></svg>One bill for the practice</li><li><svg class="i"><use href="#i-check"/></svg>Shared note formats</li><li><svg class="i"><use href="#i-check"/></svg>Add and remove clinicians</li></ul>
+                    <a class="btn s b" href="#pricing">Talk to us</a></div>
+                </div>
+              </section>
+
+              <section class="h-sec">
+                <div class="h-faq">
+                  <h2 class="h-h2">Questions</h2>
+                  <details open><summary>Does it work with my EHR?</summary><p>Yes. Copy the finished note into SimplePractice, TherapyNotes, or any other EHR in one tap.</p></details>
+                  <details><summary>What if a client doesn't want to be recorded?</summary><p>Then don't record. Dictate a summary after the session, or type rough notes, and you get the same finished note.</p></details>
+                  <details><summary>Do my clients pay anything?</summary><p>No. Your membership covers filing and following up on every client's claim.</p></details>
+                  <details><summary>Who gets the insurance money?</summary><p>Your client. We file under your NPI with your client as the one who gets paid. We never touch the money.</p></details>
+                </div>
+              </section>
+
+              <section class="h-close">
+                <svg class="m" aria-hidden="true"><use href="#boat-rev"/></svg>
+                <h2 class="h-display">Leave on time tonight.</h2>
+                <p class="h-lead">Seven days free. No card needed.</p>
+                <a class="btn p" href="#pricing"><svg class="i"><use href="#i-mic"/></svg>Start free for 7 days</a>
+              </section>
+
+              <footer class="h-foot">
+                <div><span class="mark"><svg aria-hidden="true"><use href="#boat"/></svg>Ferry</span><span class="meta">We carry the paperwork across and bring the money back.</span></div>
+                <div><b>Product</b><a href="#how">How it works</a><a href="#pricing">Pricing</a><a href="#security">Security</a></div>
+                <div><b>Who it's for</b><a href="#pricing">Therapists</a><a href="#pricing">Psychiatrists</a><a href="#pricing">Group practices</a></div>
+                <div><b>Legal</b><a href="#security">Privacy</a><a href="#security">Terms</a></div>
+                <span class="meta">&copy; 2026 Ferry Health</span>
+              </footer>
+            </div>
+          </div></div>
+        </figure>
+
+        <figure class="frame" id="frame-2">
+          <figcaption>Main action screen <span>· Phone app, after the session</span></figcaption>
+          <div class="device"><div class="screen fy" id="screen-2">
+            <div class="a">
+              <div class="a-top"><button class="btn t" type="button" aria-label="Back"><svg class="i"><use href="#i-back"/></svg></button><span>Today, 3:00 pm</span></div>
+              <h1>Here's Jordan's note.</h1>
+              <div class="a-meta"><span class="chip mist">48 min in the room</span><span class="chip mint">Audio deleted</span></div>
+
+              <div class="card row a-note">
+                <header><h3>DAP note</h3><span class="chip mist">Tap any line to edit</span></header>
+                <p><b>Data</b>Sleeping 6 hours, up from 4. Two panic episodes, both at work.</p>
+                <p><b>Assessment</b>Generalized anxiety, improving.</p>
+                <p><b>Plan</b>Weekly CBT. Review in 2 weeks.</p>
+                <footer><span class="a-codes"><span class="chip mist">90837 · 60 min</span><span class="chip mist">F41.1</span></span><button class="btn t" type="button">Copy to EHR</button></footer>
+              </div>
+
+              <div class="card row a-claim">
+                <header><h3>Jordan's claim</h3><span class="d">$200</span></header>
+                <p>Once you approve, we file it with Cigna from the card Jordan scanned. Free for Jordan.</p>
+              </div>
+
+              <div class="card row a-letter">
+                <header><h3>Necessity letter</h3><span class="chip blush"><svg class="i"><use href="#i-hand"/></svg>One quick thing</span></header>
+                <p>Cigna asked why Jordan's care is needed. We drafted the letter from 8 of your notes.</p>
+                <button class="btn s b" type="button">Read the letter</button>
+              </div>
+
+              <div class="spacer"></div>
+              <button class="btn p" type="button">Approve note</button>
+            </div>
+          </div></div>
+        </figure>
+      </div>
+
+      <aside class="rail" aria-label="Product and tech">
+        <div class="seg" role="tablist" aria-label="Rail view">
+          <button type="button" role="tab" aria-selected="true" data-pane="product" id="seg-product">Product</button>
+          <button type="button" role="tab" aria-selected="false" tabindex="-1" data-pane="tech" id="seg-tech">Tech</button>
+        </div>
+
+        <div class="pane" id="pane-product" role="tabpanel" aria-labelledby="seg-product">
+          <div class="brief">
+            <p class="label">Problem</p>
+            <p>Out-of-network therapists lose unpaid hours to notes and insurer letters; clients who never get reimbursed stop coming.</p>
+            <p class="label" style="margin-top:8px">Solution</p>
+            <p>A $50 monthly membership: speak or scan instead of typing, get notes and letters, and every client's claim is filed and chased free.</p>
+            <p class="label" style="margin-top:8px">Goal</p>
+            <p>50 paying clinicians by Nov 19, each with at least one client claim filed from their notes.</p>
+          </div>
+          <div class="reqs">
+            <p class="label">Homepage</p>
+            <ul class="list">
+              <li id="r1"><b>R1</b><span>"Start free" opens a 7-day trial that asks for no card.</span></li>
+              <li id="r2"><b>R2</b><span>Pricing: trial, $50 membership, custom groups; no per-claim fee.</span></li>
+              <li id="r3"><b>R3</b><span>No reviews, user counts or testimonials until they are real.</span></li>
+            </ul>
+            <p class="label">Phone app</p>
+            <ul class="list">
+              <li id="r4"><b>R4</b><span>Recording starts only after the client's recording consent is on file.</span></li>
+              <li id="r5"><b>R5</b><span>Capture live, from a video call, by dictation, typing or upload.</span></li>
+              <li id="r6"><b>R6</b><span>Notes come in the chosen format with codes, editable, one-tap copy.</span></li>
+              <li id="r7"><b>R7</b><span>Scans read cards, superbills and insurer letters; user confirms first.</span></li>
+              <li id="r8"><b>R8</b><span>A blurry or cropped scan asks for one retake instead of guessing.</span></li>
+              <li id="r9"><b>R9</b><span>Audio and scan photos are deleted once saved; never in photo library.</span></li>
+              <li id="r10"><b>R10</b><span>Approve files under the clinician's NPI, client as payee, free to them.</span></li>
+            </ul>
+            <p class="label">After it's sent</p>
+            <ul class="list">
+              <li id="r11"><b>R11</b><span>Insurer asks: letter drafted from progress notes, sent once approved.</span></li>
+              <li id="r12"><b>R12</b><span>Clients see their tracker and sent letters, never session notes.</span></li>
+              <li id="r13"><b>R13</b><span>Canceling stops new work; claims already sent are still chased.</span></li>
+            </ul>
+          </div>
+          <div class="open">
+            <p class="label">Open decisions</p>
+            <ul class="list">
+              <li><span><b>Exact price.</b> $50 is a placeholder; add yearly near $40 a month. <small>Ryan · Oct 4</small></span></li>
+              <li><span><b>What moves.</b> Keep Nov 17; drop Autopilot, delay regulator complaints. <small>Ryan · Sep 30</small></span></li>
+              <li><span><b>Clients of non-members.</b> An "invite your therapist" link only. <small>Ryan · Oct 1</small></span></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="pane" id="pane-tech" role="tabpanel" aria-labelledby="seg-tech" hidden>
+          <p class="label">Tech stack</p>
+          <ol class="bullets numbered">
+            <li><b>Web app and API:</b> Next.js 16, built. Serves the site, the clinician web app and the client tracker.</li>
+            <li><b>Phone app:</b> installable web app at launch (camera, mic); Expo store apps follow on the same /api/v1. Store review time is the risk.</li>
+            <li><b>Scanning:</b> phone camera, read on the server, new. Native scanners (VisionKit, ML Kit) arrive with the store apps. Photos stay in memory only.</li>
+            <li><b>Speech to text:</b> AWS HealthScribe or Transcribe Medical streaming, to choose. Stays inside the AWS BAA.</li>
+            <li><b>Notes, letters, reading scans:</b> Claude Sonnet 5 on Bedrock, extraction built, the rest new. Letters cite the notes they use.</li>
+            <li><b>Data and jobs:</b> Postgres 17, Drizzle, pg-boss, built. Needs a host with a signed BAA before any real session.</li>
+            <li><b>Claims:</b> Stedi 837P, 277CA and 276/277, planned. The member authorizes filing under their NPI at sign-up.</li>
+            <li><b>Billing:</b> Stripe subscriptions, new. Replaces the per-claim fee code and its tests.</li>
+          </ol>
+          <p class="label">Data</p>
+          <ul class="bullets">
+            <li>Clinician: NPI, Tax ID (sealed, shown as last four), note format and style, subscription.</li>
+            <li>Client: belongs to one clinician; recording and filing consents with timestamps; insurance details from the scan.</li>
+            <li>Session note: text, codes, date. Readable only by its clinician.</li>
+            <li>Letter: draft and sent copy, on the claim timeline the client can see.</li>
+            <li>Claim: the existing 16-state model; client stays payee, Accept Assignment = No.</li>
+            <li>Never stored: session audio, scan photos. Never used for model training: client data. Never in SMS, logs or analytics: health details.</li>
+            <li>No real client data on any service until its BAA is signed.</li>
+          </ul>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      var segs = Array.from(document.querySelectorAll(".seg button"));
+      var hashes = { product: "product", tech: "tech" };
+      var f1 = document.getElementById("frame-1");
+      var f2 = document.getElementById("frame-2");
+      var sc1 = document.getElementById("screen-1");
+      var expand = document.getElementById("expand");
+
+      function fit() {
+        var canvas = document.getElementById("canvas");
+        var mobile = window.matchMedia("(max-width: 860px)").matches;
+        var s, sd, dh = 800;
+        if (mobile) {
+          s = Math.min(1, (canvas.clientWidth - 32) / 390);
+          sd = (canvas.clientWidth - 32) / 1280;
+        } else {
+          var availH = canvas.clientHeight - 16 - 20 - 24;
+          s = Math.min(1, availH / 800);
+          sd = Math.min(1, (canvas.clientWidth - 48 - 32 - 390 * s) / 1280, availH / 800);
+          dh = availH / sd;
+        }
+        if (f1.classList.contains("full")) {
+          sd = Math.min(1, (window.innerWidth - 48) / 1280);
+          dh = (window.innerHeight - 32 - 24) / sd;
+        }
+        f2.style.setProperty("--s", Math.max(s, 0.3));
+        f1.style.setProperty("--sd", Math.max(sd, 0.2));
+        f1.style.setProperty("--dh", Math.max(dh, 800) + "px");
+      }
+
+      function setFull(on) {
+        f1.classList.toggle("full", on);
+        expand.textContent = on ? "Close" : "Full size";
+        expand.setAttribute("aria-expanded", String(on));
+        fit();
+      }
+      expand.addEventListener("click", function () { setFull(!f1.classList.contains("full")); });
+      document.addEventListener("keydown", function (e) { if (e.key === "Escape" && f1.classList.contains("full")) setFull(false); });
+
+      sc1.querySelectorAll("a[href^='#']").forEach(function (a) {
+        a.addEventListener("click", function (e) {
+          e.preventDefault();
+          var t = document.getElementById(a.getAttribute("href").slice(1));
+          if (t) sc1.scrollTo({ top: t.getBoundingClientRect().top - sc1.getBoundingClientRect().top + sc1.scrollTop - 20, behavior: "smooth" });
+        });
+      });
+
+      var modes = Array.from(sc1.querySelectorAll(".h-segs button"));
+      modes.forEach(function (b) {
+        b.addEventListener("click", function () {
+          modes.forEach(function (o) { o.setAttribute("aria-pressed", String(o === b)); });
+          sc1.querySelectorAll(".h-panel").forEach(function (p) { p.hidden = p.dataset.panel !== b.dataset.mode; });
+        });
+      });
+
+      function showPane(name, focus, updateHash) {
+        var current = segs.find(function (b) { return b.dataset.pane === name; }) || segs[0];
+        segs.forEach(function (b) {
+          var on = b === current;
+          b.setAttribute("aria-selected", String(on));
+          b.tabIndex = on ? 0 : -1;
+          document.getElementById("pane-" + b.dataset.pane).hidden = !on;
+        });
+        if (focus) current.focus();
+        if (updateHash && history.replaceState) history.replaceState(null, "", "#" + hashes[current.dataset.pane]);
+      }
+
+      segs.forEach(function (b, i) {
+        b.addEventListener("click", function () { showPane(b.dataset.pane, false, true); });
+        b.addEventListener("keydown", function (e) {
+          var n = null;
+          if (e.key === "ArrowRight") n = (i + 1) % segs.length;
+          if (e.key === "ArrowLeft") n = (i - 1 + segs.length) % segs.length;
+          if (e.key === "Home") n = 0;
+          if (e.key === "End") n = segs.length - 1;
+          if (n === null) return;
+          e.preventDefault();
+          showPane(segs[n].dataset.pane, true, true);
+        });
+      });
+
+      function fromHash() {
+        var h = location.hash.slice(1);
+        showPane(h === "tech" ? "tech" : "product", false, false);
+      }
+      window.addEventListener("hashchange", fromHash);
+      window.addEventListener("resize", fit);
+      fromHash();
+      fit();
+      if (document.fonts) document.fonts.ready.then(fit);
+
+      document.getElementById("theme").addEventListener("click", function () {
+        var cur = document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        var next = cur === "dark" ? "light" : "dark";
+        document.documentElement.dataset.theme = next;
+        try { localStorage.setItem("spec-theme", next); } catch (e) {}
+      });
+    })();
+  </script>
+</body>
+</html>
