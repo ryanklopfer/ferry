@@ -3,6 +3,7 @@ import { draftFollowUp, extractSuperbill } from "@/lib/ai";
 import { assertSyntheticDirectApi, DirectApiRefused } from "./guard";
 
 const REFUSED = [
+  { FERRY_DEPLOY_TIER: "dev", FERRY_DATA_CLASS: "" },
   { FERRY_DEPLOY_TIER: "dev", FERRY_DATA_CLASS: "deidentified" },
   { FERRY_DEPLOY_TIER: "dev", FERRY_DATA_CLASS: "real" },
   { FERRY_DEPLOY_TIER: "prelaunch", FERRY_DATA_CLASS: "synthetic" },
@@ -34,7 +35,11 @@ describe("assertSyntheticDirectApi", () => {
 
   it("allows synthetic data in the dev tier", () => {
     expect(() => assertSyntheticDirectApi({ FERRY_DEPLOY_TIER: "dev", FERRY_DATA_CLASS: "synthetic" })).not.toThrow();
-    expect(() => assertSyntheticDirectApi({})).not.toThrow();
+  });
+
+  it("refuses when FERRY_DATA_CLASS was never declared", () => {
+    expect(() => assertSyntheticDirectApi({})).toThrow(/data class is real/);
+    expect(() => assertSyntheticDirectApi({ FERRY_DEPLOY_TIER: "dev" })).toThrow(DirectApiRefused);
   });
 
   it.each(REFUSED)("makes no request from src/lib/ai.ts in tier $FERRY_DEPLOY_TIER with $FERRY_DATA_CLASS", async (env) => {

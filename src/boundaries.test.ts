@@ -63,6 +63,9 @@ describe("import boundaries", () => {
     expect(await flagged("src/app/api/v1/claims/route.ts", inner, "ferry/no-phi-cache")).toHaveLength(1);
     expect(await flagged("src/server/services/x.ts", 'import { unstable_cache } from "next/cache";\nexport default unstable_cache;\n', "ferry/no-phi-cache")).not.toHaveLength(0);
     expect(await flagged("src/app/c/page.tsx", 'import { cacheLife } from "next/cache";\nexport default cacheLife;\n', "ferry/no-phi-cache")).not.toHaveLength(0);
+    expect(await flagged("src/lib/packet.ts", inner, "ferry/no-phi-cache")).toHaveLength(1);
+    expect(await flagged("src/components/follow-up-card.tsx", inner, "ferry/no-phi-cache")).toHaveLength(1);
+    expect(await flagged("src/ui/client-list.tsx", inner, "ferry/no-phi-cache")).toHaveLength(1);
     expect(await flagged("src/app/(public)/page.tsx", directive, "ferry/no-phi-cache")).toEqual([]);
   });
 });

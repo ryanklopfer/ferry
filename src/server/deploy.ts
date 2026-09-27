@@ -23,8 +23,10 @@ export function deployTier(env: Env = process.env): Tier {
   return value as Tier;
 }
 
+// Fails closed: a process that never declares its data class is treated as holding real PHI, so
+// every "synthetic only" check (the direct API, dev:phone, scribe:eval live) needs an explicit value.
 export function dataClass(env: Env = process.env): DataClass {
-  const value = env.FERRY_DATA_CLASS ?? "synthetic";
+  const value = env.FERRY_DATA_CLASS || "real";
   if (!(DATA_CLASSES as readonly string[]).includes(value)) throw new DeployConfigError(`FERRY_DATA_CLASS must be one of ${DATA_CLASSES.join(", ")}`);
   return value as DataClass;
 }
@@ -38,10 +40,14 @@ function databaseName(url: string | undefined): string | null {
   }
 }
 
+export function isDevDatabase(url: string | undefined): boolean {
+  const name = databaseName(url);
+  return !!name && /_(dev|test)$/.test(name);
+}
+
 // Dev scripts (demo:seed, billing:simulate, clock:advance, dev:login, dev:phone) call this first.
 export function assertDevTier(env: Env = process.env): void {
   const tier = deployTier(env);
   if (tier !== "dev") throw new DeployConfigError(`This script runs only in the dev tier, not ${tier}`);
-  const name = databaseName(env.DATABASE_URL);
-  if (!name || !/_(dev|test)$/.test(name)) throw new DeployConfigError("This script runs only against a database whose name ends in _dev or _test");
+  if (!isDevDatabase(env.DATABASE_URL)) throw new DeployConfigError("This script runs only against a database whose name ends in _dev or _test");
 }

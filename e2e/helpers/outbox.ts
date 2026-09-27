@@ -1,9 +1,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { E2E_OUTBOX_DIR } from "../env";
 
 export type OutboxMessage = { to: string; subject: string; text: string; signInLink?: string };
 
-export const OUTBOX = path.join(process.cwd(), "data", "outbox");
+export const OUTBOX = E2E_OUTBOX_DIR;
 
 async function read(recipient: string): Promise<OutboxMessage[]> {
   const files = (await fs.readdir(OUTBOX).catch(() => [] as string[])).filter((f) => f.endsWith(".json")).sort();

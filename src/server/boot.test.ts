@@ -3,7 +3,8 @@ import { assertBootable, BootRefused } from "./boot";
 import { modeEnvVar, VENDORS, type Vendor } from "./integrations/mode";
 
 const allModes = (mode: string) => Object.fromEntries(VENDORS.map((v) => [modeEnvVar(v), mode]));
-const env = (tier: string, mode: string, extra: Record<string, string> = {}) => ({ NODE_ENV: "production", FERRY_DEPLOY_TIER: tier, ...allModes(mode), ...extra });
+const DEV_DB = { DATABASE_URL: "postgres://localhost:5432/ferry_dev" };
+const env = (tier: string, mode: string, extra: Record<string, string> = {}) => ({ NODE_ENV: "production", FERRY_DEPLOY_TIER: tier, FERRY_DATA_CLASS: "synthetic", ...allModes(mode), ...extra });
 const one = (tier: string, base: string, vendor: Vendor, mode: string, extra: Record<string, string> = {}) => env(tier, base, { [modeEnvVar(vendor)]: mode, ...extra });
 
 function refusal(e: Record<string, string | undefined>): BootRefused | null {
@@ -18,8 +19,8 @@ function refusal(e: Record<string, string | undefined>): BootRefused | null {
 
 describe("assertBootable", () => {
   it("boots each tier in its intended shape", () => {
-    expect(refusal({})).toBeNull();
-    expect(refusal({ NODE_ENV: "development", ...allModes("fixture") })).toBeNull();
+    expect(refusal(DEV_DB)).toBeNull();
+    expect(refusal({ NODE_ENV: "development", ...DEV_DB, ...allModes("fixture") })).toBeNull();
     expect(refusal({ FERRY_DEPLOY_TIER: "prelaunch", NODE_ENV: "production" })).toBeNull();
     expect(refusal(env("staging", "test"))).toBeNull();
     expect(refusal(env("prod", "live"))).toBeNull();
@@ -47,6 +48,10 @@ describe("assertBootable", () => {
       expect(refusal(env("staging", "live", { FERRY_DATA_CLASS: dataClass }))?.failures).toEqual([expect.stringMatching(/FERRY_DATA_CLASS/)]);
     });
 
+    it("refuses an undeclared data class", () => {
+      expect(refusal(env("staging", "live", { FERRY_DATA_CLASS: "" }))?.failures).toEqual([expect.stringMatching(/FERRY_DATA_CLASS/)]);
+    });
+
     it("accepts synthetic data", () => {
       expect(refusal(env("staging", "live", { FERRY_DATA_CLASS: "synthetic" }))).toBeNull();
     });
@@ -55,6 +60,16 @@ describe("assertBootable", () => {
   describe("prelaunch", () => {
     it.each(VENDORS.flatMap((vendor) => ["live", "test", "fixture", "local"].map((mode) => ({ vendor, mode }))))("refuses $vendor in mode $mode", ({ vendor, mode }) => {
       expect(refusal(one("prelaunch", "off", vendor, mode))?.failures).toEqual([expect.stringMatching(new RegExp(`^${vendor}: .*${mode}`))]);
+    });
+  });
+
+  describe("dev", () => {
+    it.each(["postgres://db.internal:5432/ferry", "postgres://localhost:5432/ferry_prod", "not a url", undefined])("refuses database %s", (url) => {
+      expect(refusal({ FERRY_DEPLOY_TIER: "dev", NODE_ENV: "production", DATABASE_URL: url })?.failures).toEqual([expect.stringMatching(/_dev or _test/)]);
+    });
+
+    it("accepts the e2e database", () => {
+      expect(refusal({ FERRY_DEPLOY_TIER: "dev", DATABASE_URL: "postgres://localhost:5432/ferry_e2e_test" })).toBeNull();
     });
   });
 

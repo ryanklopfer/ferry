@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { DOM_INCLUDE, NODE_INCLUDE } from "../vitest.globs";
+import { DOM_INCLUDE, NODE_INCLUDE } from "../vitest.globs.mjs";
 
 const root = path.join(__dirname, "..");
 const ignored = (file: string) => spawnSync("git", ["check-ignore", "-q", file], { cwd: root }).status;

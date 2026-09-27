@@ -39,9 +39,10 @@ const ALLOWED = new Set([...IDS, ...OTHER, ...Object.keys(PATTERNS)]);
 
 const scalar = (v: unknown): v is string | number | boolean | null => v === null || ["string", "number", "boolean"].includes(typeof v);
 
+export const isErrorLike = (e: unknown): e is { name?: unknown; stack?: unknown } => e instanceof Error || (typeof e === "object" && e !== null && "stack" in e);
+
 export function errorName(e: unknown): string {
-  const errorLike = e instanceof Error || (typeof e === "object" && e !== null && "stack" in e);
-  const name = errorLike ? (e as { name?: unknown }).name : undefined;
+  const name = isErrorLike(e) ? e.name : undefined;
   return typeof name === "string" && /^[A-Za-z][A-Za-z0-9_]{0,60}$/.test(name) ? name : "Error";
 }
 

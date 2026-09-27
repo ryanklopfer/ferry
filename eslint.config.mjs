@@ -60,7 +60,7 @@ const ferry = {
 const crossCutting = [
   { plugins: { ferry } },
   { files: ["**/*.{ts,tsx,mts,js,mjs}"], ignores: ["src/lib/ai.ts", "src/server/integrations/llm/**"], rules: { "ferry/no-direct-anthropic": "error" } },
-  { files: ["src/app/**", "src/ui/**", "src/server/**"], ignores: ["src/app/(public)/**"], rules: { "ferry/no-phi-cache": "error" } },
+  { files: ["src/**"], ignores: ["src/app/(public)/**"], rules: { "ferry/no-phi-cache": "error" } },
 ];
 
 const eslintConfig = defineConfig([

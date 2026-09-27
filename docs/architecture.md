@@ -260,7 +260,7 @@ Postgres row-level security (S28a) adds a second layer: `ferry_app` runs with FO
 | staging | `live`, `test` or `off`; never `fixture` or `local` | everything, synthetic data only (boot refuses any other `FERRY_DATA_CLASS`) |
 | prod | `live`, with `off` only for sms and fax | everything, beta allow-list until `FERRY_OPEN_SIGNUP=1` |
 
-`FERRY_DATA_CLASS` is `synthetic | deidentified | real`; `real` is refused while `bun run preflight:real-data` fails. Unhandled errors print only the error name, in every process.
+`FERRY_DATA_CLASS` is `synthetic | deidentified | real`, and unset counts as `real`, so every synthetic-only check needs the explicit value; `real` is refused while `bun run preflight:real-data` fails. The dev tier boots only against a database ending `_dev` or `_test`. Unhandled errors print only the error name, in every process: the console scrubber is on in every tier but dev (and whenever NODE_ENV=production). The worker and relay exit on an unhandled error; Next logs it and stays up.
 
 ### Encryption and keys
 

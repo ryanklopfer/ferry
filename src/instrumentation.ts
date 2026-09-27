@@ -6,7 +6,8 @@ export async function register() {
   bootProcess("next");
 }
 
-// Next would otherwise print the message and stack, which can quote PHI. Name, digest and route template only.
+// A structured line with the error name, digest and route template only. This does not stop Next printing the
+// error itself through console.error; installConsoleScrubber (from bootProcess) is what keeps the message out.
 export const onRequestError: Instrumentation.onRequestError = async (error, request, context) => {
   const { log } = await import("./server/log");
   const digest = typeof error === "object" && error !== null && "digest" in error ? String((error as { digest: unknown }).digest) : undefined;
