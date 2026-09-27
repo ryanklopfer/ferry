@@ -655,7 +655,7 @@ Why: D4 makes the installable web app the launch phone app. The Sep 29 mic test 
 - [x] offline-copy.test.ts: the offline page text contains no promise to send later
 - [x] boot.test.ts: the prod tier refuses to boot while any icon is flagged placeholder; the prelaunch tier allows it
 
-### [ ] N3b — Phone recorder, dev:phone tunnel and device matrix (Gate A)
+### [x] N3b — Phone recorder, dev:phone tunnel and device matrix (Gate A)
 
 Scheduled: Tue Sep 29 · Status: new · Size: M · PRD: P0-5.1, P0-5.2, P0-7.3
 
