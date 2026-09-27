@@ -1,9 +1,11 @@
 import { randomBytes } from "node:crypto";
+import { and, eq } from "drizzle-orm";
 import { auth } from "@/server/auth";
 import type { ClinicianCtx, Role, SelfCtx, StaffCtx } from "@/server/auth/ctx";
 import { sentInThisProcess } from "@/server/integrations/email";
 import { db, pool } from "./index";
-import { users } from "./schema";
+import { newId } from "./ids";
+import { clientMemberships, clients, users } from "./schema";
 
 export async function resetDb(): Promise<void> {
   const { rows } = await pool.query<{ name: string }>("select current_database() as name");
@@ -32,4 +34,15 @@ export async function signedInHeaders(email: string): Promise<Headers> {
   const response = await auth.api.magicLinkVerify({ query, headers: new Headers(), asResponse: true });
   const cookie = response.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
   return new Headers({ cookie });
+}
+
+// Binds a client user to a clinician's client row and returns the active membership id. acceptInvite (N7a) does this
+// for real; tests and demo:seed stand in for it.
+export async function bindClientUser(clinician: ClinicianCtx, clientId: string, self: SelfCtx): Promise<string> {
+  return db.transaction(async (tx) => {
+    const bound = await tx.update(clients).set({ clientUserId: self.userId }).where(and(eq(clients.id, clientId), eq(clients.userId, clinician.userId))).returning({ id: clients.id });
+    if (!bound.length) throw new Error(`bindClientUser: ${clientId} is not ${clinician.userId}'s client`);
+    const [m] = await tx.insert(clientMemberships).values({ id: newId("mbr"), userId: self.userId, clinicianUserId: clinician.userId, clientId }).returning({ id: clientMemberships.id });
+    return m.id;
+  });
 }

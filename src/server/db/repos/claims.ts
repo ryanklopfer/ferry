@@ -1,11 +1,13 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
-import type { ClinicianOnlyCtx } from "@/server/auth/ctx";
+import type { ClinicianOnlyCtx, Ctx } from "@/server/auth/ctx";
 import { db } from "../index";
 import { newId } from "../ids";
 import { type Claim, type ClaimLine, type Plan, claimLines, claims, plans, providers } from "../schema";
 import { NotOwnedError } from "@/server/errors";
+import { assertNotClient, tenantWhere } from "./scope";
 
-export type NewClaim = Omit<typeof claims.$inferInsert, "id" | "userId" | "createdAt" | "updatedAt">;
+// A claim's client is its plan's client, never an input.
+export type NewClaim = Omit<typeof claims.$inferInsert, "id" | "userId" | "clientId" | "createdAt" | "updatedAt">;
 export type ClaimPatch = Partial<Omit<NewClaim, "planId">>;
 export type LineValues = Pick<ClaimLine, "serviceDate" | "cptCode" | "modifiers" | "description" | "units" | "charge" | "diagnosisPointers" | "placeOfService">;
 
@@ -14,75 +16,80 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 async function assertProvidersOwned(tx: Tx, ctx: ClinicianOnlyCtx, ids: (string | null | undefined)[]) {
   const wanted = [...new Set(ids.filter((i): i is string => Boolean(i)))];
   if (!wanted.length) return;
-  const found = await tx.select({ id: providers.id }).from(providers).where(and(inArray(providers.id, wanted), eq(providers.userId, ctx.userId)));
+  const found = await tx.select({ id: providers.id }).from(providers).where(and(inArray(providers.id, wanted), tenantWhere(providers, ctx)));
   if (found.length !== wanted.length) throw new NotOwnedError("Provider");
 }
 
-const lineRows = (ctx: ClinicianOnlyCtx, claimId: string, lines: LineValues[]) =>
-  lines.map((l, position) => ({ ...l, id: newId("lin"), userId: ctx.userId, claimId, position }));
+const lineRows = (ctx: ClinicianOnlyCtx, claim: { id: string; clientId: string }, lines: LineValues[]) =>
+  lines.map((l, position) => ({ ...l, id: newId("lin"), userId: ctx.userId, clientId: claim.clientId, claimId: claim.id, position }));
 
 export const claimsRepo = {
-  list(ctx: ClinicianOnlyCtx): Promise<{ claim: Claim; plan: Plan }[]> {
+  list(ctx: Ctx): Promise<{ claim: Claim; plan: Plan }[]> {
     return db
       .select({ claim: claims, plan: plans })
       .from(claims)
-      .innerJoin(plans, and(eq(plans.id, claims.planId), eq(plans.userId, ctx.userId)))
-      .where(eq(claims.userId, ctx.userId))
+      .innerJoin(plans, and(eq(plans.id, claims.planId), tenantWhere(plans, ctx)))
+      .where(tenantWhere(claims, ctx))
       .orderBy(desc(claims.updatedAt));
   },
 
-  async get(ctx: ClinicianOnlyCtx, id: string): Promise<Claim | null> {
-    const [row] = await db.select().from(claims).where(and(eq(claims.id, id), eq(claims.userId, ctx.userId)));
+  async get(ctx: Ctx, id: string): Promise<Claim | null> {
+    const [row] = await db.select().from(claims).where(and(eq(claims.id, id), tenantWhere(claims, ctx)));
     return row ?? null;
   },
 
-  lines(ctx: ClinicianOnlyCtx, claimId: string): Promise<ClaimLine[]> {
-    return db.select().from(claimLines).where(and(eq(claimLines.claimId, claimId), eq(claimLines.userId, ctx.userId))).orderBy(asc(claimLines.position));
+  lines(ctx: Ctx, claimId: string): Promise<ClaimLine[]> {
+    return db.select().from(claimLines).where(and(eq(claimLines.claimId, claimId), tenantWhere(claimLines, ctx))).orderBy(asc(claimLines.position));
   },
 
-  create(ctx: ClinicianOnlyCtx, values: NewClaim, lines: LineValues[]): Promise<Claim> {
+  async create(ctx: ClinicianOnlyCtx, values: NewClaim, lines: LineValues[]): Promise<Claim> {
+    assertNotClient(ctx);
     return db.transaction(async (tx) => {
-      const [plan] = await tx.select({ id: plans.id }).from(plans).where(and(eq(plans.id, values.planId), eq(plans.userId, ctx.userId)));
+      const [plan] = await tx.select({ id: plans.id, clientId: plans.clientId }).from(plans).where(and(eq(plans.id, values.planId), tenantWhere(plans, ctx)));
       if (!plan) throw new NotOwnedError("Plan");
       await assertProvidersOwned(tx, ctx, [values.billingProviderId, values.renderingProviderId]);
-      const [claim] = await tx.insert(claims).values({ ...values, id: newId("clm"), userId: ctx.userId }).returning();
-      if (lines.length) await tx.insert(claimLines).values(lineRows(ctx, claim.id, lines));
+      const [claim] = await tx.insert(claims).values({ ...values, id: newId("clm"), userId: ctx.userId, clientId: plan.clientId }).returning();
+      if (lines.length) await tx.insert(claimLines).values(lineRows(ctx, claim, lines));
       return claim;
     });
   },
 
-  update(ctx: ClinicianOnlyCtx, id: string, patch: ClaimPatch): Promise<Claim | null> {
+  async update(ctx: ClinicianOnlyCtx, id: string, patch: ClaimPatch): Promise<Claim | null> {
+    assertNotClient(ctx);
     return db.transaction(async (tx) => {
       await assertProvidersOwned(tx, ctx, [patch.billingProviderId, patch.renderingProviderId]);
-      const [row] = await tx.update(claims).set({ ...patch, updatedAt: new Date() }).where(and(eq(claims.id, id), eq(claims.userId, ctx.userId))).returning();
+      const [row] = await tx.update(claims).set({ ...patch, updatedAt: new Date() }).where(and(eq(claims.id, id), tenantWhere(claims, ctx))).returning();
       return row ?? null;
     });
   },
 
   // Patch and lines land together or not at all.
-  save(ctx: ClinicianOnlyCtx, id: string, patch: ClaimPatch, lines: LineValues[]): Promise<Claim | null> {
+  async save(ctx: ClinicianOnlyCtx, id: string, patch: ClaimPatch, lines: LineValues[]): Promise<Claim | null> {
+    assertNotClient(ctx);
     return db.transaction(async (tx) => {
       await assertProvidersOwned(tx, ctx, [patch.billingProviderId, patch.renderingProviderId]);
-      const [row] = await tx.update(claims).set({ ...patch, updatedAt: new Date() }).where(and(eq(claims.id, id), eq(claims.userId, ctx.userId))).returning();
+      const [row] = await tx.update(claims).set({ ...patch, updatedAt: new Date() }).where(and(eq(claims.id, id), tenantWhere(claims, ctx))).returning();
       if (!row) return null;
-      await tx.delete(claimLines).where(and(eq(claimLines.claimId, id), eq(claimLines.userId, ctx.userId)));
-      if (lines.length) await tx.insert(claimLines).values(lineRows(ctx, id, lines));
+      await tx.delete(claimLines).where(and(eq(claimLines.claimId, id), tenantWhere(claimLines, ctx)));
+      if (lines.length) await tx.insert(claimLines).values(lineRows(ctx, row, lines));
       return row;
     });
   },
 
-  replaceLines(ctx: ClinicianOnlyCtx, id: string, lines: LineValues[]): Promise<boolean> {
+  async replaceLines(ctx: ClinicianOnlyCtx, id: string, lines: LineValues[]): Promise<boolean> {
+    assertNotClient(ctx);
     return db.transaction(async (tx) => {
-      const [claim] = await tx.select({ id: claims.id }).from(claims).where(and(eq(claims.id, id), eq(claims.userId, ctx.userId)));
+      const [claim] = await tx.select({ id: claims.id, clientId: claims.clientId }).from(claims).where(and(eq(claims.id, id), tenantWhere(claims, ctx)));
       if (!claim) return false;
-      await tx.delete(claimLines).where(and(eq(claimLines.claimId, id), eq(claimLines.userId, ctx.userId)));
-      if (lines.length) await tx.insert(claimLines).values(lineRows(ctx, id, lines));
+      await tx.delete(claimLines).where(and(eq(claimLines.claimId, id), tenantWhere(claimLines, ctx)));
+      if (lines.length) await tx.insert(claimLines).values(lineRows(ctx, claim, lines));
       return true;
     });
   },
 
   async remove(ctx: ClinicianOnlyCtx, id: string): Promise<boolean> {
-    const removed = await db.delete(claims).where(and(eq(claims.id, id), eq(claims.userId, ctx.userId))).returning({ id: claims.id });
+    assertNotClient(ctx);
+    const removed = await db.delete(claims).where(and(eq(claims.id, id), tenantWhere(claims, ctx))).returning({ id: claims.id });
     return removed.length > 0;
   },
 };

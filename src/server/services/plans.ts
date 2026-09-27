@@ -33,7 +33,7 @@ export function listPlans(ctx: ClinicianOnlyCtx): Promise<Plan[]> {
   return plansRepo.list(ctx);
 }
 
-export function createPlan(ctx: ClinicianOnlyCtx, input: PlanInput): Promise<Plan> {
+export function createPlan(ctx: ClinicianOnlyCtx, clientId: string, input: PlanInput): Promise<Plan> {
   const v = PlanInputSchema.parse(input);
-  return plansRepo.create(ctx, { ...v, patientName: v.patientName ?? v.subscriberName, patientDob: v.patientDob ?? v.subscriberDob });
+  return plansRepo.create(ctx, clientId, { ...v, patientName: v.patientName ?? v.subscriberName, patientDob: v.patientDob ?? v.subscriberDob });
 }

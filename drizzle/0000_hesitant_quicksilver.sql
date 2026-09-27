@@ -1,6 +1,7 @@
 CREATE TABLE "claim_lines" (
 	"id" text PRIMARY KEY NOT NULL,
 	"user_id" text NOT NULL,
+	"client_id" text NOT NULL,
 	"claim_id" text NOT NULL,
 	"position" integer NOT NULL,
 	"service_date" date,
@@ -17,6 +18,7 @@ CREATE TABLE "claim_lines" (
 CREATE TABLE "claims" (
 	"id" text PRIMARY KEY NOT NULL,
 	"user_id" text NOT NULL,
+	"client_id" text NOT NULL,
 	"plan_id" text NOT NULL,
 	"status" text DEFAULT 'draft' NOT NULL,
 	"billing_provider_id" text,
@@ -49,21 +51,33 @@ CREATE TABLE "claims" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "documents" (
+CREATE TABLE "client_memberships" (
 	"id" text PRIMARY KEY NOT NULL,
 	"user_id" text NOT NULL,
-	"claim_id" text,
-	"kind" text NOT NULL,
-	"storage_key" text NOT NULL,
-	"mime" text NOT NULL,
-	"bytes" integer NOT NULL,
-	"sha256" text NOT NULL,
+	"clinician_user_id" text NOT NULL,
+	"client_id" text NOT NULL,
+	"status" text DEFAULT 'active' NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "client_memberships_status" CHECK ("client_memberships"."status" in ('active', 'revoked'))
+);
+--> statement-breakpoint
+CREATE TABLE "clients" (
+	"id" text PRIMARY KEY NOT NULL,
+	"user_id" text NOT NULL,
+	"first_name" text NOT NULL,
+	"last_name" text NOT NULL,
+	"dob" date,
+	"email" text,
+	"phone" text,
+	"client_user_id" text,
+	"archived_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "events" (
 	"id" text PRIMARY KEY NOT NULL,
 	"user_id" text NOT NULL,
+	"client_id" text NOT NULL,
 	"claim_id" text NOT NULL,
 	"type" text NOT NULL,
 	"note" text,
@@ -86,6 +100,7 @@ CREATE TABLE "follow_ups" (
 CREATE TABLE "plans" (
 	"id" text PRIMARY KEY NOT NULL,
 	"user_id" text NOT NULL,
+	"client_id" text NOT NULL,
 	"insurer_name" text NOT NULL,
 	"plan_name" text,
 	"member_id" text NOT NULL,
@@ -172,7 +187,7 @@ CREATE TABLE "users" (
 	"image" text,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
-	"role" text DEFAULT 'patient' NOT NULL,
+	"role" text DEFAULT 'pending' NOT NULL,
 	CONSTRAINT "users_email_unique" UNIQUE("email")
 );
 --> statement-breakpoint
@@ -186,28 +201,40 @@ CREATE TABLE "verifications" (
 );
 --> statement-breakpoint
 ALTER TABLE "claim_lines" ADD CONSTRAINT "claim_lines_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "claim_lines" ADD CONSTRAINT "claim_lines_client_id_clients_id_fk" FOREIGN KEY ("client_id") REFERENCES "public"."clients"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "claim_lines" ADD CONSTRAINT "claim_lines_claim_id_claims_id_fk" FOREIGN KEY ("claim_id") REFERENCES "public"."claims"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "claims" ADD CONSTRAINT "claims_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "claims" ADD CONSTRAINT "claims_client_id_clients_id_fk" FOREIGN KEY ("client_id") REFERENCES "public"."clients"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "claims" ADD CONSTRAINT "claims_plan_id_plans_id_fk" FOREIGN KEY ("plan_id") REFERENCES "public"."plans"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "claims" ADD CONSTRAINT "claims_billing_provider_id_providers_id_fk" FOREIGN KEY ("billing_provider_id") REFERENCES "public"."providers"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "claims" ADD CONSTRAINT "claims_rendering_provider_id_providers_id_fk" FOREIGN KEY ("rendering_provider_id") REFERENCES "public"."providers"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "documents" ADD CONSTRAINT "documents_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "documents" ADD CONSTRAINT "documents_claim_id_claims_id_fk" FOREIGN KEY ("claim_id") REFERENCES "public"."claims"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "client_memberships" ADD CONSTRAINT "client_memberships_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "client_memberships" ADD CONSTRAINT "client_memberships_clinician_user_id_users_id_fk" FOREIGN KEY ("clinician_user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "client_memberships" ADD CONSTRAINT "client_memberships_client_id_clients_id_fk" FOREIGN KEY ("client_id") REFERENCES "public"."clients"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "clients" ADD CONSTRAINT "clients_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "clients" ADD CONSTRAINT "clients_client_user_id_users_id_fk" FOREIGN KEY ("client_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "events" ADD CONSTRAINT "events_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "events" ADD CONSTRAINT "events_client_id_clients_id_fk" FOREIGN KEY ("client_id") REFERENCES "public"."clients"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "events" ADD CONSTRAINT "events_claim_id_claims_id_fk" FOREIGN KEY ("claim_id") REFERENCES "public"."claims"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "follow_ups" ADD CONSTRAINT "follow_ups_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "follow_ups" ADD CONSTRAINT "follow_ups_claim_id_claims_id_fk" FOREIGN KEY ("claim_id") REFERENCES "public"."claims"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "plans" ADD CONSTRAINT "plans_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "plans" ADD CONSTRAINT "plans_client_id_clients_id_fk" FOREIGN KEY ("client_id") REFERENCES "public"."clients"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "providers" ADD CONSTRAINT "providers_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "accounts" ADD CONSTRAINT "accounts_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "passkeys" ADD CONSTRAINT "passkeys_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sessions" ADD CONSTRAINT "sessions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "claim_lines_claim_idx" ON "claim_lines" USING btree ("claim_id");--> statement-breakpoint
 CREATE INDEX "claims_user_idx" ON "claims" USING btree ("user_id");--> statement-breakpoint
-CREATE INDEX "documents_claim_idx" ON "documents" USING btree ("claim_id");--> statement-breakpoint
+CREATE INDEX "claims_client_idx" ON "claims" USING btree ("client_id");--> statement-breakpoint
+CREATE INDEX "client_memberships_user_idx" ON "client_memberships" USING btree ("user_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "client_memberships_active_idx" ON "client_memberships" USING btree ("user_id","clinician_user_id") WHERE "client_memberships"."status" = 'active';--> statement-breakpoint
+CREATE INDEX "clients_user_idx" ON "clients" USING btree ("user_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "clients_user_client_user_idx" ON "clients" USING btree ("user_id","client_user_id");--> statement-breakpoint
 CREATE INDEX "events_claim_idx" ON "events" USING btree ("claim_id");--> statement-breakpoint
 CREATE INDEX "follow_ups_claim_idx" ON "follow_ups" USING btree ("claim_id");--> statement-breakpoint
 CREATE INDEX "plans_user_idx" ON "plans" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "plans_client_idx" ON "plans" USING btree ("client_id");--> statement-breakpoint
 CREATE INDEX "providers_user_idx" ON "providers" USING btree ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "providers_user_npi_idx" ON "providers" USING btree ("user_id","npi");--> statement-breakpoint
 CREATE INDEX "accounts_userId_idx" ON "accounts" USING btree ("user_id");--> statement-breakpoint

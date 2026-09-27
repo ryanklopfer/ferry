@@ -834,7 +834,7 @@ Plan: `docs/plans/slice-n2b.md`. The proxy matcher now skips only `_next/` and `
 - [x] deletions.test.ts: no file under src/app references billingProviderTaxId; src/server/storage/local.ts and the documents table no longer exist; no src file imports putFile
 - [x] typecheck, lint and all remaining tests green
 
-### [ ] N4 — Tenancy data: clients, memberships, tenantWhere, resolvers (test-first; enforces the N2a access model)
+### [x] N4 — Tenancy data: clients, memberships, tenantWhere, resolvers (test-first; enforces the N2a access model)
 
 Scheduled: Wed Sep 30 · Status: new · Size: L · PRD: P0-4.1, P0-9.2, P0-11.1, R12
 
@@ -875,14 +875,16 @@ Why: S2 made each patient the owner of their own rows. Every repo filters user_i
 
 #### Acceptance
 
-- [ ] isolation.test.ts v2, written first: X reads only A1/A2 rows in every repo; Y reads nothing of X's; updates and deletes are scoped the same way
-- [ ] isolation.test.ts: clientCtxFor(U, A1 membership) reads A1's clients row, plans, claims and events and nothing of A2's; clientCtxFor(U, B1 membership) reads only B1's
-- [ ] client-ctx.test.ts: a forged id, inactive membership, another user's membership, archived client or mismatched client_user_id each throws NotOwnedError, and the route returns 404
-- [ ] scope.test.ts: tenantWhere with a ClientCtx matches clients by id (CLIENT_SELF), filters CLIENT_SCOPED tables by client_id, and throws on any other table
-- [ ] schema.test.ts fails if a CLIENT_SCOPED table lacks client_id NOT NULL (outside the listed exceptions), or if any table outside the auth tables, client_memberships and GLOBAL_TABLES lacks user_id NOT NULL
-- [ ] resolvers.test.ts (static): resolvers.ts is the only module under repos exporting a function whose first parameter isn't a ctx
-- [ ] api.test.ts: GET /api/v1/claims lists only the caller's tenant and returns 404 for a client session
-- [ ] demo-seed.test.ts: running demo:seed twice leaves identical row counts; it refuses outside the dev tier
+Plan: `docs/plans/slice-n4.md`. The route behind client-ctx.test.ts is `GET /api/v1/memberships/[id]` (the client's own first name, via `ClientSelfSchema` in `src/core/api/trips.ts`); S12 adds the trips routes. Reads (`list`, `get`, `lines`, `forClaim`) take `Ctx`; every write stays `ClinicianOnlyCtx` with `assertNotClient` until a slice adds a client write. `follow_ups` and `providers` are clinician-only (no client_id; both are deleted in S10 and N5). A claim takes its `client_id` from its plan. The patient control number is the claim id until S8 fixes the CLM01 format. resolvers.test.ts exempts `repos/users.ts` (auth-owned, already lint-confined to roles and invites) and checks only modules holding the db handle, so `scope.ts`'s `tenantWhere(table, ctx)` is out of its reach. `bindClientUser` in `db/testing.ts` stands in for acceptInvite (N7a); demo:seed writes its fixed-id rows directly.
+
+- [x] isolation.test.ts v2, written first: X reads only A1/A2 rows in every repo; Y reads nothing of X's; updates and deletes are scoped the same way
+- [x] isolation.test.ts: clientCtxFor(U, A1 membership) reads A1's clients row, plans, claims and events and nothing of A2's; clientCtxFor(U, B1 membership) reads only B1's
+- [x] client-ctx.test.ts: a forged id, inactive membership, another user's membership, archived client or mismatched client_user_id each throws NotOwnedError, and the route returns 404
+- [x] scope.test.ts: tenantWhere with a ClientCtx matches clients by id (CLIENT_SELF), filters CLIENT_SCOPED tables by client_id, and throws on any other table
+- [x] schema.test.ts fails if a CLIENT_SCOPED table lacks client_id NOT NULL (outside the listed exceptions), or if any table outside the auth tables, client_memberships and GLOBAL_TABLES lacks user_id NOT NULL
+- [x] resolvers.test.ts (static): resolvers.ts is the only module under repos exporting a function whose first parameter isn't a ctx
+- [x] api.test.ts: GET /api/v1/claims lists only the caller's tenant and returns 404 for a client session
+- [x] demo-seed.test.ts: running demo:seed twice leaves identical row counts; it refuses outside the dev tier
 
 ### [ ] S3c — UI foundation: brand tokens and components for clinician desktop and client phone
 

@@ -21,7 +21,7 @@ function find(dir: string, name: string): string[] {
 const read = (rel: string) => fs.readFileSync(path.join(APP, rel), "utf8");
 
 const ANY_GUARD = /\brequire(Clinician|Client|Staff|SignedIn)\(/;
-const ROUTE_GUARD = /\b(getClinician|getSessionUser|require(Clinician|Client|Staff|SignedIn))\(/;
+const ROUTE_GUARD = /\b(getClinician|getClient|getSessionUser|require(Clinician|Client|Staff|SignedIn))\(/;
 const ACTION_GUARD = /^ {2}(const \w+ = )?await require(Clinician|Client|Staff|SignedIn)\(\);$/gm;
 // The phone spike's pages have no session; they 404 unless the dev tier and this run's key check passes.
 const SPIKE_GUARD = /\bspikeKeyValid\(/;

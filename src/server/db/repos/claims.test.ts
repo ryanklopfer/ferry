@@ -3,6 +3,7 @@ import type { ClinicianCtx } from "@/server/auth/ctx";
 import { pool } from "@/server/db";
 import { createTestUser, resetDb } from "@/server/db/testing";
 import { claimsRepo } from "./claims";
+import { clientsRepo } from "./clients";
 import { eventsRepo } from "./events";
 import { followUpsRepo } from "./follow-ups";
 import { plansRepo } from "./plans";
@@ -19,7 +20,8 @@ describe("claim line model", () => {
   beforeEach(async () => {
     await resetDb();
     ctx = await createTestUser("clinician", "lines@example.test");
-    planId = (await plansRepo.create(ctx, { insurerName: "Aetna", memberId: "W268417359", subscriberName: "Devon Price", patientName: "Devon Price" })).id;
+    const client = await clientsRepo.create(ctx, { firstName: "Devon", lastName: "Price", dob: null, email: null, phone: null });
+    planId = (await plansRepo.create(ctx, client.id, { insurerName: "Aetna", memberId: "W268417359", subscriberName: "Devon Price", patientName: "Devon Price" })).id;
   });
   afterAll(() => pool.end());
 

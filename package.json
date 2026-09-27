@@ -19,7 +19,8 @@
     "db:create:e2e": "bun scripts/db/create-e2e.ts",
     "corpus:generate": "bun scripts/corpus/generate.ts",
     "corpus:audio": "bun scripts/corpus/audio.ts",
-    "staff:grant": "bun scripts/ops/staff-grant.ts"
+    "staff:grant": "bun scripts/ops/staff-grant.ts",
+    "demo:seed": "bun scripts/dev/demo-seed.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",

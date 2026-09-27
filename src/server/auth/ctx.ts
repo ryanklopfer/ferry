@@ -43,6 +43,12 @@ export async function getClinician(): Promise<ClinicianCtx | 401 | 404> {
   return user.role === "clinician" ? { scope: "clinician", userId: user.userId } : 404;
 }
 
+export async function getClient(): Promise<SelfCtx | 401 | 404> {
+  const user = await getSessionUser();
+  if (!user) return 401;
+  return user.role === "client" ? { scope: "self", userId: user.userId } : 404;
+}
+
 async function requireRole(role: Role): Promise<string> {
   const user = await requireSignedIn();
   if (user.role !== role) notFound();

@@ -2,6 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type { ClinicianCtx } from "@/server/auth/ctx";
 import { pool } from "@/server/db";
 import { claimsRepo } from "@/server/db/repos/claims";
+import { clientsRepo } from "@/server/db/repos/clients";
 import { NotOwnedError } from "@/server/errors";
 import { createTestUser, resetDb } from "@/server/db/testing";
 import { type ClaimInput, closeClaim, deleteClaim, getClaim, listClaims, markSubmitted, saveClaim } from "./claims";
@@ -33,7 +34,8 @@ describe("claims service", () => {
     await resetDb();
     a = await createTestUser("clinician", "a@example.test");
     b = await createTestUser("clinician", "b@example.test");
-    planId = (await createPlan(a, { insurerName: "Aetna", memberId: "W268417359", subscriberName: "Devon Price" })).id;
+    const client = await clientsRepo.create(a, { firstName: "Devon", lastName: "Price", dob: null, email: null, phone: null });
+    planId = (await createPlan(a, client.id, { insurerName: "Aetna", memberId: "W268417359", subscriberName: "Devon Price" })).id;
   });
   afterAll(() => pool.end());
 

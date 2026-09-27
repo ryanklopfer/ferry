@@ -1,79 +1,185 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import type { ClinicianCtx } from "@/server/auth/ctx";
+import { clientCtxFor } from "@/server/auth/client-ctx";
+import type { ClientCtx, ClinicianCtx, SelfCtx } from "@/server/auth/ctx";
 import { pool } from "@/server/db";
-import { createTestUser, resetDb } from "@/server/db/testing";
+import { bindClientUser, createTestUser, resetDb } from "@/server/db/testing";
 import { claimsRepo } from "./claims";
+import { clientsRepo } from "./clients";
 import { eventsRepo } from "./events";
 import { followUpsRepo } from "./follow-ups";
 import { plansRepo } from "./plans";
 import { providersRepo } from "./providers";
 
-const PLAN = { insurerName: "Cigna", memberId: "U4827193 01", subscriberName: "Samira Haddad", patientName: "Samira Haddad" };
 const LINE = { serviceDate: "2026-08-04", cptCode: "90834", modifiers: [], description: "Psychotherapy, 45 min", units: 1, charge: 17500, diagnosisPointers: [1], placeOfService: "11" };
 
-async function seed(ctx: ClinicianCtx) {
-  const plan = await plansRepo.create(ctx, PLAN);
+async function seedClient(ctx: ClinicianCtx, firstName: string, lastName: string) {
+  const client = await clientsRepo.create(ctx, { firstName, lastName, dob: "1990-04-02", email: `${firstName.toLowerCase()}@example.test`, phone: null });
+  const plan = await plansRepo.create(ctx, client.id, { insurerName: "Cigna", memberId: `U-${firstName}`, subscriberName: `${firstName} ${lastName}`, patientName: `${firstName} ${lastName}` });
   const provider = await providersRepo.upsertByNpiOrName(ctx, { name: "Rachel Steinberg, LCSW", npi: "1999000023", taxId: "00-1000002", taxIdType: "EIN" });
   const claim = await claimsRepo.create(ctx, { planId: plan.id, billingProviderId: provider.id, billingProviderName: provider.name, diagnosisCodes: ["F33.1"], totalCharged: 17500 }, [LINE]);
   const [followUp] = await followUpsRepo.createMany(ctx, claim.id, [{ type: "status_inquiry", dueAt: new Date("2026-10-01T00:00:00Z") }]);
-  await eventsRepo.append(ctx, claim.id, "created", "Superbill uploaded");
-  return { plan, provider, claim, followUp };
+  await eventsRepo.append(ctx, claim.id, "created", `Claim for ${firstName}`);
+  return { client, plan, provider, claim, followUp };
 }
 
-describe("tenant isolation", () => {
-  let a: ClinicianCtx;
-  let b: ClinicianCtx;
-  let mine: Awaited<ReturnType<typeof seed>>;
+type Seeded = Awaited<ReturnType<typeof seedClient>>;
+const ids = <T extends { id: string }>(rows: T[]) => rows.map((r) => r.id).sort();
+
+// The isolation world (demo:seed builds the same one): clinicians X and Y; X's clients A1 and A2; Y's client B1;
+// client user U bound to A1 and B1.
+describe("tenant isolation v2", () => {
+  let x: ClinicianCtx;
+  let y: ClinicianCtx;
+  let u: SelfCtx;
+  let a1: Seeded;
+  let a2: Seeded;
+  let b1: Seeded;
+  let uA1: string;
+  let uB1: string;
 
   beforeEach(async () => {
     await resetDb();
-    a = await createTestUser("clinician", "a@example.test");
-    b = await createTestUser("clinician", "b@example.test");
-    mine = await seed(a);
+    x = await createTestUser("clinician", "x@example.test");
+    y = await createTestUser("clinician", "y@example.test");
+    u = await createTestUser("client", "u@example.test");
+    a1 = await seedClient(x, "Ana", "Ortiz");
+    a2 = await seedClient(x, "Ben", "Adler");
+    b1 = await seedClient(y, "Cara", "Nguyen");
+    uA1 = await bindClientUser(x, a1.client.id, u);
+    uB1 = await bindClientUser(y, b1.client.id, u);
   });
   afterAll(() => pool.end());
 
-  it("shows another user nothing in any list", async () => {
-    expect(await plansRepo.list(b)).toEqual([]);
-    expect(await providersRepo.list(b)).toEqual([]);
-    expect(await claimsRepo.list(b)).toEqual([]);
-    expect(await followUpsRepo.open(b)).toEqual([]);
-    expect(await claimsRepo.lines(b, mine.claim.id)).toEqual([]);
-    expect(await followUpsRepo.forClaim(b, mine.claim.id)).toEqual([]);
-    expect(await eventsRepo.forClaim(b, mine.claim.id)).toEqual([]);
+  describe("clinicians", () => {
+    it("X reads only A1 and A2 rows in every repo", async () => {
+      expect(ids(await clientsRepo.list(x))).toEqual(ids([a1.client, a2.client]));
+      expect(ids(await plansRepo.list(x))).toEqual(ids([a1.plan, a2.plan]));
+      expect(ids((await claimsRepo.list(x)).map((r) => r.claim))).toEqual(ids([a1.claim, a2.claim]));
+      expect(ids(await followUpsRepo.open(x))).toEqual(ids([a1.followUp, a2.followUp]));
+      expect((await providersRepo.list(x)).map((p) => p.userId)).toEqual([x.userId]);
+      for (const mine of [a1, a2]) {
+        expect((await clientsRepo.get(x, mine.client.id))?.id).toBe(mine.client.id);
+        expect((await plansRepo.get(x, mine.plan.id))?.id).toBe(mine.plan.id);
+        expect((await claimsRepo.get(x, mine.claim.id))?.id).toBe(mine.claim.id);
+        expect(await claimsRepo.lines(x, mine.claim.id)).toHaveLength(1);
+        expect(await eventsRepo.forClaim(x, mine.claim.id)).toHaveLength(1);
+        expect(await followUpsRepo.forClaim(x, mine.claim.id)).toHaveLength(1);
+      }
+      expect(await clientsRepo.get(x, b1.client.id)).toBeNull();
+      expect(await plansRepo.get(x, b1.plan.id)).toBeNull();
+      expect(await claimsRepo.get(x, b1.claim.id)).toBeNull();
+      expect(await claimsRepo.lines(x, b1.claim.id)).toEqual([]);
+      expect(await eventsRepo.forClaim(x, b1.claim.id)).toEqual([]);
+    });
+
+    it("Y reads nothing of X's, in lists or by id", async () => {
+      expect(ids(await clientsRepo.list(y))).toEqual([b1.client.id]);
+      expect(ids(await plansRepo.list(y))).toEqual([b1.plan.id]);
+      expect(ids((await claimsRepo.list(y)).map((r) => r.claim))).toEqual([b1.claim.id]);
+      expect(ids(await followUpsRepo.open(y))).toEqual([b1.followUp.id]);
+      expect(ids(await providersRepo.list(y))).toEqual([b1.provider.id]);
+      for (const theirs of [a1, a2]) {
+        expect(await clientsRepo.get(y, theirs.client.id)).toBeNull();
+        expect(await plansRepo.get(y, theirs.plan.id)).toBeNull();
+        expect(await claimsRepo.get(y, theirs.claim.id)).toBeNull();
+        expect(await providersRepo.get(y, theirs.provider.id)).toBeNull();
+        expect(await followUpsRepo.get(y, theirs.followUp.id)).toBeNull();
+        expect(await claimsRepo.lines(y, theirs.claim.id)).toEqual([]);
+        expect(await followUpsRepo.forClaim(y, theirs.claim.id)).toEqual([]);
+        expect(await eventsRepo.forClaim(y, theirs.claim.id)).toEqual([]);
+      }
+    });
+
+    it("Y changes and deletes nothing of X's", async () => {
+      await claimsRepo.update(y, a1.claim.id, { status: "closed", billingProviderName: "Hijacked" });
+      await claimsRepo.save(y, a1.claim.id, { billingProviderName: "Hijacked" }, []);
+      await claimsRepo.replaceLines(y, a1.claim.id, []);
+      await followUpsRepo.update(y, a1.followUp.id, { status: "sent" });
+      await followUpsRepo.dismiss(y, [a1.followUp.id]);
+      await clientsRepo.archive(y, a2.client.id);
+      await claimsRepo.remove(y, a2.claim.id);
+
+      const claim = await claimsRepo.get(x, a1.claim.id);
+      expect(claim?.status).toBe("draft");
+      expect(claim?.billingProviderName).toBe("Rachel Steinberg, LCSW");
+      expect(await claimsRepo.lines(x, a1.claim.id)).toHaveLength(1);
+      expect((await followUpsRepo.get(x, a1.followUp.id))?.status).toBe("pending");
+      expect((await clientsRepo.get(x, a2.client.id))?.archivedAt).toBeNull();
+      expect(await claimsRepo.get(x, a2.claim.id)).not.toBeNull();
+    });
+
+    it("Y attaches nothing to X's rows", async () => {
+      await expect(plansRepo.create(y, a1.client.id, { insurerName: "Aetna", memberId: "W1", subscriberName: "Ana Ortiz", patientName: "Ana Ortiz" })).rejects.toThrow();
+      await expect(claimsRepo.create(y, { planId: a1.plan.id }, [])).rejects.toThrow();
+      await expect(followUpsRepo.createMany(y, a1.claim.id, [{ type: "appeal", dueAt: new Date() }])).rejects.toThrow();
+      await expect(eventsRepo.append(y, a1.claim.id, "note", "hello")).rejects.toThrow();
+      expect(await plansRepo.list(x)).toHaveLength(2);
+      expect(await eventsRepo.forClaim(x, a1.claim.id)).toHaveLength(1);
+    });
+
+    it("stamps each claim, line and event with its plan's client", async () => {
+      const { rows } = await pool.query<{ t: string; client_id: string }>(
+        "select 'claim' as t, client_id from claims where id = $1 union all select 'line', client_id from claim_lines where claim_id = $1 union all select 'event', client_id from events where claim_id = $1",
+        [a2.claim.id],
+      );
+      expect(rows.map((r) => r.client_id)).toEqual([a2.client.id, a2.client.id, a2.client.id]);
+    });
   });
 
-  it("finds nothing for another user by id", async () => {
-    expect(await plansRepo.get(b, mine.plan.id)).toBeNull();
-    expect(await providersRepo.get(b, mine.provider.id)).toBeNull();
-    expect(await claimsRepo.get(b, mine.claim.id)).toBeNull();
-    expect(await followUpsRepo.get(b, mine.followUp.id)).toBeNull();
-  });
+  describe("a client user", () => {
+    let asA1: ClientCtx;
+    let asB1: ClientCtx;
 
-  it("lets another user change or delete nothing", async () => {
-    await claimsRepo.update(b, mine.claim.id, { status: "closed", billingProviderName: "Hijacked" });
-    await claimsRepo.replaceLines(b, mine.claim.id, []);
-    await followUpsRepo.update(b, mine.followUp.id, { status: "sent" });
-    await followUpsRepo.dismiss(b, [mine.followUp.id]);
-    await claimsRepo.remove(b, mine.claim.id);
+    beforeEach(async () => {
+      asA1 = await clientCtxFor(u, uA1);
+      asB1 = await clientCtxFor(u, uB1);
+    });
 
-    const claim = await claimsRepo.get(a, mine.claim.id);
-    expect(claim?.status).toBe("draft");
-    expect(claim?.billingProviderName).toBe("Rachel Steinberg, LCSW");
-    expect(await claimsRepo.lines(a, mine.claim.id)).toHaveLength(1);
-    expect((await followUpsRepo.get(a, mine.followUp.id))?.status).toBe("pending");
-  });
+    it("through the A1 membership reads A1's client row, plans, claims and events and nothing of A2's", async () => {
+      expect(asA1).toEqual({ scope: "client", userId: x.userId, clientId: a1.client.id, actorId: u.userId });
+      expect(ids(await clientsRepo.list(asA1))).toEqual([a1.client.id]);
+      expect((await clientsRepo.get(asA1, a1.client.id))?.firstName).toBe("Ana");
+      expect(ids(await plansRepo.list(asA1))).toEqual([a1.plan.id]);
+      expect(ids((await claimsRepo.list(asA1)).map((r) => r.claim))).toEqual([a1.claim.id]);
+      expect(await claimsRepo.lines(asA1, a1.claim.id)).toHaveLength(1);
+      expect((await eventsRepo.forClaim(asA1, a1.claim.id)).map((e) => e.note)).toEqual(["Claim for Ana"]);
 
-  it("refuses to attach a new row to something another user owns", async () => {
-    await expect(claimsRepo.create(b, { planId: mine.plan.id }, [])).rejects.toThrow();
-    await expect(followUpsRepo.createMany(b, mine.claim.id, [{ type: "appeal", dueAt: new Date() }])).rejects.toThrow();
-    await expect(eventsRepo.append(b, mine.claim.id, "note", "hello")).rejects.toThrow();
-    expect(await eventsRepo.forClaim(a, mine.claim.id)).toHaveLength(1);
-  });
+      expect(await clientsRepo.get(asA1, a2.client.id)).toBeNull();
+      expect(await plansRepo.get(asA1, a2.plan.id)).toBeNull();
+      expect(await claimsRepo.get(asA1, a2.claim.id)).toBeNull();
+      expect(await claimsRepo.lines(asA1, a2.claim.id)).toEqual([]);
+      expect(await eventsRepo.forClaim(asA1, a2.claim.id)).toEqual([]);
+    });
 
-  it("keeps two users' providers with the same NPI apart", async () => {
-    const theirs = await providersRepo.upsertByNpiOrName(b, { name: "Someone Else", npi: "1999000023" });
-    expect(theirs.id).not.toBe(mine.provider.id);
-    expect((await providersRepo.get(a, mine.provider.id))?.name).toBe("Rachel Steinberg, LCSW");
+    it("through the B1 membership reads only B1's", async () => {
+      expect(asB1).toEqual({ scope: "client", userId: y.userId, clientId: b1.client.id, actorId: u.userId });
+      expect(ids(await clientsRepo.list(asB1))).toEqual([b1.client.id]);
+      expect(ids(await plansRepo.list(asB1))).toEqual([b1.plan.id]);
+      expect(ids((await claimsRepo.list(asB1)).map((r) => r.claim))).toEqual([b1.claim.id]);
+      expect(await eventsRepo.forClaim(asB1, b1.claim.id)).toHaveLength(1);
+      for (const other of [a1, a2]) {
+        expect(await clientsRepo.get(asB1, other.client.id)).toBeNull();
+        expect(await plansRepo.get(asB1, other.plan.id)).toBeNull();
+        expect(await claimsRepo.get(asB1, other.claim.id)).toBeNull();
+        expect(await claimsRepo.lines(asB1, other.claim.id)).toEqual([]);
+        expect(await eventsRepo.forClaim(asB1, other.claim.id)).toEqual([]);
+      }
+    });
+
+    it("is refused by every write and clinician-only repo at run time, even past the type checker", async () => {
+      const c = asA1 as never;
+      await expect(claimsRepo.update(c, a1.claim.id, { status: "closed" })).rejects.toThrow();
+      await expect(claimsRepo.remove(c, a1.claim.id)).rejects.toThrow();
+      await expect(claimsRepo.replaceLines(c, a1.claim.id, [])).rejects.toThrow();
+      await expect(claimsRepo.create(c, { planId: a1.plan.id }, [])).rejects.toThrow();
+      await expect(plansRepo.create(c, a1.client.id, { insurerName: "Aetna", memberId: "W1", subscriberName: "Ana Ortiz", patientName: "Ana Ortiz" })).rejects.toThrow();
+      await expect(eventsRepo.append(c, a1.claim.id, "note")).rejects.toThrow();
+      await expect(clientsRepo.archive(c, a1.client.id)).rejects.toThrow();
+      await expect(followUpsRepo.open(c)).rejects.toThrow();
+      await expect(followUpsRepo.forClaim(c, a1.claim.id)).rejects.toThrow();
+      await expect(providersRepo.list(c)).rejects.toThrow();
+      expect((await claimsRepo.get(x, a1.claim.id))?.status).toBe("draft");
+      expect(await claimsRepo.lines(x, a1.claim.id)).toHaveLength(1);
+    });
   });
 });

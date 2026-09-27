@@ -4,6 +4,9 @@ import { requireClient, requireClinician, requireStaff } from "@/server/auth/ctx
 import { systemCtx } from "@/server/auth/system-ctx";
 import { pool } from "@/server/db";
 import { claimsRepo } from "@/server/db/repos/claims";
+import { clientsRepo } from "@/server/db/repos/clients";
+import { followUpsRepo } from "@/server/db/repos/follow-ups";
+import { providersRepo } from "@/server/db/repos/providers";
 import { createTestUser, resetDb, signedInHeaders } from "@/server/db/testing";
 
 const request = vi.hoisted(() => ({ headers: new Headers() }));
@@ -22,9 +25,12 @@ type MethodsAccepting<C> = { [K in keyof Repo]: C extends Parameters<Repo[K]>[0]
 type MethodsRefusing<C> = { [K in keyof Repo]: C extends Parameters<Repo[K]>[0] ? never : K }[keyof Repo];
 type Holds<T extends true> = T;
 
-// Every claimsRepo method, including ones added later: no ClientCtx, InviteCtx or StaffCtx; ClinicianCtx and SystemCtx always.
-export type RepoRefusesOtherScopes = Holds<[MethodsAccepting<ClientCtx>, MethodsAccepting<InviteCtx>, MethodsAccepting<StaffCtx>, MethodsAccepting<SelfCtx>] extends [never, never, never, never] ? true : false>;
-export type RepoAcceptsClinicianOnly = Holds<[MethodsRefusing<ClinicianCtx>, MethodsRefusing<SystemCtx>] extends [never, never] ? true : false>;
+// Every claimsRepo method, including ones added later: ClinicianCtx and SystemCtx always; a ClientCtx only on the
+// reads (tenantWhere narrows it to its client); InviteCtx, StaffCtx and SelfCtx never.
+type ClientReads = "list" | "get" | "lines";
+export type RepoRefusesOtherScopes = Holds<[MethodsAccepting<InviteCtx>, MethodsAccepting<StaffCtx>, MethodsAccepting<SelfCtx>] extends [never, never, never] ? true : false>;
+export type RepoTakesClientOnReadsOnly = Holds<[MethodsAccepting<ClientCtx>] extends [ClientReads] ? ([ClientReads] extends [MethodsAccepting<ClientCtx>] ? true : false) : false>;
+export type RepoAcceptsClinicianAndSystem = Holds<[MethodsRefusing<ClinicianCtx>, MethodsRefusing<SystemCtx>] extends [never, never] ? true : false>;
 
 const client: ClientCtx = { scope: "client", userId: "usr_tenant", clientId: "cli_1", actorId: "usr_client" };
 const invite: InviteCtx = { scope: "invite", userId: "usr_tenant", clientId: "cli_1", actorId: "usr_client", linkId: "lnk_1" };
@@ -35,11 +41,8 @@ function wrongScopesDoNotCompile() {
   const line = { serviceDate: "2026-08-04", cptCode: "90834", modifiers: [], description: null, units: 1, charge: 17500, diagnosisPointers: [1], placeOfService: "11" };
   const claim = { planId: "pln_1" };
   for (const ctx of [client, invite, staff]) void ctx;
-  // @ts-expect-error a ClientCtx is not a ClinicianOnlyCtx
   void claimsRepo.list(client);
-  // @ts-expect-error a ClientCtx is not a ClinicianOnlyCtx
   void claimsRepo.get(client, "clm_1");
-  // @ts-expect-error a ClientCtx is not a ClinicianOnlyCtx
   void claimsRepo.lines(client, "clm_1");
   // @ts-expect-error a ClientCtx is not a ClinicianOnlyCtx
   void claimsRepo.create(client, claim, [line]);
@@ -51,21 +54,21 @@ function wrongScopesDoNotCompile() {
   void claimsRepo.replaceLines(client, "clm_1", [line]);
   // @ts-expect-error a ClientCtx is not a ClinicianOnlyCtx
   void claimsRepo.remove(client, "clm_1");
-  // @ts-expect-error an InviteCtx is not a ClinicianOnlyCtx
+  // @ts-expect-error an InviteCtx reaches only links, clients.client_user_id and memberships
   void claimsRepo.list(invite);
-  // @ts-expect-error an InviteCtx is not a ClinicianOnlyCtx
+  // @ts-expect-error an InviteCtx reaches only links, clients.client_user_id and memberships
   void claimsRepo.get(invite, "clm_1");
-  // @ts-expect-error an InviteCtx is not a ClinicianOnlyCtx
+  // @ts-expect-error an InviteCtx reaches only links, clients.client_user_id and memberships
   void claimsRepo.lines(invite, "clm_1");
-  // @ts-expect-error an InviteCtx is not a ClinicianOnlyCtx
+  // @ts-expect-error an InviteCtx reaches only links, clients.client_user_id and memberships
   void claimsRepo.create(invite, claim, [line]);
-  // @ts-expect-error an InviteCtx is not a ClinicianOnlyCtx
+  // @ts-expect-error an InviteCtx reaches only links, clients.client_user_id and memberships
   void claimsRepo.update(invite, "clm_1", {});
-  // @ts-expect-error an InviteCtx is not a ClinicianOnlyCtx
+  // @ts-expect-error an InviteCtx reaches only links, clients.client_user_id and memberships
   void claimsRepo.save(invite, "clm_1", {}, [line]);
-  // @ts-expect-error an InviteCtx is not a ClinicianOnlyCtx
+  // @ts-expect-error an InviteCtx reaches only links, clients.client_user_id and memberships
   void claimsRepo.replaceLines(invite, "clm_1", [line]);
-  // @ts-expect-error an InviteCtx is not a ClinicianOnlyCtx
+  // @ts-expect-error an InviteCtx reaches only links, clients.client_user_id and memberships
   void claimsRepo.remove(invite, "clm_1");
   // @ts-expect-error a StaffCtx reaches no tenant repo
   void claimsRepo.list(staff);
@@ -83,6 +86,12 @@ function wrongScopesDoNotCompile() {
   void claimsRepo.replaceLines(staff, "clm_1", [line]);
   // @ts-expect-error a StaffCtx reaches no tenant repo
   void claimsRepo.remove(staff, "clm_1");
+  // @ts-expect-error follow-ups are clinician-only
+  void followUpsRepo.open(client);
+  // @ts-expect-error providers are clinician-only
+  void providersRepo.list(client);
+  // @ts-expect-error clients are created by their clinician
+  void clientsRepo.create(client, { firstName: "A", lastName: "B", dob: null, email: null, phone: null });
   // @ts-expect-error a plain object with no scope is not a context
   void claimsRepo.list({ userId: "usr_tenant" });
 }
@@ -111,7 +120,7 @@ function scopeDetail(ctx: Ctx | SelfCtx | StaffCtx | InviteCtx): string {
 }
 
 describe("contexts", () => {
-  it("keep other scopes out of claimsRepo at compile time", () => {
+  it("keep other scopes out of claimsRepo writes and clinician-only repos at compile time", () => {
     expect(wrongScopesDoNotCompile).toBeTypeOf("function");
   });
 

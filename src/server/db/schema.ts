@@ -11,11 +11,53 @@ const owner = () => text("user_id").notNull().references(() => users.id, { onDel
 const at = (name: string) => timestamp(name, { withTimezone: true });
 const createdAt = () => at("created_at").notNull().defaultNow();
 
+// The clinician's client (CLIENT_SELF). Contact fields are plaintext until S2b seals them.
+export const clients = pgTable(
+  "clients",
+  {
+    id: id(),
+    userId: owner(),
+    firstName: text("first_name").notNull(),
+    lastName: text("last_name").notNull(),
+    dob: date("dob", { mode: "string" }),
+    email: text("email"),
+    phone: text("phone"),
+    clientUserId: text("client_user_id").references(() => users.id, { onDelete: "set null" }),
+    archivedAt: at("archived_at"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("clients_user_idx").on(t.userId), uniqueIndex("clients_user_client_user_idx").on(t.userId, t.clientUserId)],
+);
+
+export const MEMBERSHIP_STATUSES = ["active", "revoked"] as const;
+export type MembershipStatus = (typeof MEMBERSHIP_STATUSES)[number];
+
+// How a client user reaches their record. user_id is the client user, not a tenant; one active membership per clinician.
+export const clientMemberships = pgTable(
+  "client_memberships",
+  {
+    id: id(),
+    userId: owner(),
+    clinicianUserId: text("clinician_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    clientId: text("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+    status: text("status").$type<MembershipStatus>().notNull().default("active"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("client_memberships_user_idx").on(t.userId),
+    uniqueIndex("client_memberships_active_idx").on(t.userId, t.clinicianUserId).where(sql`${t.status} = 'active'`),
+    check("client_memberships_status", sql`${t.status} in ('active', 'revoked')`),
+  ],
+);
+
+const clientRef = () => text("client_id").notNull().references(() => clients.id);
+
 export const plans = pgTable(
   "plans",
   {
     id: id(),
     userId: owner(),
+    clientId: clientRef(),
     insurerName: text("insurer_name").notNull(),
     planName: text("plan_name"),
     memberId: text("member_id").notNull(),
@@ -36,7 +78,7 @@ export const plans = pgTable(
     timelyFilingDays: integer("timely_filing_days").notNull().default(180),
     createdAt: createdAt(),
   },
-  (t) => [index("plans_user_idx").on(t.userId)],
+  (t) => [index("plans_user_idx").on(t.userId), index("plans_client_idx").on(t.clientId)],
 );
 
 export const TAX_ID_TYPES = ["EIN", "SSN"] as const;
@@ -68,6 +110,7 @@ export const claims = pgTable(
   {
     id: id(),
     userId: owner(),
+    clientId: clientRef(),
     planId: text("plan_id").notNull().references(() => plans.id),
     status: text("status").$type<ClaimStatus>().notNull().default("draft"),
     billingProviderId: text("billing_provider_id").references(() => providers.id, { onDelete: "set null" }),
@@ -99,7 +142,7 @@ export const claims = pgTable(
     createdAt: createdAt(),
     updatedAt: at("updated_at").notNull().defaultNow(),
   },
-  (t) => [index("claims_user_idx").on(t.userId)],
+  (t) => [index("claims_user_idx").on(t.userId), index("claims_client_idx").on(t.clientId)],
 );
 
 export const claimLines = pgTable(
@@ -107,6 +150,7 @@ export const claimLines = pgTable(
   {
     id: id(),
     userId: owner(),
+    clientId: clientRef(),
     claimId: text("claim_id").notNull().references(() => claims.id, { onDelete: "cascade" }),
     position: integer("position").notNull(),
     serviceDate: date("service_date", { mode: "string" }),
@@ -143,6 +187,7 @@ export const events = pgTable(
   {
     id: id(),
     userId: owner(),
+    clientId: clientRef(),
     claimId: text("claim_id").notNull().references(() => claims.id, { onDelete: "cascade" }),
     type: text("type").notNull(),
     note: text("note"),
@@ -151,6 +196,8 @@ export const events = pgTable(
   (t) => [index("events_claim_idx").on(t.claimId)],
 );
 
+export type Client = typeof clients.$inferSelect;
+export type ClientMembership = typeof clientMemberships.$inferSelect;
 export type Plan = typeof plans.$inferSelect;
 export type Provider = typeof providers.$inferSelect;
 export type Claim = typeof claims.$inferSelect;
