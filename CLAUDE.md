@@ -202,3 +202,13 @@ bun run db:migrate   # apply to ferry_dev (db:migrate:test for ferry_test)
   - Read-only clinicians keep answering letters on filed claims.
   - The AI services opt-out policy is required before real data.
   - The 12 PRD wording changes await Ryan's D2 answer before `docs/prd.md` is edited.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

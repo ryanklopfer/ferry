@@ -54,3 +54,6 @@ data/*
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# committed template with empty values
+!.env.example
