@@ -87,6 +87,9 @@ Spec requirement IDs (R1–R13) are noted where they match.
 **P0-5 Capture** (R5)
 - [ ] In-room recording on phone or computer; dictation; typed rough notes
 - [ ] Interrupted recording keeps what was captured and marks the gap
+- [ ] **Transcript retention (Ryan, 2026-09-27):** HealthScribe's S3 transcript and note files are deleted the moment they are imported. The transcript, dictation text and typed rough notes are kept only to review the note, sealed under their own data key, and erased at 24 hours whether or not the note is approved. The approved note is the clinical record and stays.
+- [ ] Erasure is enforced three ways: a per-transcript job at `created + 24h`, a sweeper every 15 minutes that deletes anything past its expiry, and an S3 lifecycle rule expiring the HealthScribe prefix after 1 day. Reads never return an expired transcript even before the sweeper runs (test)
+- [ ] Erasure destroys the transcript's data key, so copies in RDS automated backups are unreadable (crypto-shredding test: after expiry, a restored row cannot be decrypted)
 - [ ] Audio streams through AWS HealthScribe and is never written to our disk or S3; HealthScribe's transcript and note files are deleted from S3 once imported; the screen says "Audio deleted" (R9)
 
 **P0-6 Notes** (R6)
@@ -120,6 +123,7 @@ Spec requirement IDs (R1–R13) are noted where they match.
 - [ ] Envelope encryption (S2b) before any real client data
 - [ ] No real client data on any service until its BAA is signed (AWS, host, Stedi, Twilio, Sinch)
 - [ ] Client data never used for model training; audio via the AWS BAA only
+- [ ] Transcripts never reach logs, analytics, error reports or Bedrock invocation logs (invocation logging stays off; allow-list logger test)
 
 ### P1: fast follows (target: within 4 weeks of launch)
 
@@ -171,6 +175,7 @@ Spec requirement IDs (R1–R13) are noted where they match.
 
 - **2026-09-27, Ryan: AWS for everything that touches client data, and AWS HealthScribe as the scribe.** HealthScribe is HIPAA-eligible under the AWS BAA, streams live over the AWS SDK for JavaScript, writes a transcript and a clinical note to our own S3 bucket, and AWS does not retain the audio or train on it. It runs in **us-east-1 only**, so the whole PHI stack (ECS Fargate, RDS, S3, KMS, Bedrock, SES, HealthScribe) lives in us-east-1. Note templates map as: DAP → `DAP`, BIRP → `BIRP`, SOAP → `BEHAVIORAL_SOAP`, intake → `HISTORY_AND_PHYSICAL`; `GIRPP` and `SIRP` come free. A session can stream up to 2 hours and be resumed within 5 hours with the same session id, which is how an interrupted recording continues. HealthScribe returns no billing codes, so CPT and ICD-10 suggestions come from Claude on Bedrock, validated against code tables. Dictation and typed notes also go through Claude on Bedrock. The browser cannot hold HealthScribe's signed HTTP/2 stream, so audio goes phone → our server over a WebSocket → HealthScribe. HealthScribe's S3 output is imported, sealed, and deleted from S3.
   Sources: [HealthScribe streaming](https://docs.aws.amazon.com/transcribe/latest/dg/health-scribe-streaming.html), [note templates](https://docs.aws.amazon.com/transcribe/latest/APIReference/API_streaming_ClinicalNoteGenerationSettings.html), [HealthScribe FAQs](https://aws.amazon.com/healthscribe/faqs/).
+- **2026-09-27, Ryan: transcription data is deleted as soon as it is stored, or automatically at 24 hours.** Covers HealthScribe output files, transcripts of recordings and dictation, and typed rough notes. Approved notes, letters and claims are the record and are kept. Implementation: delete S3 output on import; seal each transcript with its own key; erase and destroy the key at 24 hours (job + 15-minute sweeper); S3 lifecycle backstop at 1 day.
 
 ## What this changes in the existing plan
 
