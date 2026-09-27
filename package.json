@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "relay": "bun src/server/relay/main.ts",
     "lint": "eslint",
     "test": "vitest run",
     "test:e2e": "bun run db:create:e2e && playwright test",
@@ -28,6 +29,7 @@
     "pg": "^8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "ws": "^8.22.0",
     "zod": "^4.5.4"
   },
   "devDependencies": {
@@ -40,6 +42,7 @@
     "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/ws": "^8.18.1",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",

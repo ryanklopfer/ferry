@@ -21,7 +21,7 @@ const IDS = [
   "payerId",
   "digest",
 ];
-const OTHER = ["channel", "vendor", "mode", "tier", "job", "operation", "route", "method", "httpStatus", "count", "bytes", "ms", "attempt"];
+const OTHER = ["channel", "vendor", "mode", "tier", "job", "operation", "route", "method", "httpStatus", "count", "bytes", "ms", "attempt", "port"];
 
 // Values that could otherwise carry a name or a diagnosis code must look like a code identifier.
 const IDENTIFIER = /^[a-z][a-z0-9_]{0,40}$/;

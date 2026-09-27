@@ -581,7 +581,7 @@ Why: This slice closes live gaps and adds primitives every later slice needs:
 - [x] tooling: a sample .test.tsx runs under happy-dom and appears in the vitest report; e2e/smoke.spec.ts loads /sign-in through `bun run test:e2e` against ferry_e2e_test
 - [x] All 154 existing tests, typecheck and lint green
 
-### [ ] N3a — Audio core and capture relay skeleton (ws, token, counting, no writes)
+### [x] N3a — Audio core and capture relay skeleton (ws, token, counting, no writes)
 
 Scheduled: Mon Sep 28 · Status: new · Size: M · PRD: P0-5.2, P0-5.6
 
@@ -609,13 +609,13 @@ Why: Split from N3 so the phone test on Sep 29 doesn't wait on the access-model 
 
 #### Acceptance
 
-- [ ] pcm.test.ts: 48 kHz and 44.1 kHz sine inputs give 1,600 samples per 100 ms, clipped to the int16 range
-- [ ] gaps.test.ts: no gaps; a 1 s blip ignored; two gaps with reasons and durations
-- [ ] relay.test.ts (in-process ws server, real ws client): missing, expired, forged and wrong-capture tokens are refused
-- [ ] relay.test.ts: 50 frames of 100 ms count as 5,000 ms
-- [ ] relay.test.ts: a second connection for the same capture closes the first
-- [ ] relay.test.ts: fs write spies and log() spies record zero audio bytes and zero writes
-- [ ] relay-boot.test.ts: spawning the relay with FERRY_DEPLOY_TIER=prod and a fixture vendor exits non-zero, naming the vendor
+- [x] pcm.test.ts: 48 kHz and 44.1 kHz sine inputs give 1,600 samples per 100 ms, clipped to the int16 range
+- [x] gaps.test.ts: no gaps; a 1 s blip ignored; two gaps with reasons and durations
+- [x] relay.test.ts (in-process ws server, real ws client): missing, expired, forged and wrong-capture tokens are refused
+- [x] relay.test.ts: 50 frames of 100 ms count as 5,000 ms
+- [x] relay.test.ts: a second connection for the same capture closes the first
+- [x] relay.test.ts: fs write spies and log() spies record zero audio bytes and zero writes
+- [x] relay-boot.test.ts: spawning the relay with FERRY_DEPLOY_TIER=prod and a fixture vendor exits non-zero, naming the vendor
 
 ### [ ] S18a — Installable web app shell: manifest, service worker, install prompt, offline page (split from S18, moved up)
 
