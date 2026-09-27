@@ -471,7 +471,7 @@
                 <p><b>Data</b>Sleeping 6 hours, up from 4. Two panic episodes, both at work.</p>
                 <p><b>Assessment</b>Generalized anxiety, improving.</p>
                 <p><b>Plan</b>Weekly CBT. Review in 2 weeks.</p>
-                <footer><span class="a-codes"><span class="chip mist">90837 · 60 min</span><span class="chip mist">F41.1</span></span><button class="btn t" type="button">Copy to EHR</button></footer>
+                <footer><span class="a-codes"><span class="chip mist">90834 · 48 min</span><span class="chip mist">F41.1</span></span><button class="btn t" type="button">Copy to EHR</button></footer>
               </div>
 
               <div class="card row a-claim">
@@ -547,11 +547,11 @@
             <li><b>Web app and API:</b> Next.js 16, built. Serves the site, the clinician web app and the client tracker.</li>
             <li><b>Phone app:</b> installable web app at launch (camera, mic); Expo store apps follow on the same /api/v1. Store review time is the risk.</li>
             <li><b>Scanning:</b> phone camera, read on the server, new. Native scanners (VisionKit, ML Kit) arrive with the store apps. Photos stay in memory only.</li>
-            <li><b>Speech to text:</b> AWS HealthScribe or Transcribe Medical streaming, to choose. Stays inside the AWS BAA.</li>
-            <li><b>Notes, letters, reading scans:</b> Claude Sonnet 5 on Bedrock, extraction built, the rest new. Letters cite the notes they use.</li>
-            <li><b>Data and jobs:</b> Postgres 17, Drizzle, pg-boss, built. Needs a host with a signed BAA before any real session.</li>
+            <li><b>Speech to text:</b> AWS HealthScribe streaming for recorded sessions, Amazon Transcribe Medical streaming for dictation, decided Sep 27. Audio goes phone → our relay → AWS, inside the AWS BAA. New.</li>
+            <li><b>Notes, letters, reading scans:</b> Claude Sonnet 5 on Bedrock, new. The MVP's superbill reader is not reused; letters cite the notes they use.</li>
+            <li><b>Data and jobs:</b> Postgres 17 and Drizzle, built. Background jobs and timers (pg-boss) are new. Needs a host with a signed BAA before any real session.</li>
             <li><b>Claims:</b> Stedi 837P, 277CA and 276/277, planned. The member authorizes filing under their NPI at sign-up.</li>
-            <li><b>Billing:</b> Stripe subscriptions, new. Replaces the per-claim fee code and its tests.</li>
+            <li><b>Billing:</b> Stripe subscriptions, new. Replaces the planned per-claim fee, which was never built.</li>
           </ol>
           <p class="label">Data</p>
           <ul class="bullets">

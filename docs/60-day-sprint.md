@@ -1,222 +1,156 @@
-# 60-Day Sprint — code first, then reality (Sep 21 – Nov 19, 2026)
+# 60-Day Sprint — Sep 21 – Nov 19, 2026 (replanned Sep 27)
 
-Scope is Phase 1 of `mentaya-teardown-and-product-framework.md` §5. Revised Sep 17 to front-load the build: with Claude Code as the second engineer, the software is not the critical path — Stedi enrollment, BAAs, real superbills, payer adjudication, and beta recruiting are. So the plan writes essentially all Phase 1 code in the first three weeks against sandbox and test data, then spends the remaining five and a half weeks running it against real payers and real patients, fixing what breaks.
+Scope is the clinician membership in `prd.md`: an AI scribe, notes with codes, letters from the clinician's own notes, and every client's out-of-network claim filed and chased, for one monthly membership. Replanned on Sep 27 (Day 7), when the product was redefined. Slices, gates and their acceptance criteria live in `sprint-tasks.md`; this file holds the calendar, the goals and the metrics.
 
-**The rule after Day 21:** no new feature gets built unless a beta patient, a payer rejection, or a launch blocker asks for it. Code time is capped at roughly a third of each week; the rest is cohort, payers, compliance, and launch.
+Code is still not the critical path. BAAs, the attorney's texts, Stedi enrollment per clinician NPI, AWS access to HealthScribe, and recruiting ten paying clinicians are. So the build runs on fixtures and synthetic data until each account lands, and each account flips one setting.
 
 ## Definition of done (Day 60, Thu Nov 19)
 
-Unchanged. A stranger with a superbill from a therapist or psychiatrist we've never seen can photograph it, see their estimated reimbursement, and have an electronic claim accepted by the payer (277CA) in under five minutes with zero typing — and then watch it move through the loop.
+The PRD goals:
 
-| Metric | Day 30 | Day 45 | Day 60 |
+1. **Clinicians pay for it.** 50 paying members by Nov 19 (stretch 80), from a 7-day free trial.
+2. **The note is the fast part of the day.** Median time from session end to approved note under 5 minutes.
+3. **Every session becomes a claim.** At least 70% of approved notes for clients with insurance on file produce a filed claim the same day.
+4. **Clients get money back.** 100 client claims accepted electronically by Nov 19; 20+ paid or counted toward the deductible (payers take 2–6 weeks, so this lags).
+5. **Paperwork insurers ask for costs the clinician under 5 minutes.** Median time from insurer request to approved letter under 5 minutes of clinician time.
+
+Measured by the PRD success metrics (`prd.md`, "Success metrics"), all on `/ops/metrics` (S29):
+
+| Metric | Type | Target | Measured from |
 |---|---|---|---|
-| Beta patients who filed ≥1 claim | 10 | 25 | 50 |
-| Claims submitted (electronic + member-form) | 25 | 75 | 150 |
-| Providers who tapped the magic link | 3 | 6 | 10 |
-| Claims reaching `accepted` electronically | 15 | 50 | 100 |
-| Claims reaching `paid` / `applied_to_deductible` | 0–2 | 5 | 20+ |
-| Pay-when-paid fees charged | 0 | 3 | 15+ |
-| Autopilot subscribers | 0 | 3 | 10 |
-| Payers with n ≥ 10 on the public scorecard | 0 | 1 | 3 |
-| Median photo → `ready` time | < 3 min | < 2 min | < 90 s |
+| Trial → first approved note within 48 h | Leading | 60% | `claim_events` + notes table |
+| Session end → approved note, median | Leading | < 5 min | note timestamps |
+| Approved notes that file a claim same day (insured clients) | Leading | 70% | notes joined to claims |
+| Scans accepted on first try | Leading | 85% | scan events |
+| Trial → paid | Lagging | 40% (stretch 55%) | Stripe |
+| Paying members at Nov 19 | Lagging | 50 (stretch 80) | Stripe |
+| Members still paying after 60 days | Lagging | 80% | Stripe, evaluate Jan 2027 |
+| Client claims accepted / paid by Nov 19 | Lagging | 100 / 20+ | `claim_events` |
 
-Payers adjudicate in 2–6 weeks, so paid-claim counts lag; the Day-60 gate is *accepted* claims and a working loop, not revenue. The beta targets are unchanged from the original plan because they are gated by recruiting and BAAs, not by code.
+Payers adjudicate in 2–6 weeks, so paid counts lag; the Day-60 read is paying members, approved notes, and accepted claims with a working loop.
 
-## Assumptions
+## Key dates
 
-Solo founder, most of the week on this, Claude Code as the second engineer working in session-sized slices (see `docs/` in the repo once written). Cash budget ~$6–9K over 60 days. Existing MVP at `~/Desktop/superbill-claims` (Next.js 16, Drizzle, vision extraction, packet PDF, follow-up timers, letter drafting) is the starting codebase. Name decided by Day 10 or we launch on a placeholder domain. Fee numbers come from the pricing conversation by Day 14; $9 pay-when-paid / $15 Autopilot are placeholders.
+| Date | What |
+|---|---|
+| Sep 28 | Build restarts: docs of record, safety rails, audio core |
+| Sep 29 | Gate A: phone mic test on Ryan's iPhone (decides D4) |
+| Sep 30 | D2 (cuts and PRD changes) and D4 due; LLC, AWS, Stedi and attorney started |
+| Oct 1 | Preview homepage in the prelaunch tier, so recruiting can start |
+| Oct 2 | Gate B: isolation, column classification, raw-dump and crypto-shred tests green |
+| Oct 4 | D1 price and D5 recording cost due |
+| Oct 9 | M1 / Gate C: the thin path end to end on fixtures |
+| Oct 10–11 | M2: record and dictate through the same path; Ryan's device test |
+| Oct 15–16 | Buffer; AWS live by Oct 16 at the latest; staging provisioned |
+| Oct 17 | Gate D: the freeze walkthrough |
+| **Oct 18** | **Feature freeze** |
+| Oct 19–28 | Letters, insurer mail, denials, notifications, hardening, vendor cutover, ops |
+| Oct 29 | Gate E2: the post-freeze walkthrough |
+| Nov 1 | Gate E go/no-go: `preflight:real-data` exits 0 on prod, or the beta waits |
+| **Nov 2–15** | **Beta: 10 paying clinicians on the real stack, fixes only** |
+| **Tue Nov 17** | **Launch: open sign-up** |
+| Thu Nov 19 | Day-60 review against the metrics table |
 
-Weeks 1–3 assume Stedi sandbox access and a set of test superbills on Day 1. Nothing in Weeks 1–3 requires a signed BAA because nothing touches real PHI — synthetic and de-identified test data only.
+**The rule after the freeze (Day 28, Oct 18):** no new features unless a beta clinician, a payer rejection or a launch blocker asks for it. The post-freeze P0 slices already scheduled (letters, insurer mail, notifications, hardening) are the exception, and Gate E2 proves them.
 
 ## Workstreams
 
-1. **Build** — the product. Heavy Weeks 1–3, then fix-driven.
-2. **Payer & compliance** — payer directory, playbooks, BAAs, legal docs, hosting.
-3. **Beta cohort** — recruiting patients and providers, support, feedback loop.
-4. **Money & metrics** — Stripe, fee events, scorecard, analytics.
-5. **Launch** — name, domain, landing page, SEO pages, launch-day channels.
+1. **Build** — the product. Heavy through Oct 29, then fix-driven.
+2. **Payer & compliance** — payer directory, Stedi enrollment per beta clinician NPI, BAAs (AWS, Stedi, Sinch, SMS if used), the attorney's texts, AWS quotas.
+3. **Beta cohort** — ten paying clinicians and their clients: recruiting from the preview homepage from Oct 1, names and NPIs by Oct 9, onboarding from Nov 2.
+4. **Money & metrics** — Stripe Billing (trial, card, cancel), `/ops/metrics`.
+5. **Launch** — name, domain, homepage, launch-day channels.
 
-## Sprint 0 — Before Monday (Sep 17–20): Unblock the build
+## Phases
 
-Everything here exists so Claude Code is never waiting on you during Weeks 1–3.
+### Build (Sep 28 – Oct 18)
 
-Open a Stedi account, fund $100 of credits, confirm sandbox access to eligibility (270/271), claims (837P), and claim status (276/277); request the BAA and start production enrollment now because it is the longest lead time in the plan. Read the Stedi 837P JSON reference and the transaction-enrollment doc end to end. Create the Stripe account. Register the entity (LLC is fine) and get an EIN — Stedi, Stripe, and the BAAs all need it. Pick the HIPAA-eligible stack and start the BAAs (decision by Day 3, but start the paperwork now): Postgres + object storage + auth from a vendor that signs one (Supabase HIPAA add-on is fastest; AWS is safest), Claude via AWS Bedrock or Anthropic's enterprise BAA (the consumer API key in the MVP is not an option for PHI), Twilio with BAA. Buy a placeholder domain.
+**Goal:** a clinician signs up free, adds a client who accepts on their phone and consents, records or types a session, approves a note with codes, and the claim files and moves through the 16-state loop, all on fixtures, with transcripts erased at 24 hours.
 
-Build the test corpus: collect at least 10 real superbills and insurance cards from your own network this week, de-identify them, and ask every candidate on the beta list for theirs — the extraction gate needs 30+ and this is the slowest-to-collect input in Weeks 1–3. Generate 10 synthetic ones covering the ugly cases (handwritten, multi-DOS, testing codes, telehealth modifiers, missing NPI).
+Order: docs and safety rails, the phone spike (Sep 29), the access model, foundations (UI, encryption, consents, state machine, billing, payers), a thin fixture path end to end (M1, Oct 9), voice (M2), then depth (NPPES, eligibility, card scanning, status polling, infrastructure as code) and a buffer. Gate D closes it.
 
-Write `CLAUDE.md` and `docs/sprint-tasks.md` in the repo: stack, run/test commands, coding conventions, product invariants (patient is payee, CLM07 = C, CLM08 = N, no PHI in SMS bodies, Bedrock only for PHI), and the slice list below with acceptance criteria. Draft the beta invitation message and post nothing yet.
+Payer & compliance: F1 LLC/EIN, F2 Stedi paid account, F4 attorney and F5 AWS Organization all started Sep 30; per-NPI enrollments submitted by Oct 9; AWS live by Oct 16.
 
-## Sprint 1 — Days 1–7 (Sep 21–27): Core pipeline code-complete in sandbox
+Beta cohort: preview homepage up Oct 1 with "Join the beta"; ten clinicians named by Oct 9.
 
-**Goal:** a test superbill goes photo → extraction → eligibility → 837P → 277CA accepted in the Stedi sandbox, on a multi-user, encrypted, authenticated app.
+### Letters and hardening (Oct 19 – Nov 1)
 
-Build, in this order, one slice per Claude Code session, each ending green and committed:
+**Goal:** everything insurers send back is handled, and the real stack is safe to switch on.
 
-1. SQLite → Postgres with Drizzle; tests pass; migration script for existing local data.
-2. Multi-user data model with per-tenant scoping; PHI columns encrypted at rest with a KMS-backed key.
-3. Auth: magic link + passkeys; session handling; account settings.
-4. Vision extraction run against the full test corpus with a scoring harness that reports per-field accuracy (NPI, DOS, CPT, ICD, charge); iterate the prompt to ≥95%.
-5. Insurance-card extraction (payer name, member ID, group, plan type) into the plan record.
-6. NPPES lookup by NPI; taxonomy and address fill; provider record cache.
-7. 270/271 eligibility via Stedi with a plain-English result screen (OON benefits, deductible remaining, estimated reimbursement).
-8. 837P builder from a claim record (CLM07 = C, CLM08 = N, patient as payee, non-par submitter); validated against Stedi's CMS-1500 validator on the whole corpus.
-9. Claim submission + 277CA ingestion; rejection reasons parsed and surfaced.
-10. Replace the fixed lifecycle with the 14-state machine from framework §3.4 — all states, transitions, and timers defined; timers wired for `submitted`, `accepted`, `in_adjudication`.
-11. Provider authorization magic link (SMS via Twilio, no PHI in body) that unlocks the electronic path; member-form packet remains the fallback when no provider has tapped.
+Letters from progress notes with citations, insurer mail and EOB scans, denials with one appeal template, notifications, row-level security, limits, export and deletion, vendor cutover and the real-data preflight, ops metrics. Gate E2 on Oct 29; Gate E on Nov 1. Attorney's final texts by Oct 23; beta clinicians re-consent to them before Nov 1.
 
-Payer & compliance: payer directory seeded for the top 15 payers (Aetna, Cigna, UHC/Optum Behavioral, Anthem BCBS CA/NY/CO/others, BCBS IL/TX/MA/NC, Oxford, Horizon, Empire, Kaiser PPO, Meritain/UMR) with payer ID, claims + appeals addresses, timely-filing days, non-par enrollment flag from Stedi `transactionSupport`, paper-check flag, state DOI contact. Healthcare attorney engaged for the authorization form, privacy policy, ToS, and BAA review. Hosting and Claude-provider decisions made by Day 3.
+### Beta (Nov 2 – 15)
 
-Beta cohort: build the list of 40 warm candidates (own network's therapy clients; testing psychologists and their clients; therapists who complained publicly about Thrizer's Aug-2026 superbill shutdown; r/therapists and r/HealthInsurance; Psychology Today OON profiles in NY/CA/MA/CO). Ask each therapist for one thing: "would you send this to two clients who file their own superbills?" Collect superbills from every yes.
+**Goal:** the product survives ten paying clinicians and their real clients.
 
-Money & metrics: Stripe customer + card-on-file on signup; fee event stubbed; PostHog with funnel events (photo, extracted, eligibility, ready, submitted, accepted).
+Build: fixes only. Weekly feedback calls; every rejected claim or failed note gets a written root cause the same week.
 
-Launch: name shortlist; landing page with one action ("Snap your superbill") and waitlist capture.
+### Launch (Nov 16 – 19)
 
-**Exit gate (Day 7):** sandbox claim `accepted` end to end from a photo; extraction ≥95% on the corpus; eligibility results for 5 payers in sandbox; all 11 slices committed with tests.
+Tue Nov 17: open sign-up (`FERRY_OPEN_SIGNUP=1`). Wed–Thu: respond to everything within an hour and ship fixes daily. Thu Nov 19: Day-60 review against the metrics; write the Phase 2 plan (store apps, group plan, PT and chiropractic, EHR push) from what members asked for.
 
-## Sprint 2 — Days 8–14 (Sep 28 – Oct 4): The loop code-complete
-
-**Goal:** everything that happens after `accepted` exists and is exercised with simulated payer responses.
-
-Build slices:
-
-12. Mobile-first timeline UI with the state copy from framework §3.4; this is the product surface.
-13. 276/277 polling on a per-payer cadence with ETA updates; simulated 277 fixtures for every state.
-14. `stalled` → status-inquiry letter auto-generated and sent by e-fax or queued for portal per payer directory.
-15. `info_requested` → provider records-request magic link.
-16. EOB upload with vision parsing → `paid` / `partially_paid` / `applied_to_deductible` with amounts; test on 10+ real EOBs from the cohort.
-17. `denied` with CARC/RARC translation and three appeal templates (medical necessity, timely filing, non-covered/wrong code).
-18. Notifications: push/SMS/email, exactly one per state change; deductible progress on the home screen.
-19. Autopilot: email-forward inbox per user (`you@claims.<domain>`) creating drafts from forwarded superbill PDFs; provider SMS "YES" creating claims from last known defaults.
-20. Fee events: pay-when-paid bound to `paid`/`partially_paid` with the 10%-of-recovered cap; Autopilot subscription with auto-pause in months with no paid claim; refund = Stripe reversal.
-21. Funnel dashboard.
-
-Payer & compliance: playbooks for the top 5 payers; DOI complaint addresses for NY, CA, MA, CO, IL, TX; BAAs signed with Stedi, hosting, Claude provider, Twilio; cyber liability quote.
-
-Beta cohort: first 3–5 patients onboarded by hand as soon as the BAA stack is live — if BAAs are not signed by Day 14, they run on de-identified test claims only. Name decided by Day 10.
-
-Launch: SEO pages drafted ("how to file a superbill with [payer]" × top 8, "Thrizer alternative," "Reimbursify alternative"); not published.
-
-**Exit gate (Day 14):** every one of the 14 states reachable in a demo with fixtures; a forwarded email becomes a draft claim; a fee event fires on a simulated `paid`; a real claim submitted in Stedi production if enrollment has cleared.
-
-## Sprint 3 — Days 15–21 (Oct 5–11): Everything else, and hardening
-
-**Goal:** Phase 1 code-complete. From Day 22 the codebase is maintained, not built.
-
-Build slices:
-
-22. Misdirected-payment playbook (`paid` with payee ≠ patient → refund-to-patient letter + provider confirm link).
-23. `escalated` state with DOI complaint generator for the 6 states.
-24. Provider light account: NPPES prefill, licenses, per-patient defaults learned from superbills; "invite my provider" from the patient home screen.
-25. Pre-submit scrubber rules per payer (modifier 95/GT, POS 02/10 for telehealth, taxonomy, timely filing); psychological-testing lines (96130/96131/96136/96137, units).
-26. Non-par registration packet flow (e-sign W-9, license upload; tracked object with ETA).
-27. Public scorecard page reading live from the state machine.
-28. Hardening: rate limiting and abuse controls on the free eligibility check; error-state copy for every failed extraction and rejected 277CA; audit log; account deletion and data export; accessibility pass on the timeline.
-29. Ops: alerting on stalled timers and failed Stedi calls; backup/restore drill; performance target photo → `ready` < 90 s p50.
-30. Pricing page (placeholder numbers), privacy/ToS/authorization pages wired to the attorney's drafts.
-
-Payer & compliance: SOC 2 readiness checklist started (manual control list; tooling optional). HIPAA policies written from a template.
-
-Beta cohort: 5–10 patients live on the production stack; weekly 20-minute feedback call with 3; shared support inbox with a 4-hour reply target.
-
-**Exit gate (Day 21):** code-complete. Zero open slices. A stranger-style walkthrough on the production stack with a test payer completes unassisted. Runbook for the on-call alerts written.
-
-## Sprint 4 — Days 22–42 (Oct 12 – Nov 1): Reality
-
-**Goal:** the loop proves itself against real payers and real patients. This sprint is where the original plan's Sprints 2 and 3 outcomes happen, with the code already in place.
-
-Build: fix-driven only. Every rejected 277CA, failed extraction, misparsed EOB, or patient hesitation gets a written root cause the same week and, where the fix is code, a slice. Expect payer-specific scrubber rules, extraction prompt changes, and copy fixes to dominate. Budget one to two Claude Code sessions per day at most.
-
-Payer & compliance: non-par enrollments submitted for every payer in the cohort's plans; playbook entries written from real rejections; BCBS home-plan routing and Optum carve-out verified with real claims; attorney documents finalized.
-
-Beta cohort: 10 patients by Day 28, 25 by Day 42; 6 providers on the magic link; three feedback calls each Thursday; first testimonial; NPS in-app after first `accepted`.
-
-Money & metrics: first pay-when-paid charge; unit-economics sheet updated with real Stedi, Stripe, and Claude costs per claim; days-to-accepted and days-to-paid by payer.
-
-Launch: name and brand locked; domain moved; PWA install prompt confirmed as the distribution path; launch post drafted; 3 podcast/newsletter hosts in the therapist-business circuit contacted.
-
-**Exit gate (Day 42):** 25 patients, 75 claims, ≥50 `accepted` electronically, ≥5 `paid`/`applied_to_deductible` with parsed amounts, ≥3 fees charged with no support ticket, one provider who came in through a patient and stayed, timers and letters firing in production without manual intervention.
-
-## Sprint 5 — Days 43–56 (Nov 2–15): Open the doors
-
-**Goal:** the product survives strangers.
-
-Build: only launch blockers and P0/P1 bugs. Second stranger test on Day 45 and Day 52 with someone who has never seen the app.
-
-Payer & compliance: privacy policy, ToS, authorization form final and published; breach-response runbook; incident contact on the site; cyber liability bound.
-
-Beta cohort: waitlist opened; 50 patients; 10 providers; three "I switched from Reimbursify/Mentaya" stories in writing.
-
-Money & metrics: pricing page live with final numbers; scorecard shows 3 payers with n ≥ 10; weekly cohort report automated.
-
-Launch: SEO pages published; launch day Tue Nov 17; Product Hunt / Reddit / therapist newsletter assets ready; "file your 2026 sessions before your deductible resets Jan 1" is the hook.
-
-**Exit gate (Day 56):** zero P0 bugs, stranger test passes unassisted, legal docs published.
-
-## Days 57–60 (Nov 16–19): Launch
-
-Tue Nov 17: publish. Wed–Thu: respond to everything within an hour, log every failure, ship fixes daily. Fri Nov 19: Day-60 review against the metrics table; write the Phase 2 plan (PT + chiro, DOI generator for all states, native wrapper, Practice Sponsor plan, EHR integrations) from what the cohort asked for.
-
-## Week-by-week
+## Week by week
 
 | Week | Dates | Build | Everything else | Gate |
 |---|---|---|---|---|
-| 1 | Sep 21–27 | Slices 1–11: Postgres, auth, encryption, extraction, eligibility, 837P, 277CA, state machine, magic link | Payer directory, attorney engaged, list of 40, BAAs in flight | Sandbox claim accepted from a photo; extraction ≥95% |
-| 2 | Sep 28–Oct 4 | Slices 12–21: timeline, polling, letters, EOB, denials, notifications, Autopilot, fees | Playbooks top 5, BAAs signed, name decided, first 3–5 patients | All 14 states demoable; fee fires on simulated paid |
-| 3 | Oct 5–11 | Slices 22–30: misdirected payment, escalation, provider account, scrubber, scorecard, hardening, ops | SOC 2 checklist, 5–10 patients live | Code-complete; stranger walkthrough on prod |
-| 4 | Oct 12–18 | Fix-driven | 10 patients / 25 claims; enrollments submitted | First real `accepted`; timers firing in prod |
-| 5 | Oct 19–25 | Fix-driven | 15 patients, 3 providers; DOI letter generated on a real stall | First `paid` parsed from a real EOB |
-| 6 | Oct 26–Nov 1 | Fix-driven | 25 patients, 6 providers; brand locked | First fee charged |
-| 7 | Nov 2–8 | P0/P1 only | 35 patients; stranger test #2 | Stranger passes |
-| 8 | Nov 9–15 | P0/P1 only | 50 patients, 10 providers; legal live; launch assets | Zero P0 |
-| 9 | Nov 16–19 | Daily fixes | Launch, Day-60 review | Metrics table |
+| 1 | Sep 21–27 | S1–S3 (Postgres, data model, sign-in); product redefined | PRD and spec written; HealthScribe and 24-hour erasure decided | — |
+| 2 | Sep 28–Oct 4 | Docs, safety rails, audio core, installable shell, phone spike, access model, tenancy, UI, homepage, encryption, consents, clinician onboarding, state machine, billing, payers | D2, D4, D3, D1, D5; LLC, AWS, Stedi, attorney started; preview homepage live | A (Sep 29), B (Oct 2) |
+| 3 | Oct 5–11 | Clients and invites, LLM provider, typed capture and erasure, notes, claims and 837P, submission, auto-file, client tracker, scribe, relay, record and dictate | Beta clinician names and NPIs; enrollments submitted | C / M1 (Oct 9), M2 |
+| 4 | Oct 12–18 | NPPES, eligibility, card scanning, scan camera, status polling, infrastructure as code, staging | AWS live by Oct 16; timed client welcome on phones | D (Oct 17); freeze Oct 18 |
+| 5 | Oct 19–25 | Letter engine, cited letters, denials, insurer mail, notifications, row-level security | Attorney's final texts (Oct 23) | — |
+| 6 | Oct 26–Nov 1 | Hardening, vendor cutover and preflight, ops metrics | Beta re-consent; icon and logo; allow-list | E2 (Oct 29), E (Nov 1) |
+| 7 | Nov 2–8 | Fixes only | Beta: 10 paying clinicians | — |
+| 8 | Nov 9–15 | Fixes only | Beta continues; launch assets | Zero P0 bugs |
+| 9 | Nov 16–19 | Daily fixes | Launch Nov 17; Day-60 review Nov 19 | Metrics table |
 
 ## Budget (60 days)
 
+Unchanged from the Sep 17 plan except where noted. Recording cost depends on D5.
+
 | Item | Estimate |
 |---|---|
-| Healthcare attorney (authorization form, privacy, ToS, BAA review) | $2,500–4,000 |
-| HIPAA-eligible hosting + DB + storage with BAA | $200–500 |
-| Stedi transactions (≈150 claims + 300 eligibility + 600 status polls, plus sandbox) | $150–300 |
-| Claude inference (extraction, letters) | $100–300 |
+| Healthcare attorney (terms, privacy, BAA, filing authorization, consents) | $2,500–4,000 |
+| AWS hosting, database, storage and keys under the BAA (staging and prod) | $200–500 |
+| Claude inference on Bedrock (notes, codes, letters, scans) | $100–300 |
+| AWS HealthScribe during beta (list $0.10/min; about $430 per clinician-month at 20 fifty-minute sessions a week) | depends on D5 |
+| Stedi transactions (claims, eligibility, status checks) | $150–300 |
 | Claude Code subscription (2 months, Max tier) | $200–400 |
-| Twilio SMS + e-fax | $100–200 |
+| SMS (if used) and e-fax | $100–200 |
 | Stripe fees | < $50 |
-| Domain, email, analytics, error monitoring | $150–300 |
+| Domain, email, error monitoring | $150–300 |
 | Cyber liability insurance (first installment) | $300–600 |
-| Compliance tooling trial (optional) | $0–500 |
-| Beta incentives (first 3 claims free for the cohort, $20 gift cards for feedback calls) | $500–800 |
-| **Total** | **~$4,200–7,900** |
+| Beta incentives (gift cards for feedback calls) | $500–800 |
 
 ## Weekly cadence
 
-Weeks 1–3: Monday, pick the week's slices and gate; every session ends with a green test run and a commit; Friday, demo the week's gate to yourself on video (these become onboarding material). Weeks 4–9: Monday 30-minute plan; daily, ship something visible to the cohort; Thursday, 3 patient feedback calls; Friday, metrics table updated, decision log appended to the framework doc. Every failed claim gets a written root cause the same week — those become payer-playbook entries.
+Through Oct 29: every session ends green and committed; each gate is demoed to Ryan the day it passes. From Nov 2: Monday 30-minute plan; daily, ship something visible to the beta clinicians; Thursday, three feedback calls; Friday, metrics updated from `/ops/metrics` and decisions appended to the log in `CLAUDE.md`. Every failed claim gets a written root cause the same week; those become payer-playbook entries.
 
 ## Risks and the response to each
 
+The full list, with owners, is under "Open risks" in `sprint-tasks.md`. The ones that move dates:
+
 | Risk | Signal | Response |
 |---|---|---|
-| Code outruns compliance — temptation to put real PHI on a non-BAA stack because the app is ready | BAAs not signed by Day 14 | Cohort runs on de-identified test claims only. Not for a day, not for one friend. Sprint 4 shifts right; Day 60 does not |
-| Stedi production enrollment or non-par payer enrollment lags | No real `accepted` by Day 28 | Member-form packet carries the cohort; keep filing electronically in sandbox; escalate with Stedi support weekly |
-| Building cheap turns into building more | New non-fix slices appearing after Day 21 | The Day-21 rule. Log the idea in the Phase 2 list and move on |
-| Payer rejects non-assigned claims from an unknown submitter | 277CA rejections clustered on one payer | Route that payer to member-form fallback; playbook entry; don't fight it in the sprint |
-| Providers won't tap the magic link | < 30% tap rate by Day 30 | Member-form path carries the load; test a version with the patient's name and "takes 10 seconds"; lead with the free benefits checker |
-| Extraction stalls below 95% on messy real superbills | Manual corrections > 1 field per claim in Week 4+ | "Confirm 3 things" review step becomes the default; collect failures for the prompt harness from Slice 4 |
-| Claims don't adjudicate inside 60 days | `paid` near zero at Day 45 | Expected for some payers; judge on `accepted` and loop behavior; extend paid-claim measurement to Day 90 |
-| Solo-founder bandwidth in Weeks 1–3 | A week's slices not done by Friday | Cut in this order: scorecard → registration packets → DOI generator → provider light account → appeals beyond one template. Never cut the tracker, the state machine, or the fee logic |
+| Code outruns compliance: real client data on a stack without every BAA | Any BAA or legal text missing on Nov 1 | `preflight:real-data` fails and the beta waits. Not for a day, not for one clinician |
+| iPhone recording stops on lock, calls or app switch in the installed app | Gate A (Sep 29) or the device test after M2 fails | Gap marking and "Dictate the rest"; launch records in a Safari tab if installed mode fails |
+| Recording cost exceeds the membership price | D5 on Oct 4; scribe:eval after AWS lands | Cap hours, raise the price, default to dictation, or record with Transcribe plus Claude |
+| Stedi enrollment lags for a beta clinician's payers | Enrollment not active by Nov 2 | Member-form claims: the clinician prints and mails, or Ferry faxes |
+| The pace (about two slices a day) doesn't hold | Buffer used up by Oct 15 | Apply the slip order in `sprint-tasks.md`; it moves dates or trims conveniences and never removes the only proof of a P0 checkbox |
+| Claims don't adjudicate inside 60 days | Paid near zero at Day 45 | Expected for some payers; judge on accepted claims and the loop; extend paid-claim measurement to Day 90 |
 
 ## Kill / pivot signals at Day 60
 
-Unchanged. Pivot the go-to-market (not the product) if fewer than 20 patients filed unassisted, or if provider tap rate is under 20% *and* member-form claims are being rejected at over 30%. Reconsider pay-when-paid only if support cost per paid claim exceeds the fee — track it from the first ticket.
+Set by Ryan at the Day-60 review against the PRD success metrics. The Sep 17 signals (patient filing counts, provider tap rate) no longer apply.
 
 ## Decisions with deadlines
 
 | Decision | By |
 |---|---|
-| Hosting/DB vendor with BAA | Day 3 (Sep 23) — paperwork started in Sprint 0 |
-| Claude via Bedrock vs. Anthropic enterprise BAA | Day 3 (Sep 23) |
-| Product name and domain | Day 10 (Oct 1) |
-| Final fee numbers (pay-when-paid, Autopilot) | Day 14 (Oct 4) |
-| Code-complete declared (or scope cut per the risk table) | Day 21 (Oct 11) |
-| Launch date | Day 42 (Nov 1) — default Nov 17 |
-| Phase 2 order (PT + chiro first vs. Practice Sponsor first) | Day 60, from cohort asks |
+| D2: what gets cut, and the 12 PRD wording changes | Sep 30 |
+| D4: installable web app at launch, store apps P1 | Sep 30 |
+| D3: clients of non-member therapists get an invite-your-therapist link only | Oct 1 |
+| D1: exact monthly price and yearly option ($50 placeholder, held in `PRICING`) | Oct 4 |
+| D5: recording cost vs price | Oct 4 (revisit after the live scribe:eval) |
+| Product name and domain | Before the preview homepage goes public |
+| Beta go/no-go | Nov 1 (Gate E) |
+| Phase 2 order | Day 60, from what members asked for |

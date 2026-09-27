@@ -10,6 +10,8 @@ The brand metaphor: **a small, friendly boat that carries your bill across and b
 
 Working name: **Ferry**. Claims are called **trips** in the UI.
 
+> **Note (2026-09-27).** The product is now a membership for out-of-network clinicians (`docs/prd.md`, `docs/spec.html`): the clinician records or types the session, approves a note, and each client's claim files from it. The paragraph above still describes the patient app; the client tracker keeps this voice, the boat and trips. Slice S3c drafts a §13 "clinician surfaces" amendment from `docs/spec.html` (desktop header, note editor, code chip, segment labels), marked DRAFT until Ryan approves it. Until then, clinician screens follow `docs/spec.html`.
+
 ## 2. Voice
 
 Three rules. Apply them to every string, including errors, empty states, and push notifications.
@@ -279,6 +281,7 @@ Ferry never touches the money, and most insurers mail a check. Copy states what 
 - The "It landed" push and the sea-green sweep fire only after the patient taps that it arrived.
 - We check in twice (about 3 weeks and 5 weeks after payment). If neither is answered the trip closes as "Landed" and the detail line states what the insurer reported: "Cigna sent $126 on Sep 14."
 - Progress labels: **Snapped and sent · Your insurer has it · Money comes back**. This replaces "Money lands in your account."
+  - **Flagged for Ryan (2026-09-27):** "Snapped and sent" assumes the client photographs a superbill. Claims now file from the clinician's approved note, so the client never snaps anything. S3c's §13 draft proposes a replacement first label; this one stands until Ryan approves a change.
 - Push: paid becomes "On its way. $184.20, check mailed Sep 14." The copy-bank string "It landed. $184.20 is in your account." is replaced by "It landed. $184.20 is back with you." and is sent only on confirmation.
 
 ### 12.4 Notification bodies
