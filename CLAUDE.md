@@ -16,7 +16,7 @@ This repo is the whole product: a Next.js 16 web app (installable on phones with
 
 ## Read before non-trivial work
 
-1. `docs/prd.md` and `docs/spec.html`: the product and its screens. They win on product questions.
+1. `docs/prd.md` and `docs/spec.html`: the product and its screens. They win on product questions, except where a 'PRD changes awaiting D2' item in `docs/sprint-tasks.md` applies: there the Product invariants below win until Ryan answers D2 (for example, clients never see a letter's text or PDF).
 2. `docs/architecture.md` — the design. Wins on technical questions.
 3. `docs/sprint-tasks.md` — every slice: scope, interfaces, acceptance criteria, what is blocked on the founder.
 4. `FERRY_BRAND.md` — before touching any UI, copy, or theme code. Section 12 amends the earlier sections.
@@ -112,7 +112,7 @@ This repo is the whole product: a Next.js 16 web app (installable on phones with
 - SMS through Twilio or AWS End User Messaging; optional at launch, since email carries every message until an SMS BAA and A2P land.
 - The capture relay is a separate process on the `ws` package (`bun run relay`); the worker runs pg-boss (`bun run worker`).
 - bun for packages, `bunx` not `npx`. bun lives at `/opt/homebrew/bin`; add it to PATH in non-login shells.
-- vitest; Playwright for the end-to-end walkthrough from slice 12
+- vitest; Playwright (added in N1) for the end-to-end walkthroughs behind Gates C, D and E2
 
 ## Commands
 

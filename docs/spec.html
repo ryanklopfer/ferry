@@ -558,7 +558,7 @@
             <li>Clinician: NPI, Tax ID (sealed, shown as last four), note format and style, subscription.</li>
             <li>Client: belongs to one clinician; recording and filing consents with timestamps; insurance details from the scan.</li>
             <li>Session note: text, codes, date. Readable only by its clinician.</li>
-            <li>Letter: draft and sent copy, on the claim timeline the client can see.</li>
+            <li>Letter: draft and sent copy, on the claim timeline the client can see.</li> <!-- Pending D2 item 2 (docs/sprint-tasks.md): clients see only a list of letters sent (kind, insurer, date), never text, PDF or attachments. CLAUDE.md Product invariants win until D2. -->
             <li>Claim: the existing 16-state model; client stays payee, Accept Assignment = No.</li>
             <li>Transcripts and rough notes: sealed under their own key, erased with the key within 24 hours. Approved notes stay.</li>
             <li>Never stored: session audio, scan photos. Never used for model training: client data. Never in SMS, logs or analytics: health details.</li>

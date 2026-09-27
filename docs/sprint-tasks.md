@@ -214,6 +214,8 @@ Open decisions: D1 price (Oct 4), D2 cuts and PRD changes (Sep 30), D3 clients o
 6. **Beta sign-ups.** Before Nov 2, the homepage's 'Start free' reads 'Join the beta' and opens an email to you. Which address?
 7. **Clinicians who are also clients.** Someone who is both needs two email addresses at launch. OK?
 8. **Identity check.** Who does the manual identity check before a new clinician's first real claim during beta? Default: you, with one command (`bun run identity:verify <npi>`).
+9. **Draft notes and the model's first draft.** Your 2026-09-27 rule keeps approved notes as the record and erases transcripts at 24 hours. Should unapproved draft or failed notes, and the model's unedited first draft of an approved note (`generated_body`, which for a recording is HealthScribe's note), also be erased at 24 hours, or kept? N9b stores both sealed under the clinician's key; your answer decides whether the 24-hour erasure (N8) also covers them. Needed before N9b.
+10. **De-identified data on staging.** Staging is synthetic only, and boot enforces it (N1). Should it ever admit de-identified data, for example F9 corpus runs? Default: no.
 
 ## PRD changes awaiting D2
 
@@ -285,7 +287,7 @@ From the 2026-09-27 replan:
 - **Phone testing tunnel.** dev:phone exposes the dev server through a public cloudflared tunnel. It refuses to start without FERRY_DATA_CLASS=synthetic and outside the dev tier, and /dev routes need a per-run key. No real audio ever goes through it.
 - **Preview homepage.** It needs a domain and a host. The prelaunch tier serves only public pages with every vendor off and stores nothing, so any host is safe.
 - **Stale docs until N0 lands.** CLAUDE.md, architecture D1/D10/§4/§5/§6/§8/§9, 60-day-sprint.md, FERRY_BRAND §1/§12.3 and spec.html (48 minutes shown as 90837; pg-boss and extraction called 'built') all describe the old product or overstate progress. docs/prd.md keeps its current wording until Ryan answers D2.
-  - Status: closed by N0 except `docs/prd.md`, which waits for D2.
+  - Status: closed by N0 except `docs/prd.md` and the spec.html homepage copy and Tech-tab letter line, which wait for D2.
 - **Still open for Ryan.** The S3 passkey Touch ID check (2 minutes). F11 app icon and logo: the prod tier refuses placeholder icons, and FERRY_BRAND §12.5 forbids improvising a logo.
 
 ## P0 coverage
@@ -360,7 +362,7 @@ One row per `- [ ]` line between `### P0` and `### P1` in `docs/prd.md` (41 toda
 | S26 | deferred | — | P2 non-par registration packets. Per-NPI enrollment is tracked in S6b and routed around in S9. |
 | S27 | deferred | — | P2 public payer scorecard. claim_events stays complete so it can be built later. |
 | P1 Expo store apps | deferred | — | D4: the installable web app is the launch phone app; store apps come later on the same API. |
-| P1 group plan, yearly price, learns-your-style, uploaded recordings, telehealth tab capture | deferred | — | PRD P1. notes.generated_body is already kept for learns-your-style. Groups get 'Talk to us' on the homepage. The homepage drops 'or on video' until telehealth capture exists (D2 item 10). |
+| P1 group plan, yearly price, learns-your-style, uploaded recordings, telehealth tab capture | deferred | — | PRD P1. Whether notes.generated_body and unapproved drafts are kept is founder question 9. Groups get 'Talk to us' on the homepage. The homepage drops 'or on video' until telehealth capture exists (D2 item 10). |
 | P2 EHR push and filing for clients of non-member therapists | deferred | — | PRD P2 and D3. Launch has one-tap copy after Approve, and a public /for-clients invite-your-therapist page. |
 | S25 testing-code unit logic | deferred | — | 96130–96137 unit rules come after launch; the psychotherapy time, intake and family rules ship in N9a. |
 | In-browser Opus encoding | deferred | — | After launch. Raw 16 kHz PCM is about 115 MB per recorded hour on cellular, which is acceptable for beta. |
@@ -485,7 +487,7 @@ Docs only; no code.
 
 #### Acceptance
 
-- [x] Stale-term grep `grep -nE 'Autopilot|pay-when-paid|[$]9|Patient is the payee|Oct 11|Day 21' CLAUDE.md docs/architecture.md docs/sprint-tasks.md docs/60-day-sprint.md` matches only Decisions-log lines or rows marked dropped or replaced; each remaining hit is listed in the commit message
+- [x] Stale-term grep `grep -nE 'Autopilot|pay-when-paid|[$]9|Patient is the payee|Oct 11|Day 21' CLAUDE.md docs/architecture.md docs/sprint-tasks.md docs/60-day-sprint.md` matches only Decisions-log lines, rows marked dropped or replaced, the new plan's own 'Oct 11' dates (M2, N13) and N0 or S11c lines that quote the stale terms or this pattern; each remaining hit is listed in the commit message. (Reworded after review: the original wording excluded the new M2 date, so the box was met on intent; the hits are listed in 8902bd4.)
 - [x] The number of `- [ ]` lines between `### P0` and `### P1` in docs/prd.md (41 today, counted with awk plus grep -c) equals the number of P0-n.k rows in the coverage table; the commit message records both counts
 - [x] Every slice id the coverage table names exists as a heading in docs/sprint-tasks.md
 - [x] Every open slice in docs/sprint-tasks.md has 'Depends on', 'Fixture path' and 'Founder blockers' lines (grep -c)
@@ -526,7 +528,7 @@ Why: This slice closes live gaps and adds primitives every later slice needs:
 - src/server/deploy.ts: FERRY_DEPLOY_TIER = dev | prelaunch | staging | prod. NODE_ENV=production without an explicit tier refuses to boot.
 - src/server/boot.ts `bootProcess(name)` asserts the tier's vendor rules:
   - prelaunch: every vendor off
-  - staging: live, test or off
+  - staging: live, test or off, and FERRY_DATA_CLASS=synthetic only
   - prod: live, or off only for sms and fax
   - dev: anything
   Every failure is named. src/instrumentation.ts register() calls it; the worker (S10) and relay (N3a) call it first.
@@ -549,7 +551,7 @@ Why: This slice closes live gaps and adds primitives every later slice needs:
 - src/server/db/schema.test.ts gets an explicit GLOBAL_TABLES allow-list.
 - Boundary rules (eslint plus src/boundaries.test.ts):
   - @anthropic-ai/* only in src/lib/ai.ts and src/server/integrations/llm/**
-  - no 'use cache' directive and no unstable_cache/cacheLife under src/app/app, src/app/c or src/server
+  - no 'use cache' directive and no unstable_cache/cacheLife anywhere under src/app except src/app/(public), or under src/ui or src/server
 
 **Test tooling**
 - Add @playwright/test (plus `bunx playwright install chromium`), fast-check, @axe-core/playwright, happy-dom and @testing-library/react.
@@ -564,7 +566,7 @@ Why: This slice closes live gaps and adds primitives every later slice needs:
 - [ ] mode.test.ts: table over every vendor × tier × override; 'off' is accepted only where the tier allows it
 - [ ] boot.test.ts table:
   - prod refuses fixture, test or local for every vendor, and off for anything but sms and fax
-  - staging refuses fixture and local
+  - staging refuses fixture and local, and any FERRY_DATA_CLASS but synthetic
   - prelaunch refuses anything not off
   - NODE_ENV=production without FERRY_DEPLOY_TIER refuses
   - each failure names the vendor
@@ -573,7 +575,7 @@ Why: This slice closes live gaps and adds primitives every later slice needs:
 - [ ] log.test.ts: each new key passes; `code: 'F43.25'` and `kind: 'Jane'` are dropped; `code: 'not_owned'` is kept
 - [ ] email.test.ts: the console output of a non-sign-in mail contains no body text; a sign-in mail prints only the path and the link
 - [ ] repo-hygiene.test.ts: `git check-ignore -q data/payers/x.json` exits 1 and `git check-ignore -q data/outbox/x.json` exits 0; every test file named in docs/sprint-tasks.md matches the vitest include or the Playwright testDir
-- [ ] boundaries.test.ts: @anthropic-ai/sdk imported from src/server/services fails; a 'use cache' directive under src/app/app fails
+- [ ] boundaries.test.ts: @anthropic-ai/sdk imported from src/server/services fails; a 'use cache' directive under src/app/app or src/app/api/v1 fails, and one under src/app/(public) passes
 - [ ] dev-tier.test.ts: assertDevTier refuses in any other tier and against a database not ending _dev or _test
 - [ ] mask.test.ts: last4('12-3456789') is '6789'; short or empty input is handled
 - [ ] tooling: a sample .test.tsx runs under happy-dom and appears in the vitest report; e2e/smoke.spec.ts loads /sign-in through `bun run test:e2e` against ferry_e2e_test

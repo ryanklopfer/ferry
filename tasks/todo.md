@@ -1,6 +1,6 @@
 # Next up (Mon Sep 28)
 
-From the 2026-09-27 replan in `docs/sprint-tasks.md` (execution order). N0 (docs of record) is on `slice/n0-docs-of-record`.
+From the 2026-09-27 replan in `docs/sprint-tasks.md` (execution order). N0 (docs of record) is done.
 
 - [ ] N1 — Safety rails, integration modes, deploy tiers, error scrubbing and test tooling
 - [ ] N3a — Audio core and capture relay skeleton (ws, token, counting, no writes)

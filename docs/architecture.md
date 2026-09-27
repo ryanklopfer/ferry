@@ -22,7 +22,7 @@ The 2026-09-27 revision replaces the patient-first model: the clinician is the p
 | D12 | E-fax is Sinch Fax API, not Twilio. | Twilio Programmable Fax was shut down in December 2021. Sinch signs a free self-serve BAA. |
 | D13 | Product metrics come from our own `claim_events` log and table timestamps (S29). No analytics or third-party script on any page at launch. | PostHog's BAA requires a $250/mo package; the homepage tests forbid third-party origins (S11c). |
 | D14 | "Ferry" is a working name held in one constant. The domain word in code is `claim`; "trip" is client UI copy only. A therapy session is an `encounter` in code (Better Auth owns `sessions`). | Name decision is open; `sessions` is taken. |
-| D15 | One branch and one commit per slice; when test, typecheck and lint pass, fast-forward `main` and delete the branch without asking. Never push, force or rewrite history without asking. | Agreed 2026-09-17. Solo engineer, strict per-slice checks; pull requests start when there is a second reviewer or SOC 2 evidence collection begins. |
+| D15 | One branch and one commit per slice; when test, typecheck and lint pass (plus `test:e2e` when the slice has e2e acceptance), fast-forward `main` and delete the branch without asking. Never push, force or rewrite history without asking. | Agreed 2026-09-17. Solo engineer, strict per-slice checks; pull requests start when there is a second reviewer or SOC 2 evidence collection begins. |
 | D16 | `FERRY_DEPLOY_TIER` (`dev \| prelaunch \| staging \| prod`) is separate from `NODE_ENV` and decides which integration modes may boot; every process calls `bootProcess()` first. | Production builds run in every tier. Prod serves only public pages (prelaunch) until Gate E, then admits only the beta allow-list until open sign-up (2026-09-27). |
 | D17 | Transcripts, dictation text, typed rough notes and unconfirmed scan fields are sealed under per-record keys kept outside Postgres and erased at 24 hours by destroying the key. | Ryan, 2026-09-27. RDS backups then hold only ciphertext whose key no longer exists. |
 
@@ -45,7 +45,7 @@ browsers: clinician (desktop, phone), client (installed web app), public pages
                           · email (SES) · billing (Stripe) · storage (S3) · keys (KMS, DynamoDB)
 ```
 
-Three processes from the same codebase: web (Next), worker (`bun run worker`) and relay (`bun run relay`). Each imports the same services and integrations and calls `bootProcess()` before anything else. The relay never writes audio or transcript text anywhere; transcripts reach the database only through the import jobs.
+Three processes from the same codebase: web (Next), worker (`bun run worker`) and relay (`bun run relay`). Each imports the same services and integrations and calls `bootProcess()` before anything else. The relay never writes audio anywhere. It holds transcript segments only in memory and writes them only through `importDictation(systemCtx, captureId)` (a direct service call that seals the text with `sealEphemeral`) or the `importScribeResult` job (which reads HealthScribe's S3 output by capture id). No transcript text ever goes into a job payload.
 
 ## 3. Code layout and boundaries
 
@@ -94,7 +94,7 @@ Lint-enforced rules (`no-restricted-imports` plus `src/boundaries.test.ts`):
 - Only `src/server/db/repos/**` sees ciphertext.
 - `systemCtx()` only from `src/server/jobs/**`, `src/server/relay/**`, `src/app/api/webhooks/**` and `src/server/services/ops.ts`; `inviteCtx()` only from `src/server/services/invites.ts`.
 - `@anthropic-ai/*` only under `src/server/integrations/llm/**`.
-- No `'use cache'`, `unstable_cache` or `cacheLife` under `src/app/app`, `src/app/c` or `src/server`.
+- No `'use cache'`, `unstable_cache` or `cacheLife` anywhere under `src/app` except `src/app/(public)`, or under `src/ui` or `src/server`. This covers `api/v1`, `ops`, `i/[token]` and `dev`.
 - Server code never calls `Date.now()` directly; it uses `clock.now()`.
 
 MVP files move or go when the slice that needs them touches them, not in one refactor:
@@ -181,7 +181,7 @@ List rows show chip plus the state's one-line copy, so a stalled claim reads as 
 
 ## 5. Data model
 
-Postgres via Drizzle. Money in integer cents. Timestamps `timestamptz`. Every table has `user_id NOT NULL` (the clinician tenant, or the user for auth-owned rows and `client_memberships`) unless it is on `GLOBAL_TABLES`; client-scoped tables also have `client_id NOT NULL` and are on `CLIENT_SCOPED`. Every text, jsonb or bytea column is classified in `src/server/db/columns.ts`.
+Postgres via Drizzle. Money in integer cents. Timestamps `timestamptz`. Every table has `user_id NOT NULL` (the clinician tenant, or the user for auth-owned rows and `client_memberships`) unless it is on `GLOBAL_TABLES`; client-scoped tables also have `client_id NOT NULL` (except `tasks`, a listed nullable exception with a CHECK) and are on `CLIENT_SCOPED`. Every text, jsonb or bytea column is classified in `src/server/db/columns.ts`.
 
 | Table | Purpose | Slice |
 |---|---|---|
@@ -204,15 +204,15 @@ Postgres via Drizzle. Money in integer cents. Timestamps `timestamptz`. Every ta
 | `captures` | record, dictate or type; audio ms; relay lease; outputs purged at | N8, N12 |
 | `capture_intervals` | connected spans with end reasons; gaps are derived from them | N12 |
 | `transcripts` | body sealed under a per-record ephemeral key; `expires_at` = created + 24 h; erased at | N8 |
-| `notes` | format, status, sealed body, immutable generated body, codes and suggested codes, approval fields | N9b |
-| `scans` | card, insurer mail or EOB: image hashes, attempt, verdict; fields sealed under a 24-hour key until confirmed, then cleared | S5 |
+| `notes` | format, status, approval fields; sealed body, sealed immutable generated body, sealed codes and suggested codes | N9b |
+| `scans` | card, insurer mail or EOB: image hashes, attempt, verdict; fields sealed under a 24-hour key until confirmed, then cleared. `CLIENT_SCOPED` | S5 |
 | `eligibility_checks` | sealed 271 payloads. Clinician-only | S7 |
-| `claims` | state, channel, payer id, totals, payer reference, `note_id` (unique), `encounter_id`, `client_id`; as-filed snapshots of billing party, plan and patient; sealed diagnosis codes, Tax ID snapshot (plus last four), denial reason | S2, S8, N10 |
-| `claim_lines` | position, service date, CPT, up to 4 modifiers (database check), units, charge, diagnosis pointers, place of service (sealed codes) | S2 |
+| `claims` | state, channel, payer id, totals, payer reference, `note_id` (unique), `encounter_id`, `client_id`; as-filed snapshots of billing party, plan and patient (sealed); sealed diagnosis codes, Tax ID snapshot (plus last four), denial reason. `CLIENT_SCOPED` | S2, S8, N10 |
+| `claim_lines` | position, service date, CPT, up to 4 modifiers (database check), units, charge, diagnosis pointers, place of service (sealed codes). `CLIENT_SCOPED` | S2 |
 | `claim_events` | append-only: seq, type, from, to, actor, cause, sealed payload. `CLIENT_SCOPED` | S10 |
-| `tasks` | one ask for one audience (client, clinician or staff): kind, request ref, status, opened, first viewed, done. `client_id` required for client-audience tasks (CHECK) | S10 |
+| `tasks` | one ask for one audience (client, clinician or staff): kind, request ref, status, opened, first viewed, done. `client_id` required for client-audience tasks (CHECK). `CLIENT_SCOPED` as a listed nullable exception | S10 |
 | `timers` | subject, kind, due at, fired at; UNIQUE(subject, kind) | S10 |
-| `dev_clock` | the dev-tier clock offset | S10 |
+| `dev_clock` | the dev-tier clock offset. `GLOBAL_TABLES` | S10 |
 | `letters` | kind, sealed body, PDF key, citations, route, approval (signature, time, hash), sent and viewed times. Clinician-only | S14, N15 |
 | `external_calls` | vendor, purpose, input and output hashes and sizes, timing, status, idempotency key. A sealed payload only when it is itself a kept record (837P, 277CA); never model input or output | S4, S9 |
 | `notifications` | one row per claim event and recipient: channel, PHI-free body, delivery status | S10, S18 |
@@ -245,6 +245,7 @@ Ids are prefixed ULIDs (`clm_`, `pln_`, `lin_`, `cli_`, `mbr_`, `prf_`, `enc_`, 
 8. **Resolvers.** `repos/resolvers.ts` is the only repo module with ctx-less functions, and it returns ids only: invite token hash, Stripe customer, patient control number, due timers, expired transcripts and scans.
 9. **Roles** are set only on the server: `/start` makes a clinician (N5), `acceptInvite` makes a pending user a client and refuses clinicians and staff (N7a), `bun run staff:grant` makes staff. One role per user at launch. `acceptInvite` binds only a user whose verified email (or SMS-verified phone) matches the contact the clinician entered.
 10. A client of two member clinicians has two memberships; client views iterate them.
+11. **Clinician claim views** use a strict DTO exposing `tax_id_last4` only (S9).
 
 Postgres row-level security (S28a) adds a second layer: `ferry_app` runs with FORCE RLS on every tenant table using `app.tenant` and `app.client_id` set per transaction; `ferry_resolver` runs the security-definer functions behind `resolvers.ts` and `repos/ops.ts`.
 
@@ -256,7 +257,7 @@ Postgres row-level security (S28a) adds a second layer: `ferry_app` runs with FO
 |---|---|---|
 | dev | anything; fixtures by default | everything, plus `/dev/*` with a per-run key |
 | prelaunch | every vendor `off` | public pages only |
-| staging | `live`, `test` or `off`; never `fixture` or `local` | everything, synthetic data only |
+| staging | `live`, `test` or `off`; never `fixture` or `local` | everything, synthetic data only (boot refuses any other `FERRY_DATA_CLASS`) |
 | prod | `live`, with `off` only for sms and fax | everything, beta allow-list until `FERRY_OPEN_SIGNUP=1` |
 
 `FERRY_DATA_CLASS` is `synthetic | deidentified | real`; `real` is refused while `bun run preflight:real-data` fails. Unhandled errors print only the error name, in every process.
@@ -266,7 +267,7 @@ Postgres row-level security (S28a) adds a second layer: `ferry_app` runs with FO
 - **Per-tenant data key.** A 256-bit data key per clinician tenant (`tenant_keys`), wrapped by a key-encryption key through `KeyProvider` (`local` in dev only, `aws-kms` otherwise). A `ClientCtx` decrypts with its tenant's key inside the repos, so a canceled clinician's filed claims stay readable to their clients until they close.
 - **Per-record ephemeral keys outside Postgres.** Transcripts, dictation text, typed rough notes and unconfirmed scan fields are sealed with `sealEphemeral` under a key held in an `EphemeralKeyStore` (a local key directory in dev; DynamoDB with point-in-time recovery and backups off and TTL on in AWS). Reads refuse a record past `expires_at` even before erasure runs. Erasure (keyed timer, 15-minute sweeper with a lag alert, S3 lifecycle backstop for HealthScribe output) destroys the key first, then nulls the ciphertext. A restored backup copy can't be decrypted.
 - Fields are AES-256-GCM, stored as `v1.<keyId>.<iv>.<ciphertext>.<tag>`. One repo-level column codec declares sealed columns; `columns.ts` classifies every text, jsonb or bytea column as `SEALED`, `EPHEMERAL` or `PLAINTEXT_OK`, and a test fails on a new unclassified column.
-- Sealed: client names, DOB, email, phone; member ID, group and subscriber details; diagnosis codes and CPT lines; the Tax ID; practice address; typed signatures; letter bodies; event payloads; eligibility payloads; kept vendor records. Plaintext operational columns: state, payer id, channel, amounts, timestamps. `users.email` stays plaintext because Better Auth looks it up; RDS encryption at rest covers it, and `users.name` stays null for client users.
+- Sealed: client names, DOB, email, phone; member ID, group and subscriber details; diagnosis codes and CPT lines; the claims' as-filed patient and plan snapshots; note bodies (`body`, `generated_body`), codes and suggested codes; the Tax ID; practice address; typed signatures; letter bodies; event payloads; eligibility payloads; kept vendor records. Plaintext operational columns: state, payer id, channel, amounts, timestamps. `users.email` stays plaintext because Better Auth looks it up; RDS encryption at rest covers it, and `users.name` stays null for client users.
 - Blind indexes (HMAC-SHA256 with a separate key) on client contact, member ID and Tax ID for lookup and de-duplication.
 - A solo clinician's Tax ID is often their SSN. It is always sealed, shown as the last four, never logged, and never in any LLM input.
 - No side copies: model call logs keep hashes only, job payloads are ids only, job failures record only the error name, note evidence stores segment ids, and `'use cache'` is banned on PHI paths.
@@ -350,7 +351,7 @@ Built once in the first slice that needs them, reused after.
 |---|---|---|---|
 | dev | dev | synthetic only | local Postgres 17, local key directory and KEK, integrations in `fixture` or `test`; `dev:phone` tunnel for phones |
 | preview | prelaunch | none (public pages only) | any host, every vendor off |
-| staging | staging | synthetic and de-identified | AWS account A, same topology as prod, Stedi and Stripe in test mode |
+| staging | staging | synthetic only (`FERRY_DATA_CLASS=synthetic`; boot refuses any other class in the staging tier) | AWS account A, same topology as prod, Stedi and Stripe in test mode |
 | prod | prelaunch until Gate E, then prod | real PHI, only after every BAA is signed and `preflight:real-data` passes | AWS account B: ECS Fargate (web, worker, relay), ALB with `/ws/*` to the relay, RDS Postgres with PITR, S3, KMS, DynamoDB key table, SES, Bedrock, HealthScribe, Transcribe Medical, CloudWatch |
 
 Both AWS accounts sit in one Organization with the BAA accepted in AWS Artifact and an AI services opt-out policy attached to the root. Infrastructure is code (CDK, S21a) from the first deploy; S21b provisions it.
