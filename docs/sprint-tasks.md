@@ -6,7 +6,7 @@ Slice ids follow build order, not number order. N0–N17 are new work. S-ids are
 
 ## Where things stand (Sun Sep 27, Day 7)
 
-- Done: S1 (Postgres) and S2 (multi-user data model, whose one-owner tenancy N2a and N4 rework). S3 (sign-in) is open only for the 2-minute passkey Touch ID check.
+- Done: S1 (Postgres) and S2 (multi-user data model, whose one-owner tenancy N2a and N4 rework). S3 (sign-in) is done: Ryan passed the passkey Touch ID check on 2026-09-27.
 - 154 tests in 17 files, typecheck and lint green on `main`.
 - None of the clinician product exists yet (clients, capture, notes, membership, phone app), and the claims-engine parts the PRD keeps (state machine, encryption, filing, jobs) are not started. The per-claim fee was never built, so dropping it changes documents only.
 - Today's founder decisions are in: AWS HealthScribe for in-room recording with all PHI on AWS us-east-1; transcription data deleted on import or erased at 24 hours with per-record key destruction; the patient plan and its subscription add-on deleted; a $50/month clinician membership whose price lives in config (`PRICING`).
@@ -195,7 +195,7 @@ Nothing here is code. Keys go into `.env.local` by hand; Claude never handles th
 | Oct 23 | Attorney's final texts (F4) |
 | Before beta | F11 icon and logo; beta clinicians re-consent to the final texts |
 | Nov 1 | Gate E go/no-go; F15 |
-| Any time | S3 passkey Touch ID check (2 minutes) |
+| ~~Any time~~ | ~~S3 passkey Touch ID check~~ done 2026-09-27 |
 
 Open decisions: D1 price (Oct 4), D2 cuts and PRD changes (Sep 30), D3 clients of non-member therapists (Oct 1), D4 installable web app at launch (Sep 30), D5 recording cost vs price (Oct 4).
 
@@ -240,7 +240,7 @@ Each has a default that gets built unless Ryan says otherwise. All 12 are pendin
 
 | # | Risk | Status |
 |---|---|---|
-| R1 | The repo has no git remote: every commit lives only on the founder's Mac. A lost or failed laptop loses the sprint, and CI for S21b needs a remote. | Accepted for now (2026-09-17). Fix is a private GitHub repo; the repo holds synthetic data only and `.env.local` is gitignored. Ryan may allow it any time from Sep 28. |
+| R1 | The repo has no git remote: every commit lives only on the founder's Mac. A lost or failed laptop loses the sprint, and CI for S21b needs a remote. | Accepted. Ryan declined a GitHub remote again on 2026-09-27; do not re-ask. A local backup (e.g. Time Machine) is his call. S21b must deploy without a hosted CI remote. |
 
 From the 2026-09-27 replan:
 
@@ -288,7 +288,7 @@ From the 2026-09-27 replan:
 - **Preview homepage.** It needs a domain and a host. The prelaunch tier serves only public pages with every vendor off and stores nothing, so any host is safe.
 - **Stale docs until N0 lands.** CLAUDE.md, architecture D1/D10/§4/§5/§6/§8/§9, 60-day-sprint.md, FERRY_BRAND §1/§12.3 and spec.html (48 minutes shown as 90837; pg-boss and extraction called 'built') all describe the old product or overstate progress. docs/prd.md keeps its current wording until Ryan answers D2.
   - Status: closed by N0 except `docs/prd.md` and the spec.html homepage copy and Tech-tab letter line, which wait for D2.
-- **Still open for Ryan.** The S3 passkey Touch ID check (2 minutes). F11 app icon and logo: the prod tier refuses placeholder icons, and FERRY_BRAND §12.5 forbids improvising a logo.
+- **Still open for Ryan.** F11 app icon and logo: the prod tier refuses placeholder icons, and FERRY_BRAND §12.5 forbids improvising a logo.
 
 ## P0 coverage
 
@@ -395,9 +395,9 @@ Fixture path: `ferry_test`; no vendor.
 
 Founder blockers: none
 
-### [ ] S3 — Auth: magic link + passkeys (code complete 2026-09-17; one manual check open)
+### [x] S3 — Auth: magic link + passkeys
 
-Status: open only for the passkey check · Plan: `docs/plans/slice-03-auth.md`
+Status: done 2026-09-27 · Plan: `docs/plans/slice-03-auth.md`
 
 Depends on: S1
 
@@ -405,7 +405,7 @@ Fixture path: email fixture writes magic links to `data/outbox/`; registration o
 
 Founder blockers: 2 minutes with Touch ID
 
-- [ ] Add a passkey on `/account` and sign in with it. Registration options are verified by test and against the live server; the fingerprint step needs a person. Founder: 2 minutes with Touch ID, then tick this and the slice. (N5's `e2e/passkey.spec.ts` later automates this with a virtual authenticator.)
+- [x] Add a passkey on `/account` and sign in with it. Ryan did it with Touch ID on 2026-09-27 against main at d49f6c4: verify-registration, sign-out and verify-authentication all returned 200. (N5's `e2e/passkey.spec.ts` later automates this with a virtual authenticator.)
 
 ## Slices, in execution order
 
