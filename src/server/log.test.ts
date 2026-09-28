@@ -64,6 +64,17 @@ describe("log", () => {
     for (const key of ["code", "kind", "status", "state", "from", "to"]) expect(dropped[key], key).toBeUndefined();
   });
 
+  it("never writes an IP address or a user agent, under any key a caller might use", () => {
+    const ip = "203.0.113.77";
+    const ua = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Ferry-UA-Marker";
+    const out = capture(() =>
+      log("consent.recorded", { ip, ipAddress: ip, remoteAddress: ip, "x-forwarded-for": ip, userAgent: ua, user_agent: ua, "user-agent": ua, headers: { "user-agent": ua, "x-forwarded-for": ip }, consent: { ip, userAgent: ua } }),
+    );
+    expect(out).not.toContain("203.0.113");
+    expect(out).not.toContain("Ferry-UA-Marker");
+    expect(out).not.toContain("Mozilla");
+  });
+
   it("never takes a name from something that is not an error", () => {
     expect(JSON.parse(capture(() => log("x", { error: { name: "Samira" } }))).error).toBe("Error");
     expect(JSON.parse(capture(() => log("x", { error: new TypeError("U4827193") }))).error).toBe("TypeError");

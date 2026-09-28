@@ -1,10 +1,23 @@
+import fs from "node:fs";
+import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
-import { E2E_DATABASE_URL, E2E_RELAY_PORT, e2eServerEnv } from "./e2e/env";
+import { E2E_DATABASE_URL, E2E_KEY_DIR, E2E_LEGAL_DIR, E2E_LOCAL_KEK, E2E_RELAY_PORT, e2eServerEnv } from "./e2e/env";
 
 const PORT = 3100;
 
-// Helpers in the test process (resetDb) talk to the e2e database, never ferry_dev.
+// Helpers in the test process (resetDb, seeding through the repos) talk to the e2e database, never ferry_dev, and
+// share the servers' keys and legal texts.
 process.env.DATABASE_URL = E2E_DATABASE_URL;
+process.env.FERRY_DATA_CLASS = "synthetic";
+process.env.FERRY_LOCAL_KEK = E2E_LOCAL_KEK;
+process.env.FERRY_KEY_DIR = E2E_KEY_DIR;
+process.env.FERRY_LEGAL_DIR = E2E_LEGAL_DIR;
+
+// Fresh texts for each run, copied once by the runner (workers load this file too).
+if (!process.env.TEST_WORKER_INDEX) {
+  fs.rmSync(E2E_LEGAL_DIR, { recursive: true, force: true });
+  fs.cpSync(path.join(process.cwd(), "content", "legal"), E2E_LEGAL_DIR, { recursive: true });
+}
 
 export default defineConfig({
   testDir: "e2e",

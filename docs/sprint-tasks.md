@@ -1060,7 +1060,7 @@ Why: P0-11 requires encryption before any real data, and the Tax ID invariant ne
 - [x] boot.test.ts: the local providers are refused outside the dev tier
 - [x] retention.test.ts table: an open claim gives no; all closed and canceled 29 days ago gives no; 30 days gives yes
 
-### [ ] S3b — Consent records (clinician and client), versioned legal texts, re-consent and live-use gates
+### [x] S3b — Consent records (clinician and client), versioned legal texts, re-consent and live-use gates
 
 Scheduled: Fri Oct 2 · Status: modified · Size: M · PRD: P0-2.2, P0-3.3, P0-4.2, P0-11.1, R4
 
@@ -1113,17 +1113,19 @@ The attorney's answers (Q-L1, Q-L2, Q-L3) are the likeliest non-code blockers, s
 
 #### Acceptance
 
-- [ ] consent.test.ts: a record stores version and sha256; after the text changes, currentConsent returns stale and the row is unchanged
-- [ ] consents.test.ts: recording and filing consents are separate rows; withdrawing one sets withdrawn_at and leaves the other current
-- [ ] consents.test.ts: a ClientCtx recording a clinician doc type throws, and vice versa
-- [ ] consents.test.ts: requireFilingConsent throws without either half; requireRecordingConsent throws immediately after withdrawal
-- [ ] consents.test.ts: after a legal text's hash changes, requireFilingConsent and requireRecordingConsent throw ConsentStale until re-consent, then pass
-- [ ] minor.test.ts: a 'self' signer for a client under 18 is refused; 'parent_guardian' is accepted
-- [ ] withdraw-notify.test.ts: withdrawal emits one consent_withdrawn notification carrying ids only
-- [ ] e2e/reconsent.spec.ts: after a text version bump, the next gated action shows the re-consent screen; accepting it resumes the action
-- [ ] legal-gate.test.ts: assertLiveLegal(['npi_filing_authorization']) throws while placeholder is true and passes once false
-- [ ] filing-consent.test.tsx: the screen lists name, DOB, member ID, diagnosis, procedure codes, dates and charges, each with a reason
-- [ ] columns.test.ts and raw-dump.test.ts extended: typed_name is sealed; log.test.ts: ip and user agent never reach logs
+- [x] consent.test.ts: a record stores version and sha256; after the text changes, currentConsent returns stale and the row is unchanged
+- [x] consents.test.ts: recording and filing consents are separate rows; withdrawing one sets withdrawn_at and leaves the other current
+- [x] consents.test.ts: a ClientCtx recording a clinician doc type throws, and vice versa
+- [x] consents.test.ts: requireFilingConsent throws without either half; requireRecordingConsent throws immediately after withdrawal
+- [x] consents.test.ts: after a legal text's hash changes, requireFilingConsent and requireRecordingConsent throw ConsentStale until re-consent, then pass
+- [x] minor.test.ts: a 'self' signer for a client under 18 is refused; 'parent_guardian' is accepted
+- [x] withdraw-notify.test.ts: withdrawal emits one consent_withdrawn notification carrying ids only
+- [x] e2e/reconsent.spec.ts: after a text version bump, the next gated action shows the re-consent screen; accepting it resumes the action
+- [x] legal-gate.test.ts: assertLiveLegal(['npi_filing_authorization']) throws while placeholder is true and passes once false
+- [x] filing-consent.test.tsx: the screen lists name, DOB, member ID, diagnosis, procedure codes, dates and charges, each with a reason
+- [x] columns.test.ts and raw-dump.test.ts extended: typed_name is sealed; log.test.ts: ip and user agent never reach logs
+
+Plan: `docs/plans/slice-s3b.md`. Tests: `src/core/legal.test.ts` (docHash, currentConsent, ageOn); `src/server/services/{consent,consents,minor,withdraw-notify}.test.ts`; `src/server/legal-gate.test.ts`; `src/ui/consent/filing-consent.test.tsx`; `src/app/home/home-redirect.test.ts` (stale at sign-in); `e2e/reconsent.spec.ts`. The hash is sha256 of the whole file, front matter included, so a version bump or a placeholder flip makes earlier consents stale; `src/core/sha256.ts` computes it because core may not import node:crypto. `ip` and `user_agent` are SEALED as well as `typed_name` (an IP address is a HIPAA identifier). `recordConsent` takes the hash of the text the signer was shown and refuses a text that changed since (`text_changed`). A 'self' signer is refused only when the client's date of birth is on file and under 18. `FERRY_LEGAL_DIR` overrides `content/legal` in the dev tier only (tests and the e2e servers bump a copy). Withdrawal runs `pg_notify` inside the update's transaction, so it is heard only on commit and only when a row changed; clinician withdrawals notify nothing. Resuming a gated action means re-opening the gated screen: `withReconsent(here, run)` sends a stale clinician agreement to `/app/reconsent?next=here`. No real gated screen exists before N10 and N12, so the e2e drives it through the dev-only fixture `/e2e-fixtures/gated` (FERRY_E2E_FIXTURES=1, now set for every e2e server). Time is `new Date()` until S10's `clock.now()`.
 
 ### [ ] N5 — Clinician Start free, onboarding, profile, fee schedule, filing authorization and sign-up policy (replaces S11 and S24)
 

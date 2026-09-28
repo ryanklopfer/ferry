@@ -1,7 +1,7 @@
 import { and, eq, getTableName, type SQL } from "drizzle-orm";
 import type { PgColumn, PgTable } from "drizzle-orm/pg-core";
 import type { ClinicianOnlyCtx, Ctx } from "@/server/auth/ctx";
-import { claimLines, claims, clients, events, plans } from "../schema";
+import { claimLines, claims, clientConsents, clients, events, plans } from "../schema";
 
 export class ScopeRefused extends Error {
   constructor(message: string) {
@@ -11,7 +11,7 @@ export class ScopeRefused extends Error {
 }
 
 // Tables about one client: a ClientCtx sees only rows with its client_id (architecture §6 rule 4).
-const CLIENT_SCOPED_TABLES: PgTable[] = [plans, claims, claimLines, events];
+const CLIENT_SCOPED_TABLES: PgTable[] = [plans, claims, claimLines, events, clientConsents];
 // The clients table itself: a ClientCtx sees only the row whose id is its client.
 const CLIENT_SELF_TABLES: PgTable[] = [clients];
 

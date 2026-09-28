@@ -19,6 +19,9 @@ export const SEALED: Record<string, readonly string[]> = {
   claim_lines: ["cpt_code", "description"],
   follow_ups: ["draft_subject", "draft_body"],
   events: ["note"],
+  // An IP address is a HIPAA identifier, and a typed name is a name.
+  clinician_consents: ["typed_name", "ip", "user_agent"],
+  client_consents: ["typed_name", "ip", "user_agent"],
 };
 
 // Sealed under a per-record key in the EphemeralKeyStore, erased at 24 hours (transcripts, dictation, rough
@@ -32,6 +35,7 @@ const PAYER = "the insurer's public routing data, not about a client";
 const BIDX = "HMAC blind index under the tenant's index key; reveals nothing without it";
 const LAST4 = "last four of a Tax ID, the only part ever shown";
 const ENUM = "a closed set of codes";
+const LEGAL = "names a public legal text: its version, or the sha256 of the text as published";
 
 export const PLAINTEXT_OK: Record<string, Record<string, string>> = {
   clients: { id: ID, user_id: TENANT, email_bidx: BIDX, phone_bidx: BIDX, client_user_id: "the bound client user's id" },
@@ -88,6 +92,8 @@ export const PLAINTEXT_OK: Record<string, Record<string, string>> = {
   },
   follow_ups: { id: ID, user_id: TENANT, claim_id: ID, type: ENUM, status: ENUM },
   events: { id: ID, user_id: TENANT, client_id: ID, claim_id: ID, type: ENUM },
+  clinician_consents: { id: ID, user_id: TENANT, doc_type: ENUM, version: LEGAL, content_hash: LEGAL },
+  client_consents: { id: ID, user_id: TENANT, client_id: ID, actor_user_id: "the signing user's id", doc_type: ENUM, signer_relationship: ENUM, version: LEGAL, content_hash: LEGAL },
   tenant_keys: { key_id: "names the key; not key material", user_id: TENANT, kek_ref: "names the key-encryption key", wrapped_key: "the data key encrypted by the KeyProvider; useless without it" },
 };
 

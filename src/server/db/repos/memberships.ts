@@ -13,6 +13,11 @@ export type MembershipBinding = {
 
 // A SelfCtx reads only its own memberships. Ids and flags only: clientCtxFor decides from them.
 export const membershipsRepo = {
+  async activeIds(self: SelfCtx): Promise<string[]> {
+    const rows = await db.select({ id: clientMemberships.id }).from(clientMemberships).where(and(eq(clientMemberships.userId, self.userId), eq(clientMemberships.status, "active"))).orderBy(clientMemberships.createdAt);
+    return rows.map((r) => r.id);
+  },
+
   async binding(self: SelfCtx, membershipId: string): Promise<MembershipBinding | null> {
     const [row] = await db
       .select({

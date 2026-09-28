@@ -1,0 +1,17 @@
+# Slice S3b — Consent records, versioned legal texts, re-consent and live-use gates
+
+Branch: `slice/s3b-consents-legal-gates`. Scope and acceptance: `docs/sprint-tasks.md` → S3b. Design: architecture §5 (tables), §6 (access model).
+
+## Steps
+
+1. Pure core (`src/core`):
+   - `sha256.ts`: a synchronous SHA-256 (core may not import node:crypto); checked against node:crypto in its test.
+   - `legal.ts`: `CONSENT_DOC_TYPES` (clinician: terms, privacy, baa, npi_filing_authorization; client: client_filing, client_recording), their content slugs, `docHash(source)` (sha256 hex of the whole file, front matter included, newlines normalized, so a version bump or a placeholder flip makes old consents stale), `currentConsent(records, docType, liveHash)` → `current | stale | none` (latest non-withdrawn record decides), `isMinorOn(dob, today)`.
+   - `copy/consent.ts`: the filing-consent field list (name, DOB, member ID, diagnosis, procedure codes, dates, charges, each with a reason) and the recording-consent promises.
+2. Tests first (red): `consent.test.ts`, `consents.test.ts`, `minor.test.ts`, `withdraw-notify.test.ts`, `legal-gate.test.ts` under `src/server/services/`; `src/ui/consent/filing-consent.test.tsx`; extend `columns.test.ts`, `raw-dump.test.ts`, `log.test.ts`; `e2e/reconsent.spec.ts`.
+3. Schema + migration 0002: `clinician_consents` (ccn_, clinician-only) and `client_consents` (kcn_, CLIENT_SCOPED, `actor_user_id`, `signer_relationship`), CHECKs on the closed sets. `typed_name`, `ip` and `user_agent` are SEALED (an IP address is a HIPAA identifier); version, hash and enums are PLAINTEXT_OK.
+4. Repos: `repos/consents.ts` — `clinicianConsentsRepo` (ClinicianOnlyCtx, refuses a ClientCtx at run time), `clientConsentsRepo` (reads for any Ctx through `tenantWhere`; writes and withdrawals only for a ClientCtx; withdrawal runs `pg_notify('consent_withdrawn', {tenant, clientId, docType})` in the same transaction, so it is delivered only on commit).
+5. Server legal loader (`src/server/legal.ts`): `liveText(docType)` → {doc, hash}; `assertLiveLegal(docTypes)` throws `LegalPlaceholder`. `FERRY_LEGAL_DIR` overrides `content/legal` in the dev tier only (tests and the e2e server bump a version in a copy, never in the repo).
+6. Services (`services/consents.ts`): `recordConsent` (version and hash from the live text; refuses a text that changed since it was shown; ClientCtx ↔ client types, ClinicianCtx ↔ clinician types; 'self' refused for a client under 18), `withdrawConsent` (plus the in-process `onConsentWithdrawn` hook list, run after commit), `consentStatus`, `staleConsents`, `firstStaleMembership`, and the guards `requireFilingConsent`, `requireRecordingConsent` throwing `ConsentMissing` / `ConsentStale`.
+7. UI: `src/ui/consent/*` (filing and recording consent explainers, legal text body); `/app/reconsent` and `/c/reconsent` (typed name, signer for clients, accept → back to `next`); `/home` sends a signed-in user with any stale consent to the interstitial first. A gated screen that catches `ConsentStale` redirects to the interstitial with itself as `next`, so accepting resumes it. The e2e drives this through a dev-only fixture page (`/e2e-fixtures/gated`), since the first real gated screens arrive with N10 and N12.
+8. `home-claims.ts`: the BAA proof names the real S3b test. Tick S3b in `docs/sprint-tasks.md`. `bun run test`, `typecheck`, `lint`, `test:e2e`; one commit, not merged.

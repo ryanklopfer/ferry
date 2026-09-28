@@ -2,12 +2,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { clientCtxFor } from "@/server/auth/client-ctx";
 import { sealEphemeral } from "@/server/crypto/ephemeral";
 import { ephemeralKeyStore } from "@/server/crypto";
 import { keyDir } from "@/server/crypto/key-provider";
 import { pool } from "@/server/db";
+import { clientConsentsRepo, clinicianConsentsRepo } from "./repos/consents";
 import { keyringFor } from "./repos/tenant-keys";
-import { createTestUser, decryptedDump, rawDump, resetDb, seedSyntheticClient, type SyntheticPerson } from "./testing";
+import { bindClientUser, createTestUser, decryptedDump, rawDump, resetDb, seedSyntheticClient, type SyntheticPerson } from "./testing";
 
 // Long, distinctive synthetic values, so a chance match inside base64 ciphertext is out of the question.
 const PEOPLE: SyntheticPerson[] = [
@@ -15,6 +17,9 @@ const PEOPLE: SyntheticPerson[] = [
   { firstName: "Thaddeus", lastName: "Okonkwo", email: "thaddeus.okonkwo@example.test", phone: "555-010-8812", dob: "1985-07-19", memberId: "U5530981264", groupNumber: "GRP-3301877", diagnosis: "F33.1", taxId: "00-1000003" },
   { firstName: "Ingeborg", lastName: "Castellanos", email: "ingeborg.castellanos@example.test", phone: "555-010-2290", dob: "1979-11-30", memberId: "H7720045519", groupNumber: "GRP-9087741", diagnosis: "F43.23", taxId: "00-1000004" },
 ];
+
+// What a consent row keeps about the signer: typed name, IP address and browser, all sealed.
+const SIGNER = { typedName: "Wilhelmina Achterberg-Solis", ip: "198.51.100.231", userAgent: "Mozilla/5.0 Ferry-Dump-Marker/7.3" };
 
 const variants = (key: Buffer) => [key.toString("base64"), key.toString("base64url"), key.toString("hex"), key.subarray(0, 16).toString("base64"), key.subarray(16).toString("hex")];
 
@@ -28,9 +33,14 @@ describe("rawDump of a seeded ferry_test", () => {
     const x = await createTestUser("clinician", "x@example.test");
     const y = await createTestUser("clinician", "y@example.test");
     tenants = [x.userId, y.userId];
-    await seedSyntheticClient(x, PEOPLE[0]);
+    const a = await seedSyntheticClient(x, PEOPLE[0]);
     await seedSyntheticClient(x, PEOPLE[1]);
     await seedSyntheticClient(y, PEOPLE[2]);
+    const consent = { ...SIGNER, version: "0.0.0", contentHash: "a".repeat(64) };
+    await clinicianConsentsRepo.create(x, { ...consent, docType: "npi_filing_authorization" });
+    const self = await createTestUser("client", "u@example.test");
+    const k = await clientCtxFor(self, await bindClientUser(x, a.client.id, self));
+    await clientConsentsRepo.create(k, { ...consent, docType: "client_recording", signerRelationship: "parent_guardian" });
     for (const id of recordIds) await sealEphemeral(ephemeralKeyStore(), id, "Client describes panic attacks on the train", new Date(Date.now() + 3_600_000));
     dump = rawDump();
   });
@@ -40,7 +50,7 @@ describe("rawDump of a seeded ferry_test", () => {
   });
 
   it("is a real dump of the seeded tables", () => {
-    for (const table of ["clients", "plans", "claims", "claim_lines", "events", "follow_ups", "providers", "tenant_keys"]) expect(dump).toContain(`COPY public.${table} `);
+    for (const table of ["clients", "plans", "claims", "claim_lines", "events", "follow_ups", "providers", "tenant_keys", "clinician_consents", "client_consents"]) expect(dump).toContain(`COPY public.${table} `);
     expect(dump).toContain("Rachel Steinberg, LCSW");
     expect(dump).not.toContain("COPY public.users ");
   });
@@ -49,6 +59,13 @@ describe("rawDump of a seeded ferry_test", () => {
     const leaks = PEOPLE.flatMap((p) => [p.firstName, p.lastName, `${p.firstName} ${p.lastName}`, p.email, p.phone, p.memberId, p.groupNumber, p.diagnosis, p.taxId, p.taxId.replace("-", "")]).filter((v) => dump.includes(v));
     expect(leaks).toEqual([]);
     expect(dump).not.toContain("90837");
+  });
+
+  it("contains no consent signer's typed name, IP address or user agent, which the tenant key still reads", async () => {
+    const leaks = [SIGNER.typedName, "Achterberg", SIGNER.ip, "Ferry-Dump-Marker", "Mozilla"].filter((v) => dump.includes(v));
+    expect(leaks).toEqual([]);
+    const x = await decryptedDump(tenants[0]);
+    for (const v of Object.values(SIGNER)) expect(x).toContain(v);
   });
 
   it("still lets each tenant's key read its own rows, and only those", async () => {

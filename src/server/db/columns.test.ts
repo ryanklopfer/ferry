@@ -1,14 +1,16 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { clientCtxFor } from "@/server/auth/client-ctx";
 import { isSealed } from "@/server/crypto/aead";
 import { pool } from "@/server/db";
 import { claimsRepo } from "./repos/claims";
+import { clientConsentsRepo, clinicianConsentsRepo } from "./repos/consents";
 import { clientsRepo } from "./repos/clients";
 import { eventsRepo } from "./repos/events";
 import { followUpsRepo } from "./repos/follow-ups";
 import { plansRepo } from "./repos/plans";
 import { providersRepo } from "./repos/providers";
 import { AUTH_TABLES, BLIND_INDEXES, EPHEMERAL, LAST4_OF, PLAINTEXT_OK, SEALED, SEALED_DEFAULTS } from "./columns";
-import { createTestUser, resetDb } from "./testing";
+import { bindClientUser, createTestUser, resetDb } from "./testing";
 
 type ColumnRow = { table_name: string; column_name: string; data_type: string };
 type Lists = { sealed: Record<string, readonly string[]>; ephemeral: Record<string, readonly string[]>; plaintext: Record<string, Record<string, string>> };
@@ -78,6 +80,10 @@ describe("the ferry_test schema", () => {
     expect(classificationViolations(rows)).toEqual([]);
   });
 
+  it("seals a consent's typed name, IP address and user agent on both consent tables", () => {
+    for (const table of ["clinician_consents", "client_consents"]) expect(SEALED[table], table).toEqual(expect.arrayContaining(["typed_name", "ip", "user_agent"]));
+  });
+
   it("classifies the MVP's free-text columns until S10 drops them", () => {
     expect(SEALED.claims).toEqual(expect.arrayContaining(["extraction_notes", "info_requested", "confirmation_number"]));
     expect(SEALED.events).toContain("note");
@@ -134,6 +140,11 @@ describe("the ferry_test schema", () => {
     const [followUp] = await followUpsRepo.createMany(x, claim.id, [{ type: "status_inquiry", dueAt: new Date() }]);
     await followUpsRepo.update(x, followUp.id, { draftSubject: "Claim status", draftBody: "Synthetic body" });
     await eventsRepo.append(x, claim.id, "created", "synthetic note");
+    const consent = { version: "0.0.0", contentHash: "0".repeat(64), typedName: "Marisol Quintero", ip: "203.0.113.7", userAgent: "vitest" };
+    await clinicianConsentsRepo.create(x, { ...consent, docType: "baa" });
+    const self = await createTestUser("client");
+    const k = await clientCtxFor(self, await bindClientUser(x, client.id, self));
+    await clientConsentsRepo.create(k, { ...consent, docType: "client_filing", signerRelationship: "self" });
 
     for (const [table, cols] of Object.entries(SEALED)) {
       const { rows } = await pool.query<Record<string, unknown>>(`select ${cols.map((c) => `"${c}"`).join(", ")} from "${table}" where user_id = $1`, [x.userId]);

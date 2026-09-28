@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { check, date, index, integer, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import type { ClaimStatus, FollowUpStatus, FollowUpType } from "../../core/claim/status";
+import { CLIENT_DOC_TYPES, CLINICIAN_DOC_TYPES, type ClientDocType, type ClinicianDocType, SIGNER_RELATIONSHIPS, type SignerRelationship } from "../../core/legal";
 import { users } from "./auth-schema";
 
 export * from "./auth-schema";
@@ -209,6 +210,55 @@ export const events = pgTable(
   (t) => [index("events_claim_idx").on(t.claimId)],
 );
 
+const inList = (values: readonly string[]) => sql.raw(values.map((v) => `'${v}'`).join(", "));
+
+// The clinician's own agreements (terms, privacy, BAA, filing authorization). Clinician-only: no client context reads it.
+// A new version of a text adds a row; rows are never edited except to set withdrawn_at.
+export const clinicianConsents = pgTable(
+  "clinician_consents",
+  {
+    id: id(),
+    userId: owner(),
+    docType: text("doc_type").$type<ClinicianDocType>().notNull(),
+    version: text("version").notNull(),
+    contentHash: text("content_hash").notNull(),
+    typedName: sealed("typed_name").notNull(),
+    ip: sealed("ip"),
+    userAgent: sealed("user_agent"),
+    createdAt: createdAt(),
+    withdrawnAt: at("withdrawn_at"),
+  },
+  (t) => [
+    index("clinician_consents_user_idx").on(t.userId, t.docType),
+    check("clinician_consents_doc_type", sql`${t.docType} in (${inList(CLINICIAN_DOC_TYPES)})`),
+  ],
+);
+
+// A client's consents to filing and to recording, signed by the client or for them (actor_user_id). CLIENT_SCOPED.
+export const clientConsents = pgTable(
+  "client_consents",
+  {
+    id: id(),
+    userId: owner(),
+    clientId: text("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+    actorUserId: text("actor_user_id").notNull().references(() => users.id),
+    docType: text("doc_type").$type<ClientDocType>().notNull(),
+    signerRelationship: text("signer_relationship").$type<SignerRelationship>().notNull(),
+    version: text("version").notNull(),
+    contentHash: text("content_hash").notNull(),
+    typedName: sealed("typed_name").notNull(),
+    ip: sealed("ip"),
+    userAgent: sealed("user_agent"),
+    createdAt: createdAt(),
+    withdrawnAt: at("withdrawn_at"),
+  },
+  (t) => [
+    index("client_consents_client_idx").on(t.userId, t.clientId, t.docType),
+    check("client_consents_doc_type", sql`${t.docType} in (${inList(CLIENT_DOC_TYPES)})`),
+    check("client_consents_signer", sql`${t.signerRelationship} in (${inList(SIGNER_RELATIONSHIPS)})`),
+  ],
+);
+
 // One data key per clinician tenant (plus a separate blind-index key), wrapped by the KeyProvider's key-encryption
 // key. Deleting the clinician's user row deletes the key, which crypto-shreds everything sealed under it.
 export const tenantKeys = pgTable("tenant_keys", {
@@ -227,3 +277,5 @@ export type Claim = typeof claims.$inferSelect;
 export type ClaimLine = typeof claimLines.$inferSelect;
 export type FollowUp = typeof followUps.$inferSelect;
 export type Event = typeof events.$inferSelect;
+export type ClinicianConsent = typeof clinicianConsents.$inferSelect;
+export type ClientConsent = typeof clientConsents.$inferSelect;

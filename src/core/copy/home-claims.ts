@@ -19,7 +19,7 @@ const awaiting = (...planned: Proof[]): Claim => ({ flag: "flagged-for-Ryan", wh
 const PRICE_FROM_CONFIG = p("S11c", "src/core/copy/pricing-grep.test.ts > every price and trial length on the page renders from PRICING");
 const NO_PER_CLAIM = p("S11c", "src/core/copy/pricing-grep.test.ts > nothing is priced by the claim in src/ or content/");
 // Signing the BAA at join: S3b stores the consent with its version and hash, N5 records it at Start free.
-const BAA_SIGNED = [p("S3b", "consent.test.ts"), p("N5", "clinician.test.ts")];
+const BAA_SIGNED = [p("S3b", "src/server/services/consent.test.ts > stores the text's version and sha256; after the text changes it reads stale and the row is unchanged"), p("N5", "clinician.test.ts")];
 const GROUPS = "Groups are sold by hand at launch: there is no practice billing, shared formats or seat management in P0. Keep, reword or drop?";
 const UNLIMITED = "D5 (Oct 4): recording costs about $0.10 a minute, so 'Unlimited' depends on whether recorded hours are capped (D2 item 10, S28b limits).";
 

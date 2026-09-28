@@ -191,7 +191,7 @@ Postgres via Drizzle. Money in integer cents. Timestamps `timestamptz`. Every ta
 | `tenant_keys` | wrapped per-clinician data key | S2b |
 | `clinician_profiles` | NPI (unique across tenants), sealed Tax ID with blind index and last four, practice address, license, credential, taxonomy, default note format, NPPES and identity-check timestamps | N5, S6 |
 | `fee_schedule_items` | the clinician's charge per CPT code | N5 |
-| `clinician_consents` | terms, privacy, BAA, NPI filing authorization: version, content hash, sealed typed name, IP, user agent, withdrawn at. Clinician-only | S3b |
+| `clinician_consents` | terms, privacy, BAA, NPI filing authorization: version, content hash, typed name, IP and user agent (all three sealed), withdrawn at. Clinician-only | S3b |
 | `client_consents` | client filing and client recording, with signer relationship (self, parent/guardian, legal representative). `CLIENT_SCOPED` | S3b |
 | `subscriptions` | Stripe customer and subscription, status, trial end, period end, cancel at period end, has payment method | N6 |
 | `billing_events` | Stripe event ids and types only. `GLOBAL_TABLES` | N6 |

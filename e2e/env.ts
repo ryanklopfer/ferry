@@ -13,6 +13,8 @@ export const E2E_SPIKE_K = "e2e-only-spike-key-for-the-mic-spike-pages-000";
 // Local key providers for the e2e servers: a test-only key-encryption key and a key directory of their own.
 export const E2E_LOCAL_KEK = createHash("sha256").update("ferry-e2e-only-kek").digest("base64");
 export const E2E_KEY_DIR = path.join(process.cwd(), "data", "e2e-keys");
+// A copy of content/legal the e2e servers read (FERRY_LEGAL_DIR, dev tier only), so a spec can bump a version.
+export const E2E_LEGAL_DIR = path.join(process.cwd(), "data", "e2e-legal");
 
 // Synthetic, dev-tier settings for every server the e2e suite starts. The secret signs e2e sessions only.
 export const e2eServerEnv = (port: number): Record<string, string> => ({
@@ -30,4 +32,6 @@ export const e2eServerEnv = (port: number): Record<string, string> => ({
   FERRY_SPIKE_K: E2E_SPIKE_K,
   FERRY_LOCAL_KEK: E2E_LOCAL_KEK,
   FERRY_KEY_DIR: E2E_KEY_DIR,
+  FERRY_LEGAL_DIR: E2E_LEGAL_DIR,
+  FERRY_E2E_FIXTURES: "1",
 });
