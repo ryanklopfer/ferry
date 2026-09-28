@@ -19,7 +19,7 @@ if (build.status !== 0) process.exit(build.status ?? 1);
 const server = spawn("bun", ["run", "start"], {
   detached: true,
   stdio: "ignore",
-  env: { ...hostEnv, PORT: String(PORT), FERRY_DEPLOY_TIER: "prelaunch", ...Object.fromEntries(VENDORS.map((v) => [modeEnvVar(v), "off"])) },
+  env: { ...hostEnv, PORT: String(PORT), FERRY_DEPLOY_TIER: "prelaunch", FERRY_ALLOW_PLACEHOLDER_CONTACT: "1", ...Object.fromEntries(VENDORS.map((v) => [modeEnvVar(v), "off"])) },
 });
 const stop = () => server.pid && server.exitCode === null && process.kill(-server.pid, "SIGTERM");
 

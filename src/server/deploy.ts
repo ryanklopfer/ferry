@@ -24,9 +24,10 @@ export function deployTier(env: Env = process.env): Tier {
 }
 
 // The public-site-only mode: the prelaunch tier implies it, and FERRY_PRELAUNCH=1 turns it on in any tier.
-// Fails closed, so an unreadable tier serves only the public pages.
+// Fails closed: any FERRY_PRELAUNCH value but unset, empty or "0" turns it on (boot refuses anything but 0 or 1),
+// and an unreadable tier serves only the public pages.
 export function isPrelaunch(env: Env = process.env): boolean {
-  if (env.FERRY_PRELAUNCH === "1") return true;
+  if (env.FERRY_PRELAUNCH && env.FERRY_PRELAUNCH !== "0") return true;
   try {
     return deployTier(env) === "prelaunch";
   } catch {

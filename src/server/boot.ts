@@ -1,5 +1,6 @@
 import { APP_ICONS, type AppIcon } from "../core/pwa/icons";
-import { dataClass, DeployConfigError, deployTier, type Env, isDevDatabase, type Tier } from "./deploy";
+import { isPlaceholderAddress, SITE } from "../core/site";
+import { dataClass, DeployConfigError, deployTier, type Env, isDevDatabase, isPrelaunch, type Tier } from "./deploy";
 import { modeFor, VENDORS } from "./integrations/mode";
 import { errorName, log } from "./log";
 import { installConsoleScrubber } from "./scrub";
@@ -13,7 +14,7 @@ export class BootRefused extends Error {
 
 const message = (e: unknown) => (e instanceof DeployConfigError ? e.message : errorName(e));
 
-export function assertBootable(env: Env = process.env, icons: readonly AppIcon[] = APP_ICONS): Tier {
+export function assertBootable(env: Env = process.env, icons: readonly AppIcon[] = APP_ICONS, contactEmail: string = SITE.contactEmail): Tier {
   let tier: Tier;
   try {
     tier = deployTier(env);
@@ -37,6 +38,14 @@ export function assertBootable(env: Env = process.env, icons: readonly AppIcon[]
   }
   const placeholders = icons.filter((i) => i.placeholder).map((i) => i.src);
   if (tier === "prod" && placeholders.length) failures.push(`icons: placeholder app icons are not allowed in the prod tier (${placeholders.join(", ")}); the approved artwork is F11`);
+  if (!["", "0", "1"].includes(env.FERRY_PRELAUNCH ?? "")) failures.push("FERRY_PRELAUNCH must be 1 (public pages only), 0 or unset");
+  // Every "Join the beta" and "Talk to us" button opens this address, so a public host must not ship the placeholder.
+  // FERRY_ALLOW_PLACEHOLDER_CONTACT=1 lets a local prelaunch run (prelaunch.test.ts, lighthouse:home) boot anyway.
+  const publicHost = tier === "prod" || (tier !== "dev" && isPrelaunch(env));
+  const localPreview = tier === "prelaunch" && env.FERRY_ALLOW_PLACEHOLDER_CONTACT === "1";
+  if (isPlaceholderAddress(contactEmail) && publicHost && !localPreview) {
+    failures.push(`site: the contact address ${contactEmail} is a placeholder (src/core/site.ts); a public host needs the real one`);
+  }
   if (failures.length) throw new BootRefused(failures);
   return tier;
 }

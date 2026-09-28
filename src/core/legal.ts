@@ -1,5 +1,5 @@
-// content/legal/<doc>.md: front matter, then paragraphs and "## " headings. S3b versions and hashes these texts;
-// a placeholder text keeps every live gate shut (assertLiveLegal).
+// content/legal/<doc>.md: front matter, then paragraphs and "## " headings. Today `placeholder` only shows the
+// Draft caption; S3b will version and hash these texts, and its assertLiveLegal will refuse live use while it is true.
 export type LegalBlock = { kind: "heading" | "paragraph"; text: string };
 export type LegalDoc = { title: string; version: string; placeholder: boolean; blocks: LegalBlock[] };
 

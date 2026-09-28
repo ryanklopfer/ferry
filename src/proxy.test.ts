@@ -90,13 +90,13 @@ describe("dev-only public paths", () => {
 describe("prelaunch", () => {
   const passesIn = (path: string, cookie?: string) => !matcher.test(path) || proxy(request(path, cookie)).headers.get("x-middleware-next") === "1";
 
-  it("serves only the marketing pages and the app shell's files", () => {
+  it("serves only the marketing pages and their icons", () => {
     vi.stubEnv("FERRY_DEPLOY_TIER", "prelaunch");
     for (const entry of PRELAUNCH_PATHS) expect(passesIn(sample(entry)), entry).toBe(true);
     for (const path of ["/legal/terms", "/icons/icon-192.png", "/_next/static/chunks/app.js"]) expect(passesIn(path), path).toBe(true);
   });
 
-  it.each(["/app", "/app/clients", "/c", "/api/v1/claims", "/sign-in", "/start", "/home", "/account", "/ops", "/i/tok", "/api/auth/magic-link/verify", "/api/webhooks/stripe", "/worklets/pcm.js", "/dev/ui"])(
+  it.each(["/app", "/app/clients", "/c", "/api/v1/claims", "/sign-in", "/start", "/home", "/account", "/ops", "/i/tok", "/api/auth/magic-link/verify", "/api/webhooks/stripe", "/worklets/pcm.js", "/dev/ui", "/manifest.webmanifest", "/sw.js", "/offline"])(
     "%s is a 404, signed in or not",
     async (path) => {
       vi.stubEnv("FERRY_DEPLOY_TIER", "prelaunch");

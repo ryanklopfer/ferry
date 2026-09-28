@@ -22,9 +22,10 @@ export const PUBLIC_PATHS = [
 // The phone spike's pages: public only in the dev tier, and each route still 404s without this run's key (src/server/dev-spike.ts).
 export const DEV_PUBLIC_PATHS = ["/dev/*", "/api/dev/*"] as const;
 
-// Prelaunch (a public host before the real stack exists) serves only the marketing pages and the app shell's
-// files; every other path, signed in or not, is a 404.
-export const PRELAUNCH_PATHS = ["/", "/for-clients", "/legal/*", "/offline", "/manifest.webmanifest", "/sw.js", "/icons/*"] as const;
+// Prelaunch (a public host before the real stack exists) serves only the marketing pages and their icons; every
+// other path, signed in or not, is a 404. No manifest, service worker or offline page: the app starts at /home,
+// which isn't served here, so the preview must not be installable.
+export const PRELAUNCH_PATHS = ["/", "/for-clients", "/legal/*", "/icons/*"] as const;
 
 const covers = (entry: string, pathname: string) => (entry.endsWith("/*") ? pathname.startsWith(entry.slice(0, -1)) && pathname.length > entry.length - 1 : pathname === entry);
 

@@ -1,24 +1,10 @@
-import fs from "node:fs";
-import path from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { copySources } from "@/test-support/copy-sources";
 import { htmlText } from "./html-text";
 
-const ROOT = process.cwd();
-const SELF = path.relative(ROOT, __filename);
-
-function files(dir: string): string[] {
-  if (!fs.existsSync(dir)) return [];
-  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
-    const full = path.join(dir, e.name);
-    return e.isDirectory() ? files(full) : [path.relative(ROOT, full)];
-  });
-}
-
-const SOURCES = [...files(path.join(ROOT, "src")), ...files(path.join(ROOT, "content"))]
-  .filter((f) => f !== SELF && /\.(tsx?|css|m?js|md|json)$/.test(f))
-  .map((f) => ({ file: f, text: fs.readFileSync(path.join(ROOT, f), "utf8") }));
+const SOURCES = copySources(__filename);
 
 const grep = (re: RegExp) => SOURCES.flatMap(({ file, text }) => [...text.matchAll(re)].map((m) => `${file}: ${m[0]}`));
 

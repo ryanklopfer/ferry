@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { APP_ICONS, type AppIcon } from "@/core/pwa/icons";
+import { isPlaceholderAddress, SITE } from "@/core/site";
 import { assertBootable, BootRefused } from "./boot";
 import { modeEnvVar, VENDORS, type Vendor } from "./integrations/mode";
 
@@ -10,10 +11,12 @@ const one = (tier: string, base: string, vendor: Vendor, mode: string, extra: Re
 
 // The approved artwork (F11) has not landed, so tier rules other than the icon check are tested as if it had.
 const FINAL_ICONS: AppIcon[] = APP_ICONS.map((i) => ({ ...i, placeholder: false }));
+// Likewise the contact address (an S11c founder blocker).
+const FINAL_CONTACT = "hello@ferry.health";
 
-function refusal(e: Record<string, string | undefined>, icons: readonly AppIcon[] = FINAL_ICONS): BootRefused | null {
+function refusal(e: Record<string, string | undefined>, icons: readonly AppIcon[] = FINAL_ICONS, contact = FINAL_CONTACT): BootRefused | null {
   try {
-    assertBootable(e, icons);
+    assertBootable(e, icons, contact);
     return null;
   } catch (err) {
     if (err instanceof BootRefused) return err;
@@ -105,12 +108,53 @@ describe("assertBootable", () => {
     it("checks the real icon list by default", () => {
       let refused = false;
       try {
-        assertBootable(env("prod", "live"));
+        assertBootable(env("prod", "live"), undefined, FINAL_CONTACT);
       } catch (e) {
         refused = e instanceof BootRefused;
       }
       expect(refused).toBe(APP_ICONS.some((i) => i.placeholder));
     });
+  });
+
+  describe("contact address", () => {
+    const PRELAUNCH = { FERRY_DEPLOY_TIER: "prelaunch", NODE_ENV: "production" };
+    const PLACEHOLDER = "hello@ferry.example";
+
+    it("a public host refuses to boot with the placeholder: the prelaunch and prod tiers, or FERRY_PRELAUNCH=1 in staging", () => {
+      for (const e of [PRELAUNCH, env("prod", "live"), env("prod", "live", { FERRY_PRELAUNCH: "1" }), env("staging", "test", { FERRY_PRELAUNCH: "1" })]) {
+        expect(refusal(e, FINAL_ICONS, PLACEHOLDER)?.failures, e.FERRY_DEPLOY_TIER).toEqual([expect.stringMatching(/^site: .*hello@ferry\.example.*placeholder/)]);
+      }
+    });
+
+    it("a local prelaunch run may opt in, and only in the prelaunch tier", () => {
+      expect(refusal({ ...PRELAUNCH, FERRY_ALLOW_PLACEHOLDER_CONTACT: "1" }, FINAL_ICONS, PLACEHOLDER)).toBeNull();
+      expect(refusal(env("prod", "live", { FERRY_ALLOW_PLACEHOLDER_CONTACT: "1" }), FINAL_ICONS, PLACEHOLDER)?.failures).toEqual([expect.stringMatching(/^site: /)]);
+    });
+
+    it("staging and dev allow it", () => {
+      expect(refusal(env("staging", "test"), FINAL_ICONS, PLACEHOLDER)).toBeNull();
+      expect(refusal({ ...DEV_DB, FERRY_PRELAUNCH: "1" }, FINAL_ICONS, PLACEHOLDER)).toBeNull();
+    });
+
+    it("knows the reserved names that never receive mail", () => {
+      for (const bad of [PLACEHOLDER, "a@example.com", "a@mail.example.org", "a@x.test", "a@x.invalid", "a@localhost.localhost"]) expect(isPlaceholderAddress(bad), bad).toBe(true);
+      for (const ok of [FINAL_CONTACT, "a@examples.com", "a@notexample.com"]) expect(isPlaceholderAddress(ok), ok).toBe(false);
+    });
+
+    it("checks the real address by default", () => {
+      let refused = false;
+      try {
+        assertBootable(PRELAUNCH);
+      } catch (e) {
+        refused = e instanceof BootRefused;
+      }
+      expect(refused).toBe(isPlaceholderAddress(SITE.contactEmail));
+    });
+  });
+
+  it("FERRY_PRELAUNCH must be 0, 1 or unset, so a typo can't leave the full app up", () => {
+    for (const value of ["true", "yes", "on", "2"]) expect(refusal(env("prod", "live", { FERRY_PRELAUNCH: value }))?.failures, value).toEqual(["FERRY_PRELAUNCH must be 1 (public pages only), 0 or unset"]);
+    for (const value of ["0", "1", ""]) expect(refusal(env("prod", "live", { FERRY_PRELAUNCH: value })), value).toBeNull();
   });
 
   it("names every refused vendor in one error", () => {

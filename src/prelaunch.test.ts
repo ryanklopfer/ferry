@@ -17,6 +17,11 @@ describe("isPrelaunch", () => {
     expect(isPrelaunch({ FERRY_DEPLOY_TIER: "devx" })).toBe(true);
     expect(isPrelaunch({ NODE_ENV: "production" })).toBe(true);
   });
+
+  it("fails closed on a FERRY_PRELAUNCH value it doesn't expect: only unset, empty or 0 leave it off", () => {
+    for (const value of ["true", "yes", "on", "TRUE", "2"]) expect(isPrelaunch({ FERRY_DEPLOY_TIER: "prod", FERRY_PRELAUNCH: value }), value).toBe(true);
+    for (const value of ["0", "", undefined]) expect(isPrelaunch({ FERRY_DEPLOY_TIER: "prod", FERRY_PRELAUNCH: value }), String(value)).toBe(false);
+  });
 });
 
 // The real thing: a production build, started the way a preview host runs it. No database is reachable and
@@ -28,8 +33,10 @@ const ROOT = process.cwd();
 // Not vitest's own environment (NODE_ENV=test, VITEST): only what a host shell would have, plus the tier's settings.
 const serverEnv = (extra: Record<string, string> = {}): NodeJS.ProcessEnv => ({ NODE_ENV: "production", PATH: process.env.PATH, HOME: process.env.HOME, TMPDIR: process.env.TMPDIR, ...extra });
 
+// The contact address is still a placeholder (S11c founder blocker); boot refuses it on a real host.
 const PRELAUNCH_ENV = {
   FERRY_DEPLOY_TIER: "prelaunch",
+  FERRY_ALLOW_PLACEHOLDER_CONTACT: "1",
   PORT: String(PORT),
   DATABASE_URL: "postgres://127.0.0.1:9/ferry_prelaunch_has_no_database",
   ...Object.fromEntries(VENDORS.map((v) => [modeEnvVar(v), "off"])),
@@ -71,13 +78,20 @@ describe("bun run build && FERRY_DEPLOY_TIER=prelaunch bun run start", () => {
   });
 
   it("serves / with 200, and the other public pages", async () => {
-    for (const path of ["/", "/for-clients", "/legal/terms", "/legal/privacy", "/offline", "/manifest.webmanifest", "/sw.js"]) {
+    for (const path of ["/", "/for-clients", "/legal/terms", "/legal/privacy", "/icons/icon-192.png"]) {
       expect((await fetch(`${BASE}${path}`, { redirect: "manual" })).status, path).toBe(200);
     }
   });
 
   it("/app, /c, /api/v1, /sign-in and every other path return 404", async () => {
     for (const path of ["/app", "/c", "/api/v1/claims", "/api/v1", "/sign-in", "/start", "/home", "/account", "/ops", "/i/tok", "/api/auth/get-session", "/dev/ui", "/legal/nothing-here"]) {
+      expect((await fetch(`${BASE}${path}`, { redirect: "manual" })).status, path).toBe(404);
+    }
+  });
+
+  // The app's manifest starts at /home, which is a 404 here, so the preview must not be installable.
+  it("is not an installable app: no manifest, service worker or offline page", async () => {
+    for (const path of ["/manifest.webmanifest", "/sw.js", "/offline"]) {
       expect((await fetch(`${BASE}${path}`, { redirect: "manual" })).status, path).toBe(404);
     }
   });

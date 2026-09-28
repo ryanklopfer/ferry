@@ -1,5 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -8,6 +6,7 @@ import LegalPage from "@/app/(public)/legal/[doc]/page";
 import StartPage from "@/app/(public)/start/page";
 import { HomePage } from "@/ui/home/home-page";
 import { PublicPage } from "@/ui/home/site-chrome";
+import { copySources } from "@/test-support/copy-sources";
 import { htmlText } from "./html-text";
 
 vi.mock("next/navigation", () => ({
@@ -16,20 +15,7 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-const ROOT = process.cwd();
-const SELF = path.relative(ROOT, __filename);
-
-function files(dir: string): string[] {
-  if (!fs.existsSync(dir)) return [];
-  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
-    const full = path.join(dir, e.name);
-    return e.isDirectory() ? files(full) : [path.relative(ROOT, full)];
-  });
-}
-
-const SOURCES = [...files(path.join(ROOT, "src")), ...files(path.join(ROOT, "content"))]
-  .filter((f) => f !== SELF && /\.(tsx?|css|m?js|md|json)$/.test(f))
-  .map((f) => ({ file: f, text: fs.readFileSync(path.join(ROOT, f), "utf8") }));
+const SOURCES = copySources(__filename);
 
 const render = (el: Parameters<typeof renderToStaticMarkup>[0]) => htmlText(renderToStaticMarkup(el));
 

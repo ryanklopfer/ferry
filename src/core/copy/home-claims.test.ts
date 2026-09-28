@@ -4,7 +4,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { HomePage } from "@/ui/home/home-page";
-import { type Claim, HOME_CLAIMS, LABELS, type Proof } from "./home-claims";
+import { HOME } from "./home";
+import { AWAITING, type Claim, HOME_CLAIMS, LABELS, type Proof } from "./home-claims";
 import { textBlocks } from "./html-text";
 
 const ROOT = process.cwd();
@@ -25,29 +26,33 @@ function sliceSection(slice: string): string | null {
   return next === -1 ? rest : rest.slice(0, next);
 }
 
-// Every repo file, so a later slice's proof must exist once that slice is ticked done.
-function files(dir: string): string[] {
-  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
-    if (["node_modules", ".next", ".git", "test-results"].includes(e.name)) return [];
-    const full = path.join(dir, e.name);
-    return e.isDirectory() ? files(full) : [path.relative(ROOT, full)];
-  });
+// The test's own title in its file, in any quote style.
+function hasTest(file: string, name: string): boolean {
+  const text = fs.readFileSync(path.join(ROOT, file), "utf8");
+  return ['"', "'", "`"].some((q) => text.includes(`${q}${name}${q}`));
 }
-const REPO = files(ROOT);
 
-function proofProblem({ slice, test }: Proof): string | null {
+// A proof must exist today as "file > test name". A planned proof may also be a bare test file, but only one a
+// later slice's acceptance names and only while that slice is open: once it is ticked done, name the real test.
+function proofProblem({ slice, test }: Proof, planned: boolean): string | null {
   const section = sliceSection(slice);
   if (!section) return `${slice} is not a slice in docs/sprint-tasks.md`;
   const [file, name] = test.split(" > ");
   if (name !== undefined) {
     if (!fs.existsSync(path.join(ROOT, file))) return `${file} does not exist`;
-    return fs.readFileSync(path.join(ROOT, file), "utf8").includes(name) ? null : `${file} has no test named "${name}"`;
+    return hasTest(file, name) ? null : `${file} has no test named "${name}"`;
   }
+  if (!planned) return `${file} is only a plan: a proof names a test that exists ("file > test name"), or the promise is flagged`;
   if (!section.includes(file)) return `${slice}'s acceptance in docs/sprint-tasks.md never names ${file}`;
-  const done = /^\[x\]/.test(section);
-  if (done && !REPO.some((f) => f === file || f.endsWith(`/${file}`))) return `${slice} is done but ${file} does not exist`;
+  if (/^\[x\]/.test(section)) return `${slice} is done: name the test in ${file} that proves this ("file > test name")`;
   return null;
 }
+
+const problems = (claims: Record<string, Claim>) =>
+  Object.entries(claims).flatMap(([sentence, claim]) => {
+    const proofs: [Proof, boolean][] = "proof" in claim ? claim.proof.map((p) => [p, false]) : (claim.planned ?? []).map((p) => [p, true]);
+    return proofs.map(([p, planned]) => proofProblem(p, planned)).filter(Boolean).map((p) => `${sentence}: ${p}`);
+  });
 
 describe("homepage promises", () => {
   it("every promise sentence on the page maps to a test or to flagged-for-Ryan", () => {
@@ -64,24 +69,46 @@ describe("homepage promises", () => {
     expect(Object.keys(HOME_CLAIMS).filter((s) => LABELS.has(s))).toEqual([]);
   });
 
-  it("every proof is an existing test id, or one a later slice's acceptance names", () => {
-    const problems = Object.entries(HOME_CLAIMS).flatMap(([sentence, claim]) =>
-      "proof" in claim ? claim.proof.map(proofProblem).filter(Boolean).map((p) => `${sentence}: ${p}`) : [],
-    );
-    expect(Object.values(HOME_CLAIMS).every((c) => "flag" in c || c.proof.length > 0)).toBe(true);
-    expect(problems).toEqual([]);
+  it("every promise is proven by a test that exists today, or flagged-for-Ryan", () => {
+    expect(Object.values(HOME_CLAIMS).every((c) => ("proof" in c ? c.proof.length > 0 : c.why.length > 0 && (c.why !== AWAITING || (c.planned ?? []).length > 0)))).toBe(true);
+    expect(problems(HOME_CLAIMS)).toEqual([]);
   });
 
-  it("the checker refuses a proof nobody plans to write", () => {
-    expect(proofProblem({ slice: "N6", test: "made-up.test.ts" })).toMatch(/never names/);
-    expect(proofProblem({ slice: "S11c", test: "src/core/copy/pricing-grep.test.ts > a test that isn't there" })).toMatch(/no test named/);
-    expect(proofProblem({ slice: "Z9", test: "x.test.ts" })).toMatch(/not a slice/);
+  it("the checker refuses a proof that isn't a test yet, and a plan nobody will write", () => {
+    const real = "src/core/copy/pricing-grep.test.ts > nothing is priced by the claim in src/ or content/";
+    expect(proofProblem({ slice: "S11c", test: real }, false)).toBeNull();
+    expect(proofProblem({ slice: "N6", test: "entitlements.test.ts" }, false)).toMatch(/only a plan/);
+    expect(proofProblem({ slice: "N6", test: "entitlements.test.ts" }, true)).toBeNull();
+    expect(proofProblem({ slice: "N6", test: "made-up.test.ts" }, true)).toMatch(/never names/);
+    expect(proofProblem({ slice: "S11c", test: "home-copy.test.ts" }, true)).toMatch(/S11c is done: name the test/);
+    expect(proofProblem({ slice: "S11c", test: "src/core/copy/pricing-grep.test.ts > a test that isn't there" }, true)).toMatch(/no test named/);
+    expect(proofProblem({ slice: "S11c", test: "src/core/copy/nowhere.test.ts > x" }, false)).toMatch(/does not exist/);
+    expect(proofProblem({ slice: "Z9", test: "x.test.ts" }, true)).toMatch(/not a slice/);
+    expect(problems({ "Audio deleted.": { proof: [{ slice: "N12", test: "no-audio.test.ts" }] } })).toEqual([expect.stringMatching(/^Audio deleted\.: .*only a plan/)]);
+  });
+
+  it("the BAA promise is not proven by its own copy", () => {
+    const baa = ["No card needed. Signed BAA on every plan.", "Signed BAA", HOME.security.qa[0].a];
+    for (const sentence of baa) {
+      const claim = HOME_CLAIMS[sentence];
+      const tests = "proof" in claim ? claim.proof : (claim.planned ?? []);
+      expect(tests.map((t) => t.test).filter((t) => t.includes("banned-patterns")), sentence).toEqual([]);
+      expect(tests, sentence).toEqual(expect.arrayContaining([{ slice: "N5", test: "clinician.test.ts" }]));
+    }
   });
 
   it("prints the flagged list", () => {
-    const flagged = Object.entries(HOME_CLAIMS).flatMap(([sentence, claim]) => ("flag" in claim ? [`- "${sentence}": ${claim.why}`] : []));
-    expect(flagged.length).toBeGreaterThanOrEqual(2);
-    expect(Object.keys(HOME_CLAIMS).filter((s) => "flag" in HOME_CLAIMS[s])).toEqual(expect.arrayContaining([expect.stringContaining("Record in the room or on video"), "Unlimited notes and dictation"]));
-    process.stdout.write(`\nHomepage promises flagged for Ryan (${flagged.length}):\n${flagged.join("\n")}\n`);
+    const entries = Object.entries(HOME_CLAIMS);
+    const questions = entries.flatMap(([sentence, c]) => ("flag" in c && c.why !== AWAITING ? [`- "${sentence}": ${c.why}`] : []));
+    const pending = entries.flatMap(([sentence, c]) => ("flag" in c && c.why === AWAITING ? [`- "${sentence}" ← ${(c.planned ?? []).map((p) => `${p.slice} ${p.test}`).join("; ")}`] : []));
+    const proven = entries.filter(([, c]) => "proof" in c).map(([sentence]) => sentence);
+    expect(questions.length).toBeGreaterThanOrEqual(2);
+    expect(Object.keys(HOME_CLAIMS).filter((s) => "flag" in HOME_CLAIMS[s])).toEqual(
+      expect.arrayContaining([expect.stringContaining("Record in the room or on video"), "Unlimited notes and dictation", "Most popular"]),
+    );
+    process.stdout.write(
+      `\nHomepage promises flagged for Ryan: ${questions.length} questions, ${pending.length} awaiting a test; ${proven.length} proven.\n` +
+        `Questions:\n${questions.join("\n")}\nAwaiting a test (planned proofs):\n${pending.join("\n")}\n`,
+    );
   });
 });

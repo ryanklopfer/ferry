@@ -38,10 +38,10 @@ describe("relay entrypoint", () => {
 
   it("refuses to start in the prelaunch tier, which serves public pages only", () => {
     const off = Object.fromEntries(VENDORS.map((v) => [modeEnvVar(v), "off"]));
-    const r = run({ ...off, NODE_ENV: "production", FERRY_DEPLOY_TIER: "prelaunch" });
+    // Past the shared boot checks (the placeholder contact address), so the refusal is the relay's own.
+    const r = run({ ...off, NODE_ENV: "production", FERRY_DEPLOY_TIER: "prelaunch", FERRY_ALLOW_PLACEHOLDER_CONTACT: "1" });
     expect(r.status).not.toBe(0);
-    expect(r.stderr).toContain('"event":"boot.refused"');
-    expect(r.stderr).toContain("prelaunch");
+    expect(r.stderr).toContain('"reason":"The relay does not run in the prelaunch tier (public pages only)"');
     expect(r.stdout).not.toContain("relay.listening");
   });
 
