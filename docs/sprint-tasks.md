@@ -933,7 +933,7 @@ Plan: `docs/plans/slice-s3c.md`. The theme file is `src/app/globals.css`; `src/c
 - [x] banned-classes.test.ts: 'Superbill Claims' appears nowhere in src/
 - [x] banned-classes.test.ts: no gallery screen has two primary buttons
 
-### [ ] S11c — Homepage, pricing, /for-clients and legal pages, deployable in the prelaunch tier
+### [x] S11c — Homepage, pricing, /for-clients and legal pages, deployable in the prelaunch tier
 
 Scheduled: Thu Oct 1 · Status: modified · Size: M · PRD: P0-1.1, P0-1.2, P0-1.3, P0-1.4, R1, R2, R3
 
@@ -986,15 +986,17 @@ Why: P0-1, and beta recruiting has to start now. It replaces the old 'Snap a sup
 
 #### Acceptance
 
-- [ ] home-copy.test.ts: the rendered text equals the #screen-1 text parsed from docs/spec.html (whitespace normalized), apart from the AMENDMENTS list
-- [ ] home-claims.test.ts: every promise sentence on the page maps to an existing test id or 'flagged-for-Ryan'; an unmapped sentence fails; the flagged list is printed
-- [ ] pricing-grep.test.ts: every price renders from PRICING; no '$9' in src/ or content/; no 'per claim' or 'per-claim' except 'No per-claim fees.'
-- [ ] banned-patterns.test.ts: no reviews, testimonials, star ratings or user counts; 'Signed BAA on every plan' is present and 'HIPAA compliant' appears nowhere (Q-L4)
-- [ ] e2e/home.spec.ts: at 390 px one column and scrollWidth ≤ 390; survives 130% text; capture tabs are buttons with aria-pressed; the FAQ uses details/summary
-- [ ] e2e/home.spec.ts: no request to a third-party origin on /, /for-clients or /legal/terms
-- [ ] e2e/home.spec.ts: signed out, /for-clients is reachable from the homepage footer and from /start, and its share action carries no health words (assertNoPhi, once N7a exists)
-- [ ] prelaunch.test.ts: `bun run build && FERRY_DEPLOY_TIER=prelaunch bun run start` with every vendor off serves / with 200; /app, /c, /api/v1 and /sign-in return 404; Start free is a mailto
-- [ ] `bun run lighthouse:home` (bunx lighthouse, mobile preset) exits non-zero below 90 for performance or accessibility
+Plan: `docs/plans/slice-s11c.md`. Copy lives in `src/core/copy/home.ts` with one amendment (footer 'Clients' → /for-clients); `home-claims.ts` maps each promise to this slice's tests or the test file a later slice names, and flags nine for Ryan (on video, superbill scanning, both 'Unlimited' lines, the four Groups lines, and 'bring the money back'). The root layout now holds only html/body; the app areas get the old header through `src/ui/app-shell.tsx`, public pages through `src/ui/home/site-chrome.tsx`. The homepage renders per request so one build serves both tiers. Prelaunch (`isPrelaunch`: tier prelaunch or FERRY_PRELAUNCH=1, failing closed) 404s everything outside `PRELAUNCH_PATHS`. One peach button per viewport: the header's Start free is blush; hero, featured plan and closing band stay peach (FERRY_BRAND §13.7 still asks Ryan). Step numbers are slate, not peach, for contrast. The contact address is a placeholder (`hello@ferry.example`, `src/core/site.ts`). `lighthouse:home` scored 98 performance, 100 accessibility.
+
+- [x] home-copy.test.ts: the rendered text equals the #screen-1 text parsed from docs/spec.html (whitespace normalized), apart from the AMENDMENTS list
+- [x] home-claims.test.ts: every promise sentence on the page maps to an existing test id or 'flagged-for-Ryan'; an unmapped sentence fails; the flagged list is printed
+- [x] pricing-grep.test.ts: every price renders from PRICING; no '$9' in src/ or content/; no 'per claim' or 'per-claim' except 'No per-claim fees.'
+- [x] banned-patterns.test.ts: no reviews, testimonials, star ratings or user counts; 'Signed BAA on every plan' is present and 'HIPAA compliant' appears nowhere (Q-L4)
+- [x] e2e/home.spec.ts: at 390 px one column and scrollWidth ≤ 390; survives 130% text; capture tabs are buttons with aria-pressed; the FAQ uses details/summary
+- [x] e2e/home.spec.ts: no request to a third-party origin on /, /for-clients or /legal/terms
+- [x] e2e/home.spec.ts: signed out, /for-clients is reachable from the homepage footer and from /start, and its share action carries no health words (assertNoPhi, once N7a exists)
+- [x] prelaunch.test.ts: `bun run build && FERRY_DEPLOY_TIER=prelaunch bun run start` with every vendor off serves / with 200; /app, /c, /api/v1 and /sign-in return 404; Start free is a mailto
+- [x] `bun run lighthouse:home` (bunx lighthouse, mobile preset) exits non-zero below 90 for performance or accessibility
 
 ### [ ] S2b — Envelope encryption: per-tenant keys, per-record ephemeral keys outside Postgres, column classification
 

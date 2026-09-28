@@ -23,6 +23,17 @@ export function deployTier(env: Env = process.env): Tier {
   return value as Tier;
 }
 
+// The public-site-only mode: the prelaunch tier implies it, and FERRY_PRELAUNCH=1 turns it on in any tier.
+// Fails closed, so an unreadable tier serves only the public pages.
+export function isPrelaunch(env: Env = process.env): boolean {
+  if (env.FERRY_PRELAUNCH === "1") return true;
+  try {
+    return deployTier(env) === "prelaunch";
+  } catch {
+    return true;
+  }
+}
+
 // Fails closed: a process that never declares its data class is treated as holding real PHI, so
 // every "synthetic only" check (the direct API, dev:phone, scribe:eval live) needs an explicit value.
 export function dataClass(env: Env = process.env): DataClass {

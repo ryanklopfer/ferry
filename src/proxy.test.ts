@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import nextConfig from "../next.config";
-import { config, DEV_PUBLIC_PATHS, PUBLIC_PATHS, proxy } from "./proxy";
+import { config, DEV_PUBLIC_PATHS, PRELAUNCH_PATHS, PUBLIC_PATHS, proxy } from "./proxy";
 
 const matcher = new RegExp(`^${config.matcher[0]}$`);
 const request = (path: string, cookie?: string) =>
@@ -68,18 +68,56 @@ describe("dev-only public paths", () => {
   it("/dev/mic passes the proxy only in the dev tier", () => {
     vi.stubEnv("FERRY_DEPLOY_TIER", "dev");
     expect(proxy(request("/dev/mic")).headers.get("x-middleware-next")).toBe("1");
-    for (const tier of ["prelaunch", "staging", "prod"]) {
+    for (const tier of ["staging", "prod"]) {
       vi.stubEnv("FERRY_DEPLOY_TIER", tier);
       const response = proxy(request("/dev/mic"));
       expect(response.status, tier).toBe(307);
       expect(response.headers.get("location"), tier).toBe("http://localhost:3000/sign-in");
       expect(proxy(request("/api/dev/relay-token")).status, tier).toBe(401);
     }
+    vi.stubEnv("FERRY_DEPLOY_TIER", "prelaunch");
+    expect(proxy(request("/dev/mic")).status).toBe(404);
+    expect(proxy(request("/api/dev/relay-token")).status).toBe(404);
   });
 
-  it("an unreadable tier is not the dev tier", () => {
+  it("an unreadable tier is not the dev tier, and serves only the prelaunch pages", () => {
     vi.stubEnv("FERRY_DEPLOY_TIER", "devx");
-    expect(proxy(request("/dev/mic")).status).toBe(307);
+    expect(proxy(request("/dev/mic")).status).toBe(404);
+    expect(proxy(request("/")).headers.get("x-middleware-next")).toBe("1");
+  });
+});
+
+describe("prelaunch", () => {
+  const passesIn = (path: string, cookie?: string) => !matcher.test(path) || proxy(request(path, cookie)).headers.get("x-middleware-next") === "1";
+
+  it("serves only the marketing pages and the app shell's files", () => {
+    vi.stubEnv("FERRY_DEPLOY_TIER", "prelaunch");
+    for (const entry of PRELAUNCH_PATHS) expect(passesIn(sample(entry)), entry).toBe(true);
+    for (const path of ["/legal/terms", "/icons/icon-192.png", "/_next/static/chunks/app.js"]) expect(passesIn(path), path).toBe(true);
+  });
+
+  it.each(["/app", "/app/clients", "/c", "/api/v1/claims", "/sign-in", "/start", "/home", "/account", "/ops", "/i/tok", "/api/auth/magic-link/verify", "/api/webhooks/stripe", "/worklets/pcm.js", "/dev/ui"])(
+    "%s is a 404, signed in or not",
+    async (path) => {
+      vi.stubEnv("FERRY_DEPLOY_TIER", "prelaunch");
+      for (const cookie of [undefined, "better-auth.session_token=anything"]) {
+        const response = proxy(request(path, cookie));
+        expect(response.status, cookie ?? "signed out").toBe(404);
+        expect(await response.text()).toBe("Not found");
+      }
+    },
+  );
+
+  it("FERRY_PRELAUNCH=1 turns it on in any tier", () => {
+    vi.stubEnv("FERRY_DEPLOY_TIER", "prod");
+    expect(proxy(request("/sign-in")).headers.get("x-middleware-next")).toBe("1");
+    vi.stubEnv("FERRY_PRELAUNCH", "1");
+    expect(proxy(request("/sign-in")).status).toBe(404);
+    expect(proxy(request("/for-clients")).headers.get("x-middleware-next")).toBe("1");
+  });
+
+  it("every prelaunch path is also public", () => {
+    expect(PRELAUNCH_PATHS.filter((p) => !(PUBLIC_PATHS as readonly string[]).includes(p))).toEqual([]);
   });
 });
 

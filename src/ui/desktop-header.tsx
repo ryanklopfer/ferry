@@ -11,7 +11,7 @@ export function DesktopHeader({ nav, current, actions }: { nav: { href: string; 
       <nav aria-label="Site" className="hidden gap-1 rounded-pill bg-white p-1.5 lg:flex">
         {nav.map(({ href, label }) => (
           <Link
-            key={href}
+            key={label}
             href={href}
             aria-current={href === current ? "page" : undefined}
             className={cx(

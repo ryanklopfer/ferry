@@ -9,6 +9,7 @@
     "start": "next start",
     "relay": "bun src/server/relay/main.ts",
     "dev:phone": "bun scripts/dev/phone.ts",
+    "lighthouse:home": "bun scripts/lighthouse/home.ts",
     "lint": "eslint",
     "test": "vitest run",
     "test:e2e": "bun run db:create:e2e && playwright test",
