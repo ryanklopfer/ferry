@@ -7,6 +7,7 @@ import { isSealed, keyIdOf, open } from "@/server/crypto/aead";
 import { ephemeralKeyId } from "@/server/crypto/ephemeral";
 import { ephemeralKeyStore } from "@/server/crypto";
 import { sentInThisProcess } from "@/server/integrations/email";
+import { liveText } from "@/server/legal";
 import { sealContext } from "./codec";
 import { AUTH_TABLES, EPHEMERAL, SEALED } from "./columns";
 import { databaseUrl } from "./env";
@@ -17,7 +18,9 @@ import { clientsRepo } from "./repos/clients";
 import { eventsRepo } from "./repos/events";
 import { followUpsRepo } from "./repos/follow-ups";
 import { plansRepo } from "./repos/plans";
-import { providersRepo } from "./repos/providers";
+import { clinicianProfilesRepo, type ProfileValues } from "./repos/clinician-profiles";
+import { clinicianConsentsRepo } from "./repos/consents";
+import { feeScheduleRepo } from "./repos/fee-schedule";
 import { keyringFor, tenantKeysRepo } from "./repos/tenant-keys";
 import { clientMemberships, clients, users } from "./schema";
 
@@ -100,19 +103,56 @@ export async function decryptedDump(tenantId: string): Promise<string> {
 
 export type SyntheticPerson = { firstName: string; lastName: string; email: string; phone: string; dob: string; memberId: string; groupNumber: string; diagnosis: string; taxId: string };
 
-// A client with a plan, the clinician's provider row and one claim with a line, follow-up and event, written
-// through the repos as the app would. Synthetic people only.
+// A client with a plan and one claim (billing snapshot included) with a line, follow-up and event, written through
+// the repos as the app would. Synthetic people only.
 export async function seedSyntheticClient(ctx: ClinicianCtx, p: SyntheticPerson) {
   const name = `${p.firstName} ${p.lastName}`;
   const client = await clientsRepo.create(ctx, { firstName: p.firstName, lastName: p.lastName, dob: p.dob, email: p.email, phone: p.phone });
   const plan = await plansRepo.create(ctx, client.id, { insurerName: "Cigna", memberId: p.memberId, groupNumber: p.groupNumber, subscriberName: name, subscriberDob: p.dob, patientName: name, patientDob: p.dob, patientEmail: p.email, patientPhone: p.phone });
-  const provider = await providersRepo.upsertByNpiOrName(ctx, { name: "Rachel Steinberg, LCSW", npi: "1999000023", taxId: p.taxId, taxIdType: "EIN" });
   const claim = await claimsRepo.create(
     ctx,
-    { planId: plan.id, billingProviderId: provider.id, billingProviderName: provider.name, billingProviderTaxId: p.taxId, billingProviderTaxIdType: "EIN", diagnosisCodes: [p.diagnosis], totalCharged: 17500 },
+    { planId: plan.id, billingProviderName: "Rachel Steinberg, LCSW", billingProviderNpi: "1999000023", billingProviderTaxId: p.taxId, billingProviderTaxIdType: "EIN", diagnosisCodes: [p.diagnosis], totalCharged: 17500 },
     [{ serviceDate: "2026-09-15", cptCode: "90837", modifiers: [], description: "Psychotherapy, 60 min", units: 1, charge: 17500, diagnosisPointers: [1], placeOfService: "11" }],
   );
   await followUpsRepo.createMany(ctx, claim.id, [{ type: "status_inquiry", dueAt: new Date("2026-10-15T00:00:00Z") }]);
   await eventsRepo.append(ctx, claim.id, "created", `Claim for ${name}`);
-  return { client, plan, provider, claim };
+  return { client, plan, claim };
+}
+
+// The clinician's practice profile, as onboarding saves it. NPIs are unique across tenants, so give each clinician
+// in a test its own. Synthetic values only.
+export async function seedClinicianProfile(ctx: ClinicianCtx, over: Partial<ProfileValues> = {}) {
+  return clinicianProfilesRepo.create(ctx, {
+    legalName: "Rachel Steinberg",
+    credential: "LCSW",
+    npi: "1999000023",
+    npiType: "individual",
+    taxonomyCode: "1041C0700X",
+    groupName: null,
+    groupNpi: null,
+    taxId: "900114242",
+    taxIdType: "SSN",
+    practiceAddress: { line1: "2 Practice St", line2: null, city: "Oakland", state: "CA", zip: "94610" },
+    licenseState: "CA",
+    licenseNumber: "LCS 88213",
+    defaultNoteFormat: "dap",
+    defaultModality: "in_person",
+    ...over,
+  });
+}
+
+// A clinician who has finished onboarding: terms and BAA signed to the live texts, a profile and one fee, marked
+// onboarded. Specs that start past onboarding (the reconsent walkthrough, later M1) begin here.
+export async function seedOnboardedClinician(ctx: ClinicianCtx, over: Partial<ProfileValues> = {}) {
+  const signed = await Promise.all(
+    (["terms", "baa"] as const).map(async (docType) => {
+      const { doc, hash } = await liveText(docType);
+      return { docType, version: doc.version, contentHash: hash, typedName: "Rachel Steinberg", ip: null, userAgent: null };
+    }),
+  );
+  await clinicianConsentsRepo.createAll(ctx, signed);
+  const profile = await seedClinicianProfile(ctx, over);
+  await feeScheduleRepo.replace(ctx, [{ cptCode: "90837", chargeCents: 17500 }]);
+  await clinicianProfilesRepo.markOnboarded(ctx, new Date());
+  return profile;
 }

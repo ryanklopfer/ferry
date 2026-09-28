@@ -39,7 +39,7 @@ describe("claims service", () => {
   });
   afterAll(() => pool.end());
 
-  it("saves lines, totals, both providers, and schedules the timely-filing warning", async () => {
+  it("saves lines, totals, the as-filed billing and rendering snapshot, and schedules the timely-filing warning", async () => {
     const claim = await draft(a);
     await saveClaim(a, claim.id, input());
     const view = (await getClaim(a, claim.id))!;
@@ -51,9 +51,7 @@ describe("claims service", () => {
     expect(view.claim.totalPaid).toBe(54000);
     expect(view.claim.serviceDateStart).toBe("2026-08-05");
     expect(view.claim.serviceDateEnd).toBe("2026-08-19");
-    expect(view.claim.billingProviderId).toMatch(/^prv_/);
-    expect(view.claim.renderingProviderId).toMatch(/^prv_/);
-    expect(view.claim.renderingProviderId).not.toBe(view.claim.billingProviderId);
+    expect(view.claim).toMatchObject({ billingProviderNpi: "1999000064", billingProviderTaxIdLast4: "0006", renderingProviderName: "Sofia Marchetti", renderingProviderNpi: "1999000163" });
     expect(view.followUps.filter((f) => f.status === "pending").map((f) => f.type)).toEqual(["timely_filing_warning"]);
     expect(view.deadlines.timelyFiling?.toISOString().slice(0, 10)).toBe("2027-02-01");
   });
@@ -67,15 +65,6 @@ describe("claims service", () => {
     const open = (await getClaim(a, claim.id))!.followUps.filter((f) => f.status === "pending");
     expect(open.map((f) => f.type)).toEqual(["timely_filing_warning"]);
     expect(open[0].dueAt.toISOString().slice(0, 10)).toBe("2026-11-28");
-  });
-
-  it("reuses the same provider record the next time that NPI appears", async () => {
-    const first = await draft(a);
-    const second = await draft(a);
-    await saveClaim(a, first.id, input());
-    await saveClaim(a, second.id, input());
-    const [one, two] = [await getClaim(a, first.id), await getClaim(a, second.id)];
-    expect(two!.claim.billingProviderId).toBe(one!.claim.billingProviderId);
   });
 
   it("rejects a pointer to a diagnosis that is not listed", async () => {

@@ -11,7 +11,7 @@ import ForClientsPage from "../for-clients/page";
 import StartPage from "./page";
 
 const request = vi.hoisted(() => ({ headers: new Headers() }));
-vi.mock("next/headers", () => ({ headers: async () => request.headers }));
+vi.mock("next/headers", () => ({ headers: async () => request.headers, cookies: async () => ({ get: () => undefined }) }));
 vi.mock("next/navigation", () => ({
   redirect: (to: string) => {
     throw new Error(`redirect:${to}`);
@@ -41,16 +41,36 @@ describe("/start fork", () => {
     expect(links(await start()).map((l) => l.text)).toEqual(["I'm a clinician", "I'm a client"]);
   });
 
-  it("until N5, the clinician door stays on /start and says sign-up opens soon instead of looping through /sign-in", async () => {
+  it("the clinician door is Start free: an email and nothing else, and choosing it changes no role", async () => {
     const door = links(await start()).find((l) => l.text === "I'm a clinician")!.href;
     const url = new URL(door, "http://localhost:3000");
     expect(url.pathname).toBe("/start");
     expect(proxy(new NextRequest(url)).headers.get("x-middleware-next")).toBe("1");
 
-    expect(renderToStaticMarkup(await start()).toLowerCase()).not.toContain("opens soon");
-    const after = renderToStaticMarkup(await start(Object.fromEntries(url.searchParams)));
-    expect(decode(after)).toContain("Clinician sign-up opens soon.");
+    // Signed out: one field, the email. No name, card or password field.
+    request.headers = new Headers();
+    const signedOut = renderToStaticMarkup(await start(Object.fromEntries(url.searchParams)));
+    const inputs = [...signedOut.matchAll(/<input\b[^>]*>/g)].map((m) => m[0]).filter((i) => !/type="hidden"/.test(i));
+    expect(inputs).toHaveLength(1);
+    expect(inputs[0]).toMatch(/type="email"/);
+    expect(inputs[0]).toMatch(/name="email"/);
+    expect(inputs.join()).not.toMatch(/cc-|card|password/i);
+    expect(signedOut).not.toMatch(/autocomplete="cc-/i);
+    expect(decode(signedOut)).toContain("Send me a link");
+
+    // Signed in with no role yet: continue as that email, no second link.
+    request.headers = await signedInHeaders("maybe@example.test");
+    expect(decode(renderToStaticMarkup(await start(Object.fromEntries(url.searchParams))))).toContain("Continue as maybe@example.test");
     expect(await roleOf(pending.userId)).toBe("pending");
+  });
+
+  it("an existing client on the clinician door is told to use another email, and stays a client", async () => {
+    const client = await createTestUser("client", "client@example.test");
+    request.headers = await signedInHeaders("client@example.test");
+    const html = renderToStaticMarkup(await start({ door: "clinician" }));
+    expect(decode(html)).toContain("This email already has a client account on Ferry.");
+    expect(html).not.toMatch(/<form\b/);
+    expect(await roleOf(client.userId)).toBe("client");
   });
 
   it("a pending user choosing 'I'm a client' lands on /for-clients with the role still pending", async () => {

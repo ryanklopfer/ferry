@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { clientCtxFor } from "@/server/auth/client-ctx";
+import { signIntent } from "@/server/auth/intent";
 import { pool } from "@/server/db";
 import { clientsRepo } from "@/server/db/repos/clients";
 import { bindClientUser, createTestUser, resetDb, signedInHeaders } from "@/server/db/testing";
@@ -8,8 +9,11 @@ import { recordConsent } from "@/server/services/consents";
 import { tempLegalDir } from "@/test-support/legal-dir";
 import HomePage from "./page";
 
-const request = vi.hoisted(() => ({ headers: new Headers() }));
-vi.mock("next/headers", () => ({ headers: async () => request.headers }));
+const request = vi.hoisted(() => ({ headers: new Headers(), intent: undefined as string | undefined }));
+vi.mock("next/headers", () => ({
+  headers: async () => request.headers,
+  cookies: async () => ({ get: (name: string) => (name === "ferry_signup_intent" && request.intent ? { name, value: request.intent } : undefined) }),
+}));
 vi.mock("next/navigation", () => ({
   redirect: (to: string) => {
     throw new Error(`redirect:${to}`);
@@ -24,6 +28,7 @@ describe("/home", () => {
   beforeEach(async () => {
     await resetDb();
     request.headers = new Headers();
+    request.intent = undefined;
   });
   afterAll(() => pool.end());
 
@@ -36,6 +41,15 @@ describe("/home", () => {
     await createTestUser(role, `${role}@example.test`);
     request.headers = await signedInHeaders(`${role}@example.test`);
     await expect(HomePage()).rejects.toThrow(`redirect:${to}`);
+  });
+
+  it("sends a pending user part-way through Start free back to onboarding, and only with a valid intent for their email", async () => {
+    await createTestUser("pending", "joining@example.test");
+    request.headers = await signedInHeaders("joining@example.test");
+    request.intent = signIntent("someone-else@example.test");
+    await expect(HomePage()).rejects.toThrow("redirect:/start");
+    request.intent = signIntent("joining@example.test");
+    await expect(HomePage()).rejects.toThrow("redirect:/app/welcome");
   });
 
   it("sends a signed-out visitor to sign in", async () => {

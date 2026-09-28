@@ -1127,7 +1127,7 @@ The attorney's answers (Q-L1, Q-L2, Q-L3) are the likeliest non-code blockers, s
 
 Plan: `docs/plans/slice-s3b.md`. Tests: `src/core/legal.test.ts` (docHash, currentConsent, ageOn); `src/server/services/{consent,consents,minor,withdraw-notify}.test.ts`; `src/server/legal-gate.test.ts`; `src/ui/consent/filing-consent.test.tsx`; `src/app/home/home-redirect.test.ts` (stale at sign-in); `e2e/reconsent.spec.ts`. The hash is sha256 of the whole file, front matter included, so a version bump or a placeholder flip makes earlier consents stale; `src/core/sha256.ts` computes it because core may not import node:crypto. `ip` and `user_agent` are SEALED as well as `typed_name` (an IP address is a HIPAA identifier). `recordConsent` takes the hash of the text the signer was shown and refuses a text that changed since (`text_changed`). A 'self' signer is refused only when the client's date of birth is on file and under 18. `FERRY_LEGAL_DIR` overrides `content/legal` in the dev tier only (tests and the e2e servers bump a copy). Withdrawal runs `pg_notify` inside the update's transaction, so it is heard only on commit and only when a row changed; clinician withdrawals notify nothing. Resuming a gated action means re-opening the gated screen: `withReconsent(here, run)` sends a stale clinician agreement to `/app/reconsent?next=here`. No real gated screen exists before N10 and N12, so the e2e drives it through the dev-only fixture `/e2e-fixtures/gated` (FERRY_E2E_FIXTURES=1, now set for every e2e server). Time is `new Date()` until S10's `clock.now()`.
 
-### [ ] N5 — Clinician Start free, onboarding, profile, fee schedule, filing authorization and sign-up policy (replaces S11 and S24)
+### [x] N5 — Clinician Start free, onboarding, profile, fee schedule, filing authorization and sign-up policy (replaces S11 and S24)
 
 Scheduled: Sat Oct 3 · Status: new · Size: L · PRD: P0-2.1, P0-2.2, P0-3.1, P0-3.2, P0-3.3, R1, R10
 
@@ -1187,20 +1187,22 @@ Why: This is the first step of the value path (P0-2, P0-3). The clinician is now
 
 #### Acceptance
 
-- [ ] e2e/onboarding.spec.ts: Start free asks for an email and nothing else; no card field exists; onboarding completes at 390 px and 1280 px
-- [ ] e2e/passkey.spec.ts (CDP WebAuthn virtual authenticator): after the first magic-link sign-in a passkey registers; after sign-out, sign-in with the passkey succeeds
-- [ ] clinician.test.ts: the role becomes clinician only from the signed intent; a role in the body, a tampered cookie, or an existing client visiting /start leaves the role unchanged
-- [ ] clinician.test.ts: terms and BAA are stored with version and hash at sign-up
-- [ ] clinician.test.ts: in the prod tier, onboarding refuses while terms or BAA are placeholders
-- [ ] signup-policy.test.ts: in the prod tier an email not on BETA_ALLOWLIST is refused with plain copy until FERRY_OPEN_SIGNUP=1
-- [ ] clinician.test.ts: a second profile with an NPI already on another tenant is refused with plain copy; a bad NPI check digit is rejected before any lookup
-- [ ] raw-dump.test.ts extended: no Tax ID in the dump; log.test.ts: logging a whole profile emits no Tax ID
-- [ ] e2e/onboarding.spec.ts: profile pages show only the last four of the Tax ID
-- [ ] billing-party.test.ts: table covers solo NPI-1, and group NPI-2 + EIN with NPI-1 rendering
-- [ ] fee-schedule.test.ts: chargeFor returns cents or {missing: cpt}; a fee edit affects only claims built afterwards
-- [ ] live-filing.test.ts: table over nppes_name_match × identity_verified_at × placeholder authorization; true only when all pass
-- [ ] ctx.test.ts extended: the profile, fee and clinician_consents repos reject a ClientCtx at compile time (@ts-expect-error) and at run time
-- [ ] schema.test.ts: the providers table and its FK columns are gone
+- [x] e2e/onboarding.spec.ts: Start free asks for an email and nothing else; no card field exists; onboarding completes at 390 px and 1280 px
+- [x] e2e/passkey.spec.ts (CDP WebAuthn virtual authenticator): after the first magic-link sign-in a passkey registers; after sign-out, sign-in with the passkey succeeds
+- [x] clinician.test.ts: the role becomes clinician only from the signed intent; a role in the body, a tampered cookie, or an existing client visiting /start leaves the role unchanged
+- [x] clinician.test.ts: terms and BAA are stored with version and hash at sign-up
+- [x] clinician.test.ts: in the prod tier, onboarding refuses while terms or BAA are placeholders
+- [x] signup-policy.test.ts: in the prod tier an email not on BETA_ALLOWLIST is refused with plain copy until FERRY_OPEN_SIGNUP=1
+- [x] clinician.test.ts: a second profile with an NPI already on another tenant is refused with plain copy; a bad NPI check digit is rejected before any lookup
+- [x] raw-dump.test.ts extended: no Tax ID in the dump; log.test.ts: logging a whole profile emits no Tax ID
+- [x] e2e/onboarding.spec.ts: profile pages show only the last four of the Tax ID
+- [x] billing-party.test.ts: table covers solo NPI-1, and group NPI-2 + EIN with NPI-1 rendering
+- [x] fee-schedule.test.ts: chargeFor returns cents or {missing: cpt}; a fee edit affects only claims built afterwards
+- [x] live-filing.test.ts: table over nppes_name_match × identity_verified_at × placeholder authorization; true only when all pass
+- [x] ctx.test.ts extended: the profile, fee and clinician_consents repos reject a ClientCtx at compile time (@ts-expect-error) and at run time
+- [x] schema.test.ts: the providers table and its FK columns are gone
+
+Plan: `docs/plans/slice-n5.md`. Tests: `src/core/{billing-party,live-filing}.test.ts`; `src/server/services/{clinician,fee-schedule}.test.ts`; `src/server/signup-policy.test.ts`; `src/server/auth/ctx.test.ts`, `src/server/db/{raw-dump,schema}.test.ts`, `src/server/log.test.ts` extended; `e2e/onboarding.spec.ts`, `e2e/passkey.spec.ts`. The intent cookie (`src/server/auth/intent.ts`, `ferry_signup_intent`) is an httpOnly HMAC under a key derived from the auth secret, bound to the sha256 of the email the link went to, and lasts an hour; `completeClinicianSignup` reads the role and email from the session (so `SessionUser` now carries `email`), checks the intent and the sign-up policy, checks the typed name and the shown text hashes before touching the role, then calls `setRoleOnServer` and records terms and BAA. A signed-in pending user on the clinician door gets 'Continue as <email>' instead of a second link. Start free's email action is the one public server action (`PUBLIC_ACTIONS` in guards.test.ts). `npi_type` is which NPI claims bill under (`individual` or `group`); a group needs a group name, an NPI-2 and an EIN (zod and a table CHECK). The Tax ID is kept as nine digits, sealed, with a per-tenant blind index (`taxId` normalizer) and last four; changing the NPI or legal name clears the NPPES and identity-check columns. The fee schedule is plaintext (a price list says nothing about a client); `setFees` replaces the whole schedule and `COMMON_BEHAVIORAL_CODES` (16 codes, our own words) lives in `src/core/fee-schedule.ts`. `/app` sends a clinician who hasn't finished to `/app/welcome`; `/home` sends a pending user holding a valid intent there too. The providers table and `claims.billing_provider_id`/`rendering_provider_id` are dropped in migration 0003 (claims keep their as-filed snapshot columns); `db/testing.ts` has `seedClinicianProfile` and `seedOnboardedClinician`. The prod-tier refusal is proven with the repo's own placeholder texts, since `FERRY_LEGAL_DIR` is ignored outside the dev tier. Founder items still open: F4 Q-L1 authorization wording (live filing stays refused while it is a placeholder), F15 beta allow-list emails before the prod tier, and product question 8 (who runs the identity check).
 
 ### [ ] S10 — Claim state machine, event log, id-only job queue, timers table, shared clock and e2e harness
 

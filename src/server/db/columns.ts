@@ -14,7 +14,8 @@ export const AUTH_TABLES = ["users", "sessions", "accounts", "verifications", "p
 export const SEALED: Record<string, readonly string[]> = {
   clients: ["first_name", "last_name", "dob", "email", "phone"],
   plans: ["member_id", "group_number", "subscriber_name", "subscriber_dob", "patient_name", "patient_dob", "patient_relationship", "patient_address", "patient_phone", "patient_email"],
-  providers: ["tax_id", "address", "phone"],
+  // A solo clinician's Tax ID is often their SSN; the practice address may be their home.
+  clinician_profiles: ["tax_id", "practice_address"],
   claims: ["billing_provider_tax_id", "billing_provider_address", "billing_provider_phone", "diagnosis_codes", "extraction_notes", "confirmation_number", "denial_reason", "info_requested"],
   claim_lines: ["cpt_code", "description"],
   follow_ups: ["draft_subject", "draft_body"],
@@ -53,24 +54,12 @@ export const PLAINTEXT_OK: Record<string, Record<string, string>> = {
     portal_url: PAYER,
     preferred_channel: ENUM,
   },
-  providers: {
-    id: ID,
-    user_id: TENANT,
-    name: CLINICIAN,
-    npi: CLINICIAN,
-    tax_id_last4: LAST4,
-    tax_id_type: ENUM,
-    credential: CLINICIAN,
-    license: "state license number, public on the licensing board's site",
-  },
   claims: {
     id: ID,
     user_id: TENANT,
     client_id: ID,
     plan_id: ID,
     status: ENUM,
-    billing_provider_id: ID,
-    rendering_provider_id: ID,
     billing_provider_name: CLINICIAN,
     billing_provider_npi: CLINICIAN,
     billing_provider_tax_id_last4: LAST4,
@@ -94,6 +83,25 @@ export const PLAINTEXT_OK: Record<string, Record<string, string>> = {
   events: { id: ID, user_id: TENANT, client_id: ID, claim_id: ID, type: ENUM },
   clinician_consents: { id: ID, user_id: TENANT, doc_type: ENUM, version: LEGAL, content_hash: LEGAL },
   client_consents: { id: ID, user_id: TENANT, client_id: ID, actor_user_id: "the signing user's id", doc_type: ENUM, signer_relationship: ENUM, version: LEGAL, content_hash: LEGAL },
+  clinician_profiles: {
+    id: ID,
+    user_id: TENANT,
+    legal_name: CLINICIAN,
+    credential: CLINICIAN,
+    npi: CLINICIAN,
+    npi_type: ENUM,
+    taxonomy_code: CLINICIAN,
+    group_name: CLINICIAN,
+    group_npi: CLINICIAN,
+    tax_id_type: ENUM,
+    tax_id_bidx: BIDX,
+    tax_id_last4: LAST4,
+    license_state: CLINICIAN,
+    license_number: "state license number, public on the licensing board's site",
+    default_note_format: ENUM,
+    default_modality: ENUM,
+  },
+  fee_schedule_items: { id: ID, user_id: TENANT, cpt_code: "a code on the clinician's own price list, not about a client" },
   tenant_keys: { key_id: "names the key; not key material", user_id: TENANT, kek_ref: "names the key-encryption key", wrapped_key: "the data key encrypted by the KeyProvider; useless without it" },
 };
 
@@ -101,10 +109,11 @@ export const PLAINTEXT_OK: Record<string, Record<string, string>> = {
 export const BLIND_INDEXES: Record<string, Record<string, { source: string; normalize: Normalizer }>> = {
   clients: { email_bidx: { source: "email", normalize: "email" }, phone_bidx: { source: "phone", normalize: "phone" } },
   plans: { member_id_bidx: { source: "member_id", normalize: "memberId" } },
+  clinician_profiles: { tax_id_bidx: { source: "tax_id", normalize: "taxId" } },
 };
 
 export const LAST4_OF: Record<string, Record<string, string>> = {
-  providers: { tax_id_last4: "tax_id" },
+  clinician_profiles: { tax_id_last4: "tax_id" },
   claims: { billing_provider_tax_id_last4: "billing_provider_tax_id" },
 };
 

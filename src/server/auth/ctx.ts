@@ -16,13 +16,13 @@ export type StaffCtx = { scope: "staff"; userId: string };
 export type Ctx = ClinicianCtx | ClientCtx | SystemCtx;
 export type ClinicianOnlyCtx = ClinicianCtx | SystemCtx;
 
-export type SessionUser = { userId: string; role: Role };
+export type SessionUser = { userId: string; role: Role; email: string };
 
 export async function sessionFromHeaders(h: Headers): Promise<SessionUser | null> {
   const session = await auth.api.getSession({ headers: h });
   if (!session) return null;
   const role = ROLES.find((r) => r === session.user.role);
-  return role ? { userId: session.user.id, role } : null;
+  return role ? { userId: session.user.id, role, email: session.user.email } : null;
 }
 
 export async function getSessionUser(): Promise<SessionUser | null> {

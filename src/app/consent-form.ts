@@ -22,13 +22,19 @@ export function safeNext(value: unknown, fallback: string): string {
 const Signed = z.object({ docType: z.enum(CONSENT_DOC_TYPES), shownHash: z.string().regex(/^[0-9a-f]{64}$/) });
 
 // The re-consent form: one hidden "doc" field per text ("<docType>:<hash>"), a typed name, and for clients who is signing.
+// Where a signature came from. One trusted hop (the load balancer, S21a) appends the address it saw; entries to its
+// left are the caller's own claims. With no proxy, Next sets the header to the socket address only when the caller
+// didn't send one.
+export function requestMeta(h: Headers): { ip: string | null; userAgent: string | null } {
+  return { ip: (h.get("x-forwarded-for")?.split(",").at(-1) ?? "").trim().slice(0, 64) || null, userAgent: h.get("user-agent")?.slice(0, 512) || null };
+}
+
+export const typedNameOf = (fd: FormData) => String(fd.get("typedName") ?? "").slice(0, 200);
+
 export function consentInputs(fd: FormData, h: Headers): ConsentInput[] {
   const signer = z.enum(SIGNER_RELATIONSHIPS).safeParse(fd.get("signer"));
-  const typedName = String(fd.get("typedName") ?? "").slice(0, 200);
-  // One trusted hop (the load balancer, S21a) appends the address it saw; entries to its left are the caller's own
-  // claims. With no proxy, Next sets the header to the socket address only when the caller didn't send one.
-  const ip = (h.get("x-forwarded-for")?.split(",").at(-1) ?? "").trim().slice(0, 64) || null;
-  const userAgent = h.get("user-agent")?.slice(0, 512) || null;
+  const typedName = typedNameOf(fd);
+  const { ip, userAgent } = requestMeta(h);
   return fd.getAll("doc").flatMap((v) => {
     const [docType, shownHash] = String(v).split(":");
     const parsed = Signed.safeParse({ docType, shownHash });

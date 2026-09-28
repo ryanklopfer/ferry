@@ -6,7 +6,7 @@ import { type ConsentDocType, LEGAL_SLUG } from "@/core/legal";
 import { clientCtxFor } from "@/server/auth/client-ctx";
 import { pool } from "@/server/db";
 import { clientsRepo } from "@/server/db/repos/clients";
-import { bindClientUser, createTestUser, resetDb } from "@/server/db/testing";
+import { bindClientUser, createTestUser, resetDb, seedOnboardedClinician } from "@/server/db/testing";
 import { liveText } from "@/server/legal";
 import { recordConsent } from "@/server/services/consents";
 import { E2E_LEGAL_DIR } from "./env";
@@ -27,6 +27,7 @@ async function world() {
   const clinicianEmail = `clinician-${tag}@example.test`;
   const clientEmail = `client-${tag}@example.test`;
   const x = await createTestUser("clinician", clinicianEmail);
+  await seedOnboardedClinician(x);
   const client = await clientsRepo.create(x, { firstName: "Ana", lastName: "Ortiz", dob: "1990-04-02", email: clientEmail, phone: null });
   const self = await createTestUser("client", clientEmail);
   const membershipId = await bindClientUser(x, client.id, self);

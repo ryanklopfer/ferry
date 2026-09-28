@@ -5,6 +5,8 @@ import { DEV_PUBLIC_PATHS, isPublicPath, PUBLIC_PATHS } from "@/proxy";
 
 const APP = path.join(process.cwd(), "src", "app");
 const PUBLIC_ROUTES = new Set(["api/auth/[...all]/route.ts"]);
+// Server actions a signed-out visitor may call, by file: Start free sends the magic link before any session exists.
+const PUBLIC_ACTIONS: Record<string, string[]> = { "(public)/start/actions.ts": ["startClinicianSignupAction"] };
 
 // The allow-list, written out again on purpose: widening src/proxy.ts has to change this line too.
 const EXPECTED_PUBLIC_PATHS = ["/", "/start", "/for-clients", "/i/*", "/legal/*", "/offline", "/manifest.webmanifest", "/sw.js", "/worklets/*", "/icons/*", "/api/webhooks/*", "/sign-in", "/api/auth/*"];
@@ -124,10 +126,12 @@ describe("every entry point verifies the session", () => {
     expect(files.length).toBeGreaterThan(0);
     for (const file of files) {
       const source = read(file);
-      const actions = source.match(/^export async function \w+/gm) ?? [];
+      const names = [...source.matchAll(/^export async function (\w+)/gm)].map((m) => m[1]);
+      const open = PUBLIC_ACTIONS[file] ?? [];
+      expect(open.filter((n) => !names.includes(n)), `${file}: PUBLIC_ACTIONS names an action it doesn't export`).toEqual([]);
       const checks = source.match(ACTION_GUARD) ?? [];
-      expect(actions.length, `${file} exports no actions`).toBeGreaterThan(0);
-      expect(checks.length, `${file}: every action must start with await requireClinician() (or another require guard)`).toBe(actions.length);
+      expect(names.length, `${file} exports no actions`).toBeGreaterThan(0);
+      expect(checks.length, `${file}: every action must start with await requireClinician() (or another require guard)`).toBe(names.length - open.length);
     }
   });
 });

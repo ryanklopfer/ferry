@@ -2,24 +2,24 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { clientCtxFor } from "@/server/auth/client-ctx";
 import type { ClientCtx, ClinicianCtx, SelfCtx } from "@/server/auth/ctx";
 import { pool } from "@/server/db";
-import { bindClientUser, createTestUser, resetDb } from "@/server/db/testing";
+import { bindClientUser, createTestUser, resetDb, seedClinicianProfile } from "@/server/db/testing";
 import { claimsRepo } from "./claims";
 import { clientsRepo } from "./clients";
 import { eventsRepo } from "./events";
 import { followUpsRepo } from "./follow-ups";
 import { plansRepo } from "./plans";
-import { providersRepo } from "./providers";
+import { clinicianProfilesRepo } from "./clinician-profiles";
+import { feeScheduleRepo } from "./fee-schedule";
 
 const LINE = { serviceDate: "2026-08-04", cptCode: "90834", modifiers: [], description: "Psychotherapy, 45 min", units: 1, charge: 17500, diagnosisPointers: [1], placeOfService: "11" };
 
 async function seedClient(ctx: ClinicianCtx, firstName: string, lastName: string) {
   const client = await clientsRepo.create(ctx, { firstName, lastName, dob: "1990-04-02", email: `${firstName.toLowerCase()}@example.test`, phone: null });
   const plan = await plansRepo.create(ctx, client.id, { insurerName: "Cigna", memberId: `U-${firstName}`, subscriberName: `${firstName} ${lastName}`, patientName: `${firstName} ${lastName}` });
-  const provider = await providersRepo.upsertByNpiOrName(ctx, { name: "Rachel Steinberg, LCSW", npi: "1999000023", taxId: "00-1000002", taxIdType: "EIN" });
-  const claim = await claimsRepo.create(ctx, { planId: plan.id, billingProviderId: provider.id, billingProviderName: provider.name, diagnosisCodes: ["F33.1"], totalCharged: 17500 }, [LINE]);
+  const claim = await claimsRepo.create(ctx, { planId: plan.id, billingProviderName: "Rachel Steinberg, LCSW", diagnosisCodes: ["F33.1"], totalCharged: 17500 }, [LINE]);
   const [followUp] = await followUpsRepo.createMany(ctx, claim.id, [{ type: "status_inquiry", dueAt: new Date("2026-10-01T00:00:00Z") }]);
   await eventsRepo.append(ctx, claim.id, "created", `Claim for ${firstName}`);
-  return { client, plan, provider, claim, followUp };
+  return { client, plan, claim, followUp };
 }
 
 type Seeded = Awaited<ReturnType<typeof seedClient>>;
@@ -45,6 +45,10 @@ describe("tenant isolation v2", () => {
     a1 = await seedClient(x, "Ana", "Ortiz");
     a2 = await seedClient(x, "Ben", "Adler");
     b1 = await seedClient(y, "Cara", "Nguyen");
+    await seedClinicianProfile(x);
+    await seedClinicianProfile(y, { legalName: "Owen Achebe", npi: "1234567893", taxId: "900115353" });
+    await feeScheduleRepo.replace(x, [{ cptCode: "90837", chargeCents: 20000 }]);
+    await feeScheduleRepo.replace(y, [{ cptCode: "90834", chargeCents: 15000 }]);
     uA1 = await bindClientUser(x, a1.client.id, u);
     uB1 = await bindClientUser(y, b1.client.id, u);
   });
@@ -56,7 +60,8 @@ describe("tenant isolation v2", () => {
       expect(ids(await plansRepo.list(x))).toEqual(ids([a1.plan, a2.plan]));
       expect(ids((await claimsRepo.list(x)).map((r) => r.claim))).toEqual(ids([a1.claim, a2.claim]));
       expect(ids(await followUpsRepo.open(x))).toEqual(ids([a1.followUp, a2.followUp]));
-      expect((await providersRepo.list(x)).map((p) => p.userId)).toEqual([x.userId]);
+      expect(await clinicianProfilesRepo.get(x)).toMatchObject({ userId: x.userId, npi: "1999000023" });
+      expect(await feeScheduleRepo.list(x)).toEqual([{ cptCode: "90837", chargeCents: 20000 }]);
       for (const mine of [a1, a2]) {
         expect((await clientsRepo.get(x, mine.client.id))?.id).toBe(mine.client.id);
         expect((await plansRepo.get(x, mine.plan.id))?.id).toBe(mine.plan.id);
@@ -77,12 +82,12 @@ describe("tenant isolation v2", () => {
       expect(ids(await plansRepo.list(y))).toEqual([b1.plan.id]);
       expect(ids((await claimsRepo.list(y)).map((r) => r.claim))).toEqual([b1.claim.id]);
       expect(ids(await followUpsRepo.open(y))).toEqual([b1.followUp.id]);
-      expect(ids(await providersRepo.list(y))).toEqual([b1.provider.id]);
+      expect(await clinicianProfilesRepo.get(y)).toMatchObject({ userId: y.userId, npi: "1234567893" });
+      expect(await feeScheduleRepo.list(y)).toEqual([{ cptCode: "90834", chargeCents: 15000 }]);
       for (const theirs of [a1, a2]) {
         expect(await clientsRepo.get(y, theirs.client.id)).toBeNull();
         expect(await plansRepo.get(y, theirs.plan.id)).toBeNull();
         expect(await claimsRepo.get(y, theirs.claim.id)).toBeNull();
-        expect(await providersRepo.get(y, theirs.provider.id)).toBeNull();
         expect(await followUpsRepo.get(y, theirs.followUp.id)).toBeNull();
         expect(await claimsRepo.lines(y, theirs.claim.id)).toEqual([]);
         expect(await followUpsRepo.forClaim(y, theirs.claim.id)).toEqual([]);
@@ -98,7 +103,9 @@ describe("tenant isolation v2", () => {
       await followUpsRepo.dismiss(y, [a1.followUp.id]);
       await clientsRepo.archive(y, a2.client.id);
       await claimsRepo.remove(y, a2.claim.id);
+      await feeScheduleRepo.replace(y, []);
 
+      expect(await feeScheduleRepo.list(x)).toEqual([{ cptCode: "90837", chargeCents: 20000 }]);
       const claim = await claimsRepo.get(x, a1.claim.id);
       expect(claim?.status).toBe("draft");
       expect(claim?.billingProviderName).toBe("Rachel Steinberg, LCSW");
@@ -177,7 +184,8 @@ describe("tenant isolation v2", () => {
       await expect(clientsRepo.archive(c, a1.client.id)).rejects.toThrow();
       await expect(followUpsRepo.open(c)).rejects.toThrow();
       await expect(followUpsRepo.forClaim(c, a1.claim.id)).rejects.toThrow();
-      await expect(providersRepo.list(c)).rejects.toThrow();
+      await expect(clinicianProfilesRepo.get(c)).rejects.toThrow();
+      await expect(feeScheduleRepo.list(c)).rejects.toThrow();
       expect((await claimsRepo.get(x, a1.claim.id))?.status).toBe("draft");
       expect(await claimsRepo.lines(x, a1.claim.id)).toHaveLength(1);
     });

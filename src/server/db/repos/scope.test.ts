@@ -1,7 +1,7 @@
 import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 import type { ClientCtx, ClinicianCtx, SystemCtx } from "@/server/auth/ctx";
-import { claimLines, claims, clientConsents, clients, clinicianConsents, events, followUps, plans, providers } from "../schema";
+import { claimLines, claims, clientConsents, clients, clinicianConsents, clinicianProfiles, events, feeScheduleItems, followUps, plans } from "../schema";
 import { assertNotClient, CLIENT_SCOPED, CLIENT_SELF, tenantWhere } from "./scope";
 
 const dialect = new PgDialect();
@@ -19,7 +19,7 @@ describe("tenantWhere", () => {
 
   it("filters only on the tenant for a clinician or system context", () => {
     for (const ctx of [clinician, system]) {
-      for (const table of [clients, plans, claims, claimLines, events, followUps, providers, clinicianConsents, clientConsents]) {
+      for (const table of [clients, plans, claims, claimLines, events, followUps, clinicianProfiles, feeScheduleItems, clinicianConsents, clientConsents]) {
         const q = render(table, ctx);
         expect(q.sql).toMatch(/^"\w+"\."user_id" = \$1$/);
         expect(q.params).toEqual(["usr_x"]);
@@ -38,7 +38,7 @@ describe("tenantWhere", () => {
   });
 
   it("with a ClientCtx throws on any other table", () => {
-    for (const table of [followUps, providers, clinicianConsents]) expect(() => tenantWhere(table, client)).toThrow(/client/i);
+    for (const table of [followUps, clinicianProfiles, feeScheduleItems, clinicianConsents]) expect(() => tenantWhere(table, client)).toThrow(/client/i);
   });
 
   it("throws on a context with any other scope", () => {

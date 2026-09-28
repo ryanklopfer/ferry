@@ -6,7 +6,9 @@ import { pool } from "@/server/db";
 import { claimsRepo } from "@/server/db/repos/claims";
 import { clientsRepo } from "@/server/db/repos/clients";
 import { followUpsRepo } from "@/server/db/repos/follow-ups";
-import { providersRepo } from "@/server/db/repos/providers";
+import { clinicianProfilesRepo } from "@/server/db/repos/clinician-profiles";
+import { clinicianConsentsRepo } from "@/server/db/repos/consents";
+import { feeScheduleRepo } from "@/server/db/repos/fee-schedule";
 import { createTestUser, resetDb, signedInHeaders } from "@/server/db/testing";
 
 const request = vi.hoisted(() => ({ headers: new Headers() }));
@@ -88,8 +90,28 @@ function wrongScopesDoNotCompile() {
   void claimsRepo.remove(staff, "clm_1");
   // @ts-expect-error follow-ups are clinician-only
   void followUpsRepo.open(client);
-  // @ts-expect-error providers are clinician-only
-  void providersRepo.list(client);
+  const profile = { legalName: "A", credential: "LCSW", npi: "1999000023", npiType: "individual", taxonomyCode: "1041C0700X", groupName: null, groupNpi: null, taxId: "900114242", taxIdType: "SSN", practiceAddress: { line1: "1 St", line2: null, city: "X", state: "CA", zip: "94610" }, licenseState: "CA", licenseNumber: "1", defaultNoteFormat: "dap", defaultModality: "in_person" } as const;
+  const consent = { docType: "terms", version: "0.0.0", contentHash: "0".repeat(64), typedName: "A", ip: null, userAgent: null } as const;
+  // @ts-expect-error clinician profiles are clinician-only
+  void clinicianProfilesRepo.get(client);
+  // @ts-expect-error clinician profiles are clinician-only
+  void clinicianProfilesRepo.create(client, profile);
+  // @ts-expect-error clinician profiles are clinician-only
+  void clinicianProfilesRepo.update(client, "prf_1", profile);
+  // @ts-expect-error clinician profiles are clinician-only
+  void clinicianProfilesRepo.markOnboarded(client, new Date());
+  // @ts-expect-error the fee schedule is clinician-only
+  void feeScheduleRepo.list(client);
+  // @ts-expect-error the fee schedule is clinician-only
+  void feeScheduleRepo.replace(client, []);
+  // @ts-expect-error clinician consents are clinician-only
+  void clinicianConsentsRepo.list(client);
+  // @ts-expect-error clinician consents are clinician-only
+  void clinicianConsentsRepo.create(client, consent);
+  // @ts-expect-error clinician consents are clinician-only
+  void clinicianConsentsRepo.createAll(client, [consent]);
+  // @ts-expect-error clinician consents are clinician-only
+  void clinicianConsentsRepo.withdraw(client, "terms");
   // @ts-expect-error clients are created by their clinician
   void clientsRepo.create(client, { firstName: "A", lastName: "B", dob: null, email: null, phone: null });
   // @ts-expect-error a plain object with no scope is not a context
@@ -132,6 +154,24 @@ describe("contexts", () => {
 
   it("builds a SystemCtx for a tenant and a job", () => {
     expect(systemCtx("usr_tenant", "timers.tick")).toEqual({ scope: "system", userId: "usr_tenant", job: "timers.tick" });
+  });
+});
+
+describe("clinician-only repos at run time", () => {
+  it("the profile, fee and clinician_consents repos refuse a ClientCtx that got past the type checker", async () => {
+    const c = client as never;
+    const calls = [
+      () => clinicianProfilesRepo.get(c),
+      () => clinicianProfilesRepo.create(c, {} as never),
+      () => clinicianProfilesRepo.update(c, "prf_1", {} as never),
+      () => clinicianProfilesRepo.markOnboarded(c, new Date()),
+      () => feeScheduleRepo.list(c),
+      () => feeScheduleRepo.replace(c, []),
+      () => clinicianConsentsRepo.list(c),
+      () => clinicianConsentsRepo.createAll(c, []),
+      () => clinicianConsentsRepo.withdraw(c, "terms"),
+    ];
+    for (const call of calls) await expect(call()).rejects.toThrow(/client/i);
   });
 });
 

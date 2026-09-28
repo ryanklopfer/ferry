@@ -1,10 +1,12 @@
 import { sql } from "drizzle-orm";
-import { check, date, index, integer, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { boolean, check, date, index, integer, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import type { ClaimStatus, FollowUpStatus, FollowUpType } from "../../core/claim/status";
+import { type Address, type Modality, MODALITIES, type NoteFormat, NOTE_FORMATS, type NpiType, NPI_TYPES, TAX_ID_TYPES, type TaxIdType } from "../../core/clinician";
 import { CLIENT_DOC_TYPES, CLINICIAN_DOC_TYPES, type ClientDocType, type ClinicianDocType, SIGNER_RELATIONSHIPS, type SignerRelationship } from "../../core/legal";
 import { users } from "./auth-schema";
 
 export * from "./auth-schema";
+export { TAX_ID_TYPES, type TaxIdType } from "../../core/clinician";
 export { CLAIM_STATUSES, type ClaimStatus, FOLLOW_UP_STATUSES, type FollowUpStatus, FOLLOW_UP_TYPES, type FollowUpType } from "../../core/claim/status";
 
 const id = () => text("id").primaryKey();
@@ -93,31 +95,6 @@ export const plans = pgTable(
   (t) => [index("plans_user_idx").on(t.userId), index("plans_client_idx").on(t.clientId), index("plans_member_id_bidx_idx").on(t.userId, t.memberIdBidx)],
 );
 
-export const TAX_ID_TYPES = ["EIN", "SSN"] as const;
-export type TaxIdType = (typeof TAX_ID_TYPES)[number];
-
-// What this patient told us about a provider. Never shared between patients; the public
-// registry copy (S6) and provider-controlled accounts (S24) are separate tables.
-export const providers = pgTable(
-  "providers",
-  {
-    id: id(),
-    userId: owner(),
-    name: text("name").notNull(),
-    npi: text("npi"),
-    taxId: sealed("tax_id"),
-    taxIdLast4: text("tax_id_last4"),
-    taxIdType: text("tax_id_type").$type<TaxIdType>(),
-    address: sealed("address"),
-    phone: sealed("phone"),
-    credential: text("credential"),
-    license: text("license"),
-    createdAt: createdAt(),
-    updatedAt: at("updated_at").notNull().defaultNow(),
-  },
-  (t) => [index("providers_user_idx").on(t.userId), uniqueIndex("providers_user_npi_idx").on(t.userId, t.npi)],
-);
-
 export const claims = pgTable(
   "claims",
   {
@@ -126,8 +103,6 @@ export const claims = pgTable(
     clientId: clientRef(),
     planId: text("plan_id").notNull().references(() => plans.id),
     status: text("status").$type<ClaimStatus>().notNull().default("draft"),
-    billingProviderId: text("billing_provider_id").references(() => providers.id, { onDelete: "set null" }),
-    renderingProviderId: text("rendering_provider_id").references(() => providers.id, { onDelete: "set null" }),
     billingProviderName: text("billing_provider_name"),
     billingProviderNpi: text("billing_provider_npi"),
     billingProviderTaxId: sealed("billing_provider_tax_id"),
@@ -259,6 +234,60 @@ export const clientConsents = pgTable(
   ],
 );
 
+// The clinician's own practice details, one row per clinician. Every claim takes its billing party from here. The NPI
+// is unique across tenants, so one NPI holds one account (and one trial). Clinician-only.
+export const clinicianProfiles = pgTable(
+  "clinician_profiles",
+  {
+    id: id(),
+    userId: owner().unique(),
+    legalName: text("legal_name").notNull(),
+    credential: text("credential").notNull(),
+    npi: text("npi").notNull(),
+    npiType: text("npi_type").$type<NpiType>().notNull(),
+    taxonomyCode: text("taxonomy_code").notNull(),
+    groupName: text("group_name"),
+    groupNpi: text("group_npi"),
+    taxId: sealed("tax_id").notNull(),
+    taxIdType: text("tax_id_type").$type<TaxIdType>().notNull(),
+    taxIdBidx: text("tax_id_bidx"),
+    taxIdLast4: text("tax_id_last4"),
+    practiceAddress: sealed<Address>("practice_address").notNull(),
+    licenseState: text("license_state").notNull(),
+    licenseNumber: text("license_number").notNull(),
+    defaultNoteFormat: text("default_note_format").$type<NoteFormat>().notNull(),
+    defaultModality: text("default_modality").$type<Modality>().notNull(),
+    nppesCheckedAt: at("nppes_checked_at"),
+    nppesNameMatch: boolean("nppes_name_match"),
+    identityVerifiedAt: at("identity_verified_at"),
+    onboardedAt: at("onboarded_at"),
+    createdAt: createdAt(),
+    updatedAt: at("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("clinician_profiles_npi_idx").on(t.npi),
+    check("clinician_profiles_npi_type", sql`${t.npiType} in (${inList(NPI_TYPES)})`),
+    check("clinician_profiles_tax_id_type", sql`${t.taxIdType} in (${inList(TAX_ID_TYPES)})`),
+    check("clinician_profiles_note_format", sql`${t.defaultNoteFormat} in (${inList(NOTE_FORMATS)})`),
+    check("clinician_profiles_modality", sql`${t.defaultModality} in (${inList(MODALITIES)})`),
+    check("clinician_profiles_group", sql`${t.npiType} = 'individual' or (${t.groupNpi} is not null and ${t.groupName} is not null and ${t.taxIdType} = 'EIN')`),
+  ],
+);
+
+// The clinician's charge per CPT code. A claim copies the charge onto its line when it is built.
+export const feeScheduleItems = pgTable(
+  "fee_schedule_items",
+  {
+    id: id(),
+    userId: owner(),
+    cptCode: text("cpt_code").notNull(),
+    chargeCents: integer("charge_cents").notNull(),
+    createdAt: createdAt(),
+    updatedAt: at("updated_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("fee_schedule_items_user_cpt_idx").on(t.userId, t.cptCode), check("fee_schedule_items_charge_positive", sql`${t.chargeCents} > 0`)],
+);
+
 // One data key per clinician tenant (plus a separate blind-index key), wrapped by the KeyProvider's key-encryption
 // key. Deleting the clinician's user row deletes the key, which crypto-shreds everything sealed under it.
 export const tenantKeys = pgTable("tenant_keys", {
@@ -272,10 +301,11 @@ export const tenantKeys = pgTable("tenant_keys", {
 export type Client = typeof clients.$inferSelect;
 export type ClientMembership = typeof clientMemberships.$inferSelect;
 export type Plan = typeof plans.$inferSelect;
-export type Provider = typeof providers.$inferSelect;
 export type Claim = typeof claims.$inferSelect;
 export type ClaimLine = typeof claimLines.$inferSelect;
 export type FollowUp = typeof followUps.$inferSelect;
 export type Event = typeof events.$inferSelect;
 export type ClinicianConsent = typeof clinicianConsents.$inferSelect;
 export type ClientConsent = typeof clientConsents.$inferSelect;
+export type ClinicianProfile = typeof clinicianProfiles.$inferSelect;
+export type FeeScheduleItem = typeof feeScheduleItems.$inferSelect;

@@ -1,6 +1,6 @@
 import type { Claim, ClaimLine, Event, FollowUp, Plan } from "@/server/db/schema";
 
-export type { Claim, ClaimLine, ClaimStatus, Event, FollowUp, FollowUpType, Plan, Provider } from "@/server/db/schema";
+export type { Claim, ClaimLine, ClaimStatus, Event, FollowUp, FollowUpType, Plan } from "@/server/db/schema";
 
 export type ClaimView = {
   claim: Claim;

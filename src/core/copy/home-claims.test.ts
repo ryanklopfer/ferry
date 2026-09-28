@@ -93,7 +93,7 @@ describe("homepage promises", () => {
       const claim = HOME_CLAIMS[sentence];
       const tests = "proof" in claim ? claim.proof : (claim.planned ?? []);
       expect(tests.map((t) => t.test).filter((t) => t.includes("banned-patterns")), sentence).toEqual([]);
-      expect(tests, sentence).toEqual(expect.arrayContaining([{ slice: "N5", test: "clinician.test.ts" }]));
+      expect(tests, sentence).toEqual(expect.arrayContaining([{ slice: "N5", test: "src/server/services/clinician.test.ts > terms and BAA are stored with version and hash at sign-up" }]));
     }
   });
 

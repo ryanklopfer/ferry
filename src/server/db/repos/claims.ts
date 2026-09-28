@@ -1,11 +1,11 @@
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import type { ClinicianOnlyCtx, Ctx } from "@/server/auth/ctx";
 import type { Keyring } from "@/server/crypto/tenant-keys";
 import { keyringFor } from "./tenant-keys";
 import { db } from "../index";
 import { decodeRow, decodeRows, encodeRow } from "../codec";
 import { newId } from "../ids";
-import { type Claim, type ClaimLine, type Plan, claimLines, claims, plans, providers } from "../schema";
+import { type Claim, type ClaimLine, type Plan, claimLines, claims, plans } from "../schema";
 import { NotOwnedError } from "@/server/errors";
 import { assertNotClient, tenantWhere } from "./scope";
 
@@ -14,15 +14,6 @@ type Insert = typeof claims.$inferInsert;
 export type NewClaim = Omit<Insert, "id" | "userId" | "clientId" | "createdAt" | "updatedAt" | "billingProviderTaxIdLast4" | "diagnosisCodes"> & Partial<Pick<Insert, "diagnosisCodes">>;
 export type ClaimPatch = Partial<Omit<NewClaim, "planId">>;
 export type LineValues = Pick<ClaimLine, "serviceDate" | "cptCode" | "modifiers" | "description" | "units" | "charge" | "diagnosisPointers" | "placeOfService">;
-
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
-
-async function assertProvidersOwned(tx: Tx, ctx: ClinicianOnlyCtx, ids: (string | null | undefined)[]) {
-  const wanted = [...new Set(ids.filter((i): i is string => Boolean(i)))];
-  if (!wanted.length) return;
-  const found = await tx.select({ id: providers.id }).from(providers).where(and(inArray(providers.id, wanted), tenantWhere(providers, ctx)));
-  if (found.length !== wanted.length) throw new NotOwnedError("Provider");
-}
 
 const lineRows = (ctx: ClinicianOnlyCtx, ring: Keyring, claim: { id: string; clientId: string }, lines: LineValues[]) =>
   lines.map((l, position) => encodeRow(claimLines, ring, { ...l, id: newId("lin"), userId: ctx.userId, clientId: claim.clientId, claimId: claim.id, position }, { insert: true }));
@@ -56,7 +47,6 @@ export const claimsRepo = {
     return db.transaction(async (tx) => {
       const [plan] = await tx.select({ id: plans.id, clientId: plans.clientId }).from(plans).where(and(eq(plans.id, values.planId), tenantWhere(plans, ctx)));
       if (!plan) throw new NotOwnedError("Plan");
-      await assertProvidersOwned(tx, ctx, [values.billingProviderId, values.renderingProviderId]);
       const [claim] = await tx.insert(claims).values(encodeRow(claims, ring, { ...values, id: newId("clm"), userId: ctx.userId, clientId: plan.clientId } as Insert, { insert: true })).returning();
       if (lines.length) await tx.insert(claimLines).values(lineRows(ctx, ring, claim, lines));
       return decodeRow(claims, ring, claim);
@@ -66,11 +56,8 @@ export const claimsRepo = {
   async update(ctx: ClinicianOnlyCtx, id: string, patch: ClaimPatch): Promise<Claim | null> {
     assertNotClient(ctx);
     const ring = await keyringFor(ctx);
-    return db.transaction(async (tx) => {
-      await assertProvidersOwned(tx, ctx, [patch.billingProviderId, patch.renderingProviderId]);
-      const [row] = await tx.update(claims).set(encodeRow(claims, ring, { ...patch, updatedAt: new Date() }, { id })).where(and(eq(claims.id, id), tenantWhere(claims, ctx))).returning();
-      return row ? decodeRow(claims, ring, row) : null;
-    });
+    const [row] = await db.update(claims).set(encodeRow(claims, ring, { ...patch, updatedAt: new Date() }, { id })).where(and(eq(claims.id, id), tenantWhere(claims, ctx))).returning();
+    return row ? decodeRow(claims, ring, row) : null;
   },
 
   // Patch and lines land together or not at all.
@@ -78,7 +65,6 @@ export const claimsRepo = {
     assertNotClient(ctx);
     const ring = await keyringFor(ctx);
     return db.transaction(async (tx) => {
-      await assertProvidersOwned(tx, ctx, [patch.billingProviderId, patch.renderingProviderId]);
       const [row] = await tx.update(claims).set(encodeRow(claims, ring, { ...patch, updatedAt: new Date() }, { id })).where(and(eq(claims.id, id), tenantWhere(claims, ctx))).returning();
       if (!row) return null;
       await tx.delete(claimLines).where(and(eq(claimLines.claimId, id), tenantWhere(claimLines, ctx)));

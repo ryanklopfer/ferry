@@ -75,6 +75,15 @@ describe("log", () => {
     expect(out).not.toContain("Mozilla");
   });
 
+  it("emits no Tax ID when handed a whole clinician profile", () => {
+    const profile = { id: "prf_1", userId: "usr_1", legalName: "Rachel Steinberg", npi: "1999000023", taxId: "917382046", taxIdType: "SSN", taxIdLast4: "2046", taxIdBidx: "q3Xk", practiceAddress: { line1: "4471 Wexford Hollow Rd", city: "Oakland" } };
+    const out = capture(() => {
+      log("clinician.profile_saved", { ...profile, profile, userId: profile.userId });
+      log("clinician.profile_saved", { taxId: profile.taxId, tax_id: profile.taxId, ssn: profile.taxId, ein: profile.taxId, code: profile.taxId });
+    });
+    for (const secret of ["917382046", "917-38-2046", "Wexford", "Steinberg", "2046"]) expect(out, secret).not.toContain(secret);
+  });
+
   it("never takes a name from something that is not an error", () => {
     expect(JSON.parse(capture(() => log("x", { error: { name: "Samira" } }))).error).toBe("Error");
     expect(JSON.parse(capture(() => log("x", { error: new TypeError("U4827193") }))).error).toBe("TypeError");

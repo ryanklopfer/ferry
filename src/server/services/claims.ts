@@ -7,7 +7,6 @@ import { NotOwnedError } from "@/server/errors";
 import { eventsRepo } from "@/server/db/repos/events";
 import { followUpsRepo } from "@/server/db/repos/follow-ups";
 import { plansRepo } from "@/server/db/repos/plans";
-import { providersRepo } from "@/server/db/repos/providers";
 import { logFor } from "@/server/log";
 import type { Claim, ClaimStatus, ClaimView } from "./types";
 
@@ -111,10 +110,6 @@ export async function saveClaim(ctx: ClinicianOnlyCtx, id: string, input: ClaimI
     if (missing) throw new Error(`Line ${line.cptCode} points at diagnosis ${missing}, but only ${v.diagnosisCodes.length} diagnosis code(s) are listed`);
   }
 
-  const billing = await providersRepo.upsertByNpiOrName(ctx, v.billingProvider);
-  const sameAsBilling = v.renderingProvider && (v.renderingProvider.npi ? v.renderingProvider.npi === v.billingProvider.npi : v.renderingProvider.name === v.billingProvider.name);
-  const rendering = v.renderingProvider && !sameAsBilling ? await providersRepo.upsertByNpiOrName(ctx, v.renderingProvider) : null;
-
   const lines = v.lines.map((l) => ({ ...l, placeOfService: l.placeOfService ?? v.placeOfService }));
   const dates = lines.map((l) => l.serviceDate).filter((d): d is string => Boolean(d)).sort();
   const total = lines.reduce((s, l) => s + l.charge, 0);
@@ -123,8 +118,6 @@ export async function saveClaim(ctx: ClinicianOnlyCtx, id: string, input: ClaimI
     ctx,
     id,
     {
-      billingProviderId: billing.id,
-      renderingProviderId: rendering?.id ?? null,
       billingProviderName: v.billingProvider.name,
       billingProviderNpi: v.billingProvider.npi,
       billingProviderTaxId: v.billingProvider.taxId,

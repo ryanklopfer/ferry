@@ -9,7 +9,7 @@ import { keyDir } from "@/server/crypto/key-provider";
 import { pool } from "@/server/db";
 import { clientConsentsRepo, clinicianConsentsRepo } from "./repos/consents";
 import { keyringFor } from "./repos/tenant-keys";
-import { bindClientUser, createTestUser, decryptedDump, rawDump, resetDb, seedSyntheticClient, type SyntheticPerson } from "./testing";
+import { bindClientUser, createTestUser, decryptedDump, rawDump, resetDb, seedClinicianProfile, seedSyntheticClient, type SyntheticPerson } from "./testing";
 
 // Long, distinctive synthetic values, so a chance match inside base64 ciphertext is out of the question.
 const PEOPLE: SyntheticPerson[] = [
@@ -17,6 +17,12 @@ const PEOPLE: SyntheticPerson[] = [
   { firstName: "Thaddeus", lastName: "Okonkwo", email: "thaddeus.okonkwo@example.test", phone: "555-010-8812", dob: "1985-07-19", memberId: "U5530981264", groupNumber: "GRP-3301877", diagnosis: "F33.1", taxId: "00-1000003" },
   { firstName: "Ingeborg", lastName: "Castellanos", email: "ingeborg.castellanos@example.test", phone: "555-010-2290", dob: "1979-11-30", memberId: "H7720045519", groupNumber: "GRP-9087741", diagnosis: "F43.23", taxId: "00-1000004" },
 ];
+
+// Each clinician's own Tax ID (a solo clinician's is often their SSN) and practice address, from onboarding.
+const PRACTICES = [
+  { npi: "1999000023", taxId: "917-38-2046", taxIdType: "SSN", line1: "4471 Wexford Hollow Rd" },
+  { npi: "1234567893", taxId: "83-6150297", taxIdType: "EIN", line1: "902 Quillfeather Ln" },
+] as const;
 
 // What a consent row keeps about the signer: typed name, IP address and browser, all sealed.
 const SIGNER = { typedName: "Wilhelmina Achterberg-Solis", ip: "198.51.100.231", userAgent: "Mozilla/5.0 Ferry-Dump-Marker/7.3" };
@@ -33,6 +39,9 @@ describe("rawDump of a seeded ferry_test", () => {
     const x = await createTestUser("clinician", "x@example.test");
     const y = await createTestUser("clinician", "y@example.test");
     tenants = [x.userId, y.userId];
+    for (const [ctx, p] of [[x, PRACTICES[0]], [y, PRACTICES[1]]] as const) {
+      await seedClinicianProfile(ctx, { npi: p.npi, taxId: p.taxId.replace(/\D/g, ""), taxIdType: p.taxIdType, practiceAddress: { line1: p.line1, line2: null, city: "Oakland", state: "CA", zip: "94610" } });
+    }
     const a = await seedSyntheticClient(x, PEOPLE[0]);
     await seedSyntheticClient(x, PEOPLE[1]);
     await seedSyntheticClient(y, PEOPLE[2]);
@@ -50,7 +59,7 @@ describe("rawDump of a seeded ferry_test", () => {
   });
 
   it("is a real dump of the seeded tables", () => {
-    for (const table of ["clients", "plans", "claims", "claim_lines", "events", "follow_ups", "providers", "tenant_keys", "clinician_consents", "client_consents"]) expect(dump).toContain(`COPY public.${table} `);
+    for (const table of ["clients", "plans", "claims", "claim_lines", "events", "follow_ups", "clinician_profiles", "tenant_keys", "clinician_consents", "client_consents"]) expect(dump).toContain(`COPY public.${table} `);
     expect(dump).toContain("Rachel Steinberg, LCSW");
     expect(dump).not.toContain("COPY public.users ");
   });
@@ -59,6 +68,17 @@ describe("rawDump of a seeded ferry_test", () => {
     const leaks = PEOPLE.flatMap((p) => [p.firstName, p.lastName, `${p.firstName} ${p.lastName}`, p.email, p.phone, p.memberId, p.groupNumber, p.diagnosis, p.taxId, p.taxId.replace("-", "")]).filter((v) => dump.includes(v));
     expect(leaks).toEqual([]);
     expect(dump).not.toContain("90837");
+  });
+
+  it("contains no clinician Tax ID or practice address, which the tenant key still reads", async () => {
+    const leaks = PRACTICES.flatMap((p) => [p.taxId, p.taxId.replace(/\D/g, ""), p.taxId.replace(/\D/g, "").slice(0, 5), p.line1, "Wexford", "Quillfeather"]).filter((v) => dump.includes(v));
+    expect(leaks).toEqual([]);
+    expect(dump).toContain("2046");
+    const [x, y] = await Promise.all(tenants.map(decryptedDump));
+    expect(x).toContain("917382046");
+    expect(x).toContain(PRACTICES[0].line1);
+    expect(x).not.toContain("836150297");
+    expect(y).toContain("836150297");
   });
 
   it("contains no consent signer's typed name, IP address or user agent, which the tenant key still reads", async () => {

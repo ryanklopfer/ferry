@@ -8,9 +8,8 @@ import { clientsRepo } from "./repos/clients";
 import { eventsRepo } from "./repos/events";
 import { followUpsRepo } from "./repos/follow-ups";
 import { plansRepo } from "./repos/plans";
-import { providersRepo } from "./repos/providers";
 import { AUTH_TABLES, BLIND_INDEXES, EPHEMERAL, LAST4_OF, PLAINTEXT_OK, SEALED, SEALED_DEFAULTS } from "./columns";
-import { bindClientUser, createTestUser, resetDb } from "./testing";
+import { bindClientUser, createTestUser, resetDb, seedClinicianProfile } from "./testing";
 
 type ColumnRow = { table_name: string; column_name: string; data_type: string };
 type Lists = { sealed: Record<string, readonly string[]>; ephemeral: Record<string, readonly string[]>; plaintext: Record<string, Record<string, string>> };
@@ -120,12 +119,11 @@ describe("the ferry_test schema", () => {
       patientPhone: "555-0100",
       patientEmail: "marisol@example.test",
     });
-    const provider = await providersRepo.upsertByNpiOrName(x, { name: "Rachel Steinberg, LCSW", npi: "1999000023", taxId: "00-1000002", taxIdType: "EIN", address: "2 Practice St", phone: "555-0101" });
+    await seedClinicianProfile(x, { taxId: "001000002", taxIdType: "EIN" });
     const claim = await claimsRepo.create(
       x,
       {
         planId: plan.id,
-        billingProviderId: provider.id,
         billingProviderTaxId: "00-1000002",
         billingProviderAddress: "2 Practice St",
         billingProviderPhone: "555-0101",
@@ -151,7 +149,7 @@ describe("the ferry_test schema", () => {
       expect(rows.length, table).toBeGreaterThan(0);
       for (const row of rows) for (const c of cols) expect(isSealed(row[c]), `${table}.${c} = ${String(row[c]).slice(0, 12)}`).toBe(true);
     }
-    const { rows } = await pool.query("select tax_id_last4 from providers where user_id = $1 union all select billing_provider_tax_id_last4 from claims where user_id = $1", [x.userId]);
+    const { rows } = await pool.query("select tax_id_last4 from clinician_profiles where user_id = $1 union all select billing_provider_tax_id_last4 from claims where user_id = $1", [x.userId]);
     expect(rows.map((r) => Object.values(r)[0])).toEqual(["0002", "0002"]);
   });
 });

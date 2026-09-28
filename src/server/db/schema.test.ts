@@ -91,6 +91,17 @@ describe("the scope checker", () => {
 describe("the ferry_test schema", () => {
   afterAll(() => pool.end());
 
+  it("no longer has the per-patient providers table or the claims columns that pointed at it", async () => {
+    const tables = await pool.query("select table_name from information_schema.tables where table_schema = 'public' and table_name = 'providers'");
+    expect(tables.rows).toEqual([]);
+    const columns = await pool.query("select column_name from information_schema.columns where table_schema = 'public' and table_name = 'claims' and column_name in ('billing_provider_id', 'rendering_provider_id')");
+    expect(columns.rows).toEqual([]);
+    const fks = await pool.query("select conname from pg_constraint where contype = 'f' and pg_get_constraintdef(oid) like '%providers%'");
+    expect(fks.rows).toEqual([]);
+    const snapshot = await pool.query("select column_name from information_schema.columns where table_schema = 'public' and table_name = 'claims' and column_name like '%provider%' order by column_name");
+    expect(snapshot.rows.map((r) => r.column_name)).toContain("billing_provider_npi");
+  });
+
   it("has an owner on every table and a client on every client-scoped one", async () => {
     const fk = (column: string, target: string) => `exists (
       select 1

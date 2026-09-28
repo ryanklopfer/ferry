@@ -52,7 +52,7 @@ describe("magic link sign-in", () => {
     const [user] = await db.select().from(schema.users).where(eq(schema.users.email, ADDRESS));
     expect(user.emailVerified).toBe(true);
     expect(user.role).toBe("pending");
-    expect(session).toEqual({ userId: user.id, role: "pending" });
+    expect(session).toEqual({ userId: user.id, role: "pending", email: ADDRESS });
   });
 
   it("never stores a name, whatever the sign-in or update-user request sends", async () => {

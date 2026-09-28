@@ -1,12 +1,18 @@
 import { eq, sql } from "drizzle-orm";
 import { db } from "../index";
-import { claims, users } from "../schema";
+import { claims, clinicianProfiles, users } from "../schema";
 
 // The only ctx-less lookups (architecture §6 rule 8): each returns ids, never row content.
 export const resolvers = {
   async userIdByEmail(email: string): Promise<string | null> {
     const [row] = await db.select({ id: users.id }).from(users).where(eq(sql`lower(${users.email})`, email.trim().toLowerCase()));
     return row?.id ?? null;
+  },
+
+  // Whose profile holds this NPI, across every tenant: an NPI belongs to one account (and one trial).
+  async profileOwnerByNpi(npi: string): Promise<string | null> {
+    const [row] = await db.select({ userId: clinicianProfiles.userId }).from(clinicianProfiles).where(eq(clinicianProfiles.npi, npi));
+    return row?.userId ?? null;
   },
 
   // The 837P patient control number (CLM01) is the claim id until S8 fixes its format. Webhooks and 277 handlers
