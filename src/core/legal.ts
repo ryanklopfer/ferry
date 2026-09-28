@@ -74,3 +74,7 @@ export function ageOn(dob: string, today: Date): number | null {
   const [ty, tm, td] = [today.getUTCFullYear(), today.getUTCMonth() + 1, today.getUTCDate()];
   return ty - y - (tm < mo || (tm === mo && td < d) ? 1 : 0);
 }
+
+// The calendar date it still is somewhere in the US at this instant (American Samoa, UTC-11, no daylight time). A
+// birthday counts only once it has arrived everywhere, so no one turns 18 early by being east of their clinician.
+export const earliestUsDate = (now: Date): Date => new Date(now.getTime() - 11 * 3_600_000);

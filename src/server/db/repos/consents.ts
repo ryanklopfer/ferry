@@ -22,10 +22,18 @@ export const clinicianConsentsRepo = {
   },
 
   async create(ctx: ClinicianOnlyCtx, values: NewClinicianConsent): Promise<{ id: string }> {
-    assertNotClient(ctx);
-    const ring = await keyringFor(ctx);
-    const [row] = await db.insert(clinicianConsents).values(encodeRow(clinicianConsents, ring, { ...values, id: newId("ccn"), userId: ctx.userId }, { insert: true })).returning({ id: clinicianConsents.id });
+    const [row] = await clinicianConsentsRepo.createAll(ctx, [values]);
     return row;
+  },
+
+  // One statement, so texts signed together are recorded together or not at all.
+  async createAll(ctx: ClinicianOnlyCtx, values: readonly NewClinicianConsent[]): Promise<{ id: string }[]> {
+    assertNotClient(ctx);
+    if (!values.length) return [];
+    const ring = await keyringFor(ctx);
+    const ids = values.map(() => newId("ccn"));
+    await db.insert(clinicianConsents).values(values.map((v, i) => encodeRow(clinicianConsents, ring, { ...v, id: ids[i], userId: ctx.userId }, { insert: true })));
+    return ids.map((id) => ({ id }));
   },
 
   async withdraw(ctx: ClinicianOnlyCtx, docType: ClinicianDocType): Promise<boolean> {
@@ -52,11 +60,17 @@ export const clientConsentsRepo = {
   },
 
   async create(ctx: ClientCtx, values: NewClientConsent): Promise<{ id: string }> {
+    const [row] = await clientConsentsRepo.createAll(ctx, [values]);
+    return row;
+  },
+
+  async createAll(ctx: ClientCtx, values: readonly NewClientConsent[]): Promise<{ id: string }[]> {
     assertClient(ctx);
+    if (!values.length) return [];
     const ring = await keyringFor(ctx);
-    const row = encodeRow(clientConsents, ring, { ...values, id: newId("kcn"), userId: ctx.userId, clientId: ctx.clientId, actorUserId: ctx.actorId }, { insert: true });
-    const [created] = await db.insert(clientConsents).values(row).returning({ id: clientConsents.id });
-    return created;
+    const ids = values.map(() => newId("kcn"));
+    await db.insert(clientConsents).values(values.map((v, i) => encodeRow(clientConsents, ring, { ...v, id: ids[i], userId: ctx.userId, clientId: ctx.clientId, actorUserId: ctx.actorId }, { insert: true })));
+    return ids.map((id) => ({ id }));
   },
 
   // Postgres delivers the notification only when the transaction commits, and only if a row changed. Ids only:

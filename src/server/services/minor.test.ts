@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SignerRelationship } from "@/core/legal";
 import { clientCtxFor } from "@/server/auth/client-ctx";
 import type { ClientCtx, ClinicianCtx } from "@/server/auth/ctx";
@@ -8,13 +8,8 @@ import { bindClientUser, createTestUser, resetDb } from "@/server/db/testing";
 import { liveText } from "@/server/legal";
 import { recordConsent } from "./consents";
 
-// 17 and 18 years before today (UTC), so the test holds on any day it runs.
-const yearsAgo = (n: number, days = 0) => {
-  const d = new Date();
-  d.setUTCFullYear(d.getUTCFullYear() - n);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-};
+// The clock is fixed at midday UTC on 2026-06-15, a date that is the same in every US zone.
+const NOW = new Date("2026-06-15T12:00:00Z");
 
 describe("a client under 18", () => {
   let x: ClinicianCtx;
@@ -31,11 +26,13 @@ describe("a client under 18", () => {
   beforeEach(async () => {
     await resetDb();
     x = await createTestUser("clinician");
+    vi.useFakeTimers({ toFake: ["Date"], now: NOW });
   });
+  afterEach(() => vi.useRealTimers());
   afterAll(() => pool.end());
 
   it("refuses a 'self' signer and accepts a parent or guardian", async () => {
-    const minor = await clientBornOn(yearsAgo(17));
+    const minor = await clientBornOn("2009-06-15");
     await expect(sign(minor, "self")).rejects.toMatchObject({ name: "ConsentRefused", reason: "minor_self" });
     await expect(sign(minor, "parent_guardian")).resolves.toMatchObject({ docType: "client_recording" });
     await expect(sign(minor, "legal_representative")).resolves.toMatchObject({ docType: "client_recording" });
@@ -44,8 +41,13 @@ describe("a client under 18", () => {
   });
 
   it("still refuses 'self' the day before the 18th birthday, and accepts it on the day", async () => {
-    await expect(sign(await clientBornOn(yearsAgo(18, 1)), "self")).rejects.toMatchObject({ reason: "minor_self" });
-    await expect(sign(await clientBornOn(yearsAgo(18)), "self")).resolves.toMatchObject({ docType: "client_recording" });
+    await expect(sign(await clientBornOn("2008-06-16"), "self")).rejects.toMatchObject({ reason: "minor_self" });
+    await expect(sign(await clientBornOn("2008-06-15"), "self")).resolves.toMatchObject({ docType: "client_recording" });
+  });
+
+  it("still refuses 'self' on the evening before the birthday in the US, when it is already the birthday in UTC", async () => {
+    vi.setSystemTime(new Date("2026-06-15T03:00:00Z"));
+    await expect(sign(await clientBornOn("2008-06-15"), "self")).rejects.toMatchObject({ reason: "minor_self" });
   });
 
   it("accepts 'self' when no date of birth is on file", async () => {

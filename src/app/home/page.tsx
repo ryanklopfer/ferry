@@ -11,7 +11,8 @@ export default async function HomePage() {
   if (role === "clinician" && (await staleConsents(await requireClinician())).length) redirect(`/app/reconsent?next=${HOME.clinician}`);
   if (role === "client") {
     const m = await firstStaleMembership(await requireClient());
-    if (m) redirect(`/c/reconsent?m=${m}&next=${HOME.client}`);
+    // Back through /home, so each clinician's stale consents are asked for in turn.
+    if (m) redirect(`/c/reconsent?m=${m}&next=/home`);
   }
   redirect(HOME[role]);
 }

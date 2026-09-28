@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { ageOn, CONSENT_DOC_TYPES, type ConsentRecord, currentConsent, docHash, LEGAL_SLUG, LegalFormatError, parseLegal } from "./legal";
+import { ageOn, CONSENT_DOC_TYPES, type ConsentRecord, currentConsent, docHash, earliestUsDate, LEGAL_SLUG, LegalFormatError, parseLegal } from "./legal";
 import { sha256Hex } from "./sha256";
 
 const DIR = path.join(process.cwd(), "content", "legal");
@@ -89,5 +89,12 @@ describe("ageOn", () => {
 
   it("is null for anything that isn't a real ISO date", () => {
     for (const bad of ["", "10/02/2008", "2008-02-30", "2008-13-01"]) expect(ageOn(bad, day("2026-10-01")), bad).toBeNull();
+  });
+
+  it("waits for the birthday to arrive in every US zone", () => {
+    // 8 pm in New York on Sep 27 is already Sep 28 in UTC.
+    expect(ageOn("2008-09-28", earliestUsDate(new Date("2026-09-28T00:00:00Z")))).toBe(17);
+    expect(ageOn("2008-09-28", earliestUsDate(new Date("2026-09-28T10:59:59Z")))).toBe(17);
+    expect(ageOn("2008-09-28", earliestUsDate(new Date("2026-09-28T11:00:00Z")))).toBe(18);
   });
 });

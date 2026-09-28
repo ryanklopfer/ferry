@@ -65,7 +65,42 @@ describe("/home", () => {
       request.headers = await signedInHeaders("u@example.test");
       await expect(HomePage()).rejects.toThrow(/^redirect:\/c$/);
       legal.bump("client_filing");
-      await expect(HomePage()).rejects.toThrow(`redirect:/c/reconsent?m=${m}&next=/c`);
+      await expect(HomePage()).rejects.toThrow(`redirect:/c/reconsent?m=${m}&next=/home`);
+    });
+
+    it("asks for each clinician's stale consents in turn, coming back through /home", async () => {
+      const self = await createTestUser("client", "u@example.test");
+      const ms: string[] = [];
+      for (const email of ["x@example.test", "y@example.test"]) {
+        const clinician = await createTestUser("clinician", email);
+        const client = await clientsRepo.create(clinician, { firstName: "Ana", lastName: "Ortiz", dob: "1990-04-02", email: null, phone: null });
+        ms.push(await bindClientUser(clinician, client.id, self));
+      }
+      for (const m of ms) await recordConsent(await clientCtxFor(self, m), { docType: "client_filing", typedName: "Ana Ortiz", shownHash: (await liveText("client_filing")).hash, signerRelationship: "self", ip: null, userAgent: null });
+      legal.bump("client_filing");
+      request.headers = await signedInHeaders("u@example.test");
+      for (const m of ms) {
+        await expect(HomePage()).rejects.toThrow(`redirect:/c/reconsent?m=${m}&next=/home`);
+        await recordConsent(await clientCtxFor(self, m), { docType: "client_filing", typedName: "Ana Ortiz", shownHash: (await liveText("client_filing")).hash, signerRelationship: "self", ip: null, userAgent: null });
+      }
+      await expect(HomePage()).rejects.toThrow(/^redirect:\/c$/);
+    });
+
+    it("still signs in a client one clinician has archived, and checks their other clinicians", async () => {
+      const self = await createTestUser("client", "u@example.test");
+      const x = await createTestUser("clinician", "x@example.test");
+      const archived = await clientsRepo.create(x, { firstName: "Ana", lastName: "Ortiz", dob: "1990-04-02", email: null, phone: null });
+      await bindClientUser(x, archived.id, self);
+      await clientsRepo.archive(x, archived.id);
+      request.headers = await signedInHeaders("u@example.test");
+      await expect(HomePage()).rejects.toThrow(/^redirect:\/c$/);
+
+      const y = await createTestUser("clinician", "y@example.test");
+      const client = await clientsRepo.create(y, { firstName: "Ana", lastName: "Ortiz", dob: "1990-04-02", email: null, phone: null });
+      const m = await bindClientUser(y, client.id, self);
+      await recordConsent(await clientCtxFor(self, m), { docType: "client_filing", typedName: "Ana Ortiz", shownHash: (await liveText("client_filing")).hash, signerRelationship: "self", ip: null, userAgent: null });
+      legal.bump("client_filing");
+      await expect(HomePage()).rejects.toThrow(`redirect:/c/reconsent?m=${m}&next=/home`);
     });
   });
 });

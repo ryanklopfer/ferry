@@ -16,7 +16,7 @@ test.describe.configure({ mode: "serial" });
 
 test.beforeAll(async () => {
   test.setTimeout(600_000);
-  const env = { ...process.env, ...e2eServerEnv(PORT), FERRY_SCRUB_ERRORS: "1", FERRY_E2E_FIXTURES: "1" };
+  const env = { ...process.env, ...e2eServerEnv(PORT), FERRY_SCRUB_ERRORS: "1" };
   const build = spawnSync("bunx", ["next", "build"], { env: { ...env, NODE_ENV: "production" }, encoding: "utf8" });
   if (build.status !== 0) throw new Error(`next build failed:\n${build.stdout}\n${build.stderr}`);
   server = spawn("bunx", ["next", "start", "--port", String(PORT)], { env: { ...env, NODE_ENV: "production" } });

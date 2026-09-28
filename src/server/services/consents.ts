@@ -8,6 +8,7 @@ import {
   type ConsentRecord,
   type ConsentState,
   currentConsent,
+  earliestUsDate,
   isClientDocType,
   isClinicianDocType,
   type LegalBlock,
@@ -48,36 +49,50 @@ export function onConsentWithdrawn(handler: (e: ConsentWithdrawn) => void | Prom
   return () => void withdrawnHooks.delete(handler);
 }
 
-const today = () => new Date();
+type Recorded = { id: string; docType: ConsentDocType; version: string };
 
-export async function recordConsent(ctx: Party, input: ConsentInput): Promise<{ id: string; docType: ConsentDocType; version: string }> {
-  const ok = ctx.scope === "client" ? isClientDocType(input.docType) : ctx.scope === "clinician" && isClinicianDocType(input.docType);
-  if (!ok) throw new ConsentRefused("wrong_party");
-  const typedName = input.typedName.trim();
-  if (!typedName) throw new ConsentRefused("no_name");
-  const live = await liveText(input.docType);
-  if (live.hash !== input.shownHash) throw new ConsentRefused("text_changed");
-  const signed = { version: live.doc.version, contentHash: live.hash, typedName, ip: input.ip, userAgent: input.userAgent };
-
-  if (ctx.scope === "client") {
-    const docType = input.docType as ClientDocType;
+// Every text is checked before any is recorded, and they are written in one statement: one typed-name signature over
+// several texts is kept whole or refused whole.
+export async function recordConsents(ctx: Party, inputs: readonly ConsentInput[]): Promise<Recorded[]> {
+  const checked: { docType: ConsentDocType; version: string; contentHash: string; typedName: string; ip: string | null; userAgent: string | null; signerRelationship?: SignerRelationship }[] = [];
+  let adultChecked = false;
+  for (const input of inputs) {
+    const ok = ctx.scope === "client" ? isClientDocType(input.docType) : ctx.scope === "clinician" && isClinicianDocType(input.docType);
+    if (!ok) throw new ConsentRefused("wrong_party");
+    const typedName = input.typedName.trim();
+    if (!typedName) throw new ConsentRefused("no_name");
+    const live = await liveText(input.docType);
+    if (live.hash !== input.shownHash) throw new ConsentRefused("text_changed");
+    const signed = { docType: input.docType, version: live.doc.version, contentHash: live.hash, typedName, ip: input.ip, userAgent: input.userAgent };
+    if (ctx.scope !== "client") {
+      checked.push(signed);
+      continue;
+    }
     const signer = input.signerRelationship;
     if (!signer || !SIGNER_RELATIONSHIPS.includes(signer)) throw new ConsentRefused("no_signer");
-    if (signer === "self") {
+    if (signer === "self" && !adultChecked) {
       const client = await clientsRepo.get(ctx, ctx.clientId);
       if (!client) throw new NotOwnedError("Client");
-      const age = client.dob ? ageOn(client.dob, today()) : null;
+      const age = client.dob ? ageOn(client.dob, earliestUsDate(new Date())) : null;
       if (age !== null && age < 18) throw new ConsentRefused("minor_self");
+      adultChecked = true;
     }
-    const { id } = await clientConsentsRepo.create(ctx, { ...signed, docType, signerRelationship: signer });
-    log("consent.recorded", { userId: ctx.userId, clientId: ctx.clientId, kind: docType });
-    return { id, docType, version: live.doc.version };
+    checked.push({ ...signed, signerRelationship: signer });
   }
 
-  const docType = input.docType as ClinicianDocType;
-  const { id } = await clinicianConsentsRepo.create(ctx, { ...signed, docType });
-  log("consent.recorded", { userId: ctx.userId, kind: docType });
-  return { id, docType, version: live.doc.version };
+  if (ctx.scope === "client") {
+    const rows = await clientConsentsRepo.createAll(ctx, checked.map((c) => ({ ...c, docType: c.docType as ClientDocType, signerRelationship: c.signerRelationship as SignerRelationship })));
+    for (const { docType } of checked) log("consent.recorded", { userId: ctx.userId, clientId: ctx.clientId, kind: docType });
+    return rows.map(({ id }, i) => ({ id, docType: checked[i].docType, version: checked[i].version }));
+  }
+  const rows = await clinicianConsentsRepo.createAll(ctx, checked.map((c) => ({ ...c, docType: c.docType as ClinicianDocType })));
+  for (const { docType } of checked) log("consent.recorded", { userId: ctx.userId, kind: docType });
+  return rows.map(({ id }, i) => ({ id, docType: checked[i].docType, version: checked[i].version }));
+}
+
+export async function recordConsent(ctx: Party, input: ConsentInput): Promise<Recorded> {
+  const [recorded] = await recordConsents(ctx, [input]);
+  return recorded;
 }
 
 export async function withdrawConsent(ctx: Party, docType: ConsentDocType): Promise<boolean> {
@@ -123,9 +138,17 @@ export async function staleConsents(ctx: Party): Promise<ConsentDocType[]> {
 }
 
 // The first of a client user's memberships with a stale consent, so sign-in can send them to /c/reconsent.
+// A membership clientCtxFor refuses (its client archived or re-bound) is skipped, not an error: the user still signs in.
 export async function firstStaleMembership(self: SelfCtx): Promise<string | null> {
   for (const id of await membershipsRepo.activeIds(self)) {
-    if ((await staleConsents(await clientCtxFor(self, id))).length) return id;
+    let ctx: ClientCtx;
+    try {
+      ctx = await clientCtxFor(self, id);
+    } catch (e) {
+      if (e instanceof NotOwnedError) continue;
+      throw e;
+    }
+    if ((await staleConsents(ctx)).length) return id;
   }
   return null;
 }
@@ -168,6 +191,5 @@ export async function clientReconsent(self: SelfCtx, membershipId: string): Prom
 }
 
 export async function recordClientConsents(self: SelfCtx, membershipId: string, inputs: readonly ConsentInput[]): Promise<void> {
-  const ctx = await clientCtxFor(self, membershipId);
-  for (const input of inputs) await recordConsent(ctx, input);
+  await recordConsents(await clientCtxFor(self, membershipId), inputs);
 }

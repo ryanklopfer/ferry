@@ -10,7 +10,7 @@ import { bindClientUser, createTestUser, resetDb } from "@/server/db/testing";
 import { ConsentMissing, ConsentRefused, ConsentStale } from "@/server/errors";
 import { liveText } from "@/server/legal";
 import { tempLegalDir } from "@/test-support/legal-dir";
-import { consentStatus, recordConsent, requireFilingConsent, requireRecordingConsent, staleConsents, withdrawConsent } from "./consents";
+import { consentStatus, recordConsent, recordConsents, requireFilingConsent, requireRecordingConsent, staleConsents, withdrawConsent } from "./consents";
 
 async function sign(ctx: ClinicianCtx | ClientCtx, docType: ConsentDocType) {
   const { hash } = await liveText(docType);
@@ -120,5 +120,21 @@ describe("consents", () => {
     await expect(recordConsent(k, { docType: "client_filing", typedName: "Ana Ortiz", shownHash: hash, signerRelationship: "self", ip: null, userAgent: null })).rejects.toMatchObject({ reason: "text_changed" });
     await expect(recordConsent(k, { docType: "client_filing", typedName: "  ", shownHash: (await liveText("client_filing")).hash, signerRelationship: "self", ip: null, userAgent: null })).rejects.toMatchObject({ reason: "no_name" });
     await expect(recordConsent(k, { docType: "client_filing", typedName: "Ana Ortiz", shownHash: (await liveText("client_filing")).hash, ip: null, userAgent: null })).rejects.toMatchObject({ reason: "no_signer" });
+  });
+
+  it("records texts signed together all at once, or none of them when any is refused", async () => {
+    const input = async (docType: "client_filing" | "client_recording") => ({ docType, typedName: "Ana Ortiz", shownHash: (await liveText(docType)).hash, signerRelationship: "self" as const, ip: null, userAgent: null });
+    const [filing, recording] = [await input("client_filing"), await input("client_recording")];
+    legal.bump("client_recording");
+    await expect(recordConsents(k, [filing, recording])).rejects.toMatchObject({ reason: "text_changed" });
+    expect(await consentStatus(k)).toEqual({ client_filing: "none", client_recording: "none" });
+
+    const recorded = await recordConsents(k, [filing, await input("client_recording")]);
+    expect(recorded.map((r) => r.docType)).toEqual(["client_filing", "client_recording"]);
+    expect(await consentStatus(k)).toEqual({ client_filing: "current", client_recording: "current" });
+
+    const [terms, baa] = await Promise.all((["terms", "baa"] as const).map(async (docType) => ({ docType, typedName: "Rachel Steinberg", shownHash: (await liveText(docType)).hash, ip: null, userAgent: null })));
+    await expect(recordConsents(x, [terms, { ...baa, typedName: " " }])).rejects.toMatchObject({ reason: "no_name" });
+    expect(await consentStatus(x)).toMatchObject({ terms: "none", baa: "none" });
   });
 });
