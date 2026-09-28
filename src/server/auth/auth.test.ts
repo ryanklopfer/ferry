@@ -55,6 +55,16 @@ describe("magic link sign-in", () => {
     expect(session).toEqual({ userId: user.id, role: "pending" });
   });
 
+  it("never stores a name, whatever the sign-in or update-user request sends", async () => {
+    sentInThisProcess.length = 0;
+    await auth.api.signInMagicLink({ body: { email: ADDRESS, name: "Samira Haddad", callbackURL: "/" }, headers: new Headers() });
+    const { headers } = await openLink(new URL(sentInThisProcess[0].text.match(/https?:\/\/\S+/)![0]));
+    const nameOf = async () => (await db.select({ name: schema.users.name }).from(schema.users).where(eq(schema.users.email, ADDRESS)))[0].name;
+    expect(await nameOf()).toBe("");
+    await auth.api.updateUser({ body: { name: "Samira Haddad" }, headers });
+    expect(await nameOf()).toBe("");
+  });
+
   it("does not sign anyone in when the same link is opened twice", async () => {
     const { url } = await requestLink();
     await openLink(url);

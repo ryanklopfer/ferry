@@ -6,8 +6,8 @@ import type { ClinicianCtx, Role, SelfCtx, StaffCtx } from "@/server/auth/ctx";
 import { isSealed, keyIdOf, open } from "@/server/crypto/aead";
 import { ephemeralKeyId } from "@/server/crypto/ephemeral";
 import { ephemeralKeyStore } from "@/server/crypto";
-import { tenantKeyring } from "@/server/crypto/tenant-keys";
 import { sentInThisProcess } from "@/server/integrations/email";
+import { sealContext } from "./codec";
 import { AUTH_TABLES, EPHEMERAL, SEALED } from "./columns";
 import { databaseUrl } from "./env";
 import { db, pool } from "./index";
@@ -18,6 +18,7 @@ import { eventsRepo } from "./repos/events";
 import { followUpsRepo } from "./repos/follow-ups";
 import { plansRepo } from "./repos/plans";
 import { providersRepo } from "./repos/providers";
+import { keyringFor, tenantKeysRepo } from "./repos/tenant-keys";
 import { clientMemberships, clients, users } from "./schema";
 
 export async function resetDb(): Promise<void> {
@@ -33,7 +34,8 @@ type TestUser = { pending: { userId: string }; clinician: ClinicianCtx; client: 
 
 export async function createTestUser<R extends Role>(role: R, email = `${role}-${randomBytes(4).toString("hex")}@example.test`): Promise<TestUser[R]> {
   const id = `usr_test_${randomBytes(8).toString("hex")}`;
-  await db.insert(users).values({ id, name: email.split("@")[0], email, emailVerified: true, role });
+  await db.insert(users).values({ id, name: "", email, emailVerified: true, role });
+  if (role === "clinician") await tenantKeysRepo.create({ scope: "clinician", userId: id });
   const byRole: TestUser = { pending: { userId: id }, clinician: { scope: "clinician", userId: id }, client: { scope: "self", userId: id }, staff: { scope: "staff", userId: id } };
   return byRole[role];
 }
@@ -74,7 +76,7 @@ export function rawDump(): string {
 // What the tenant key can read: every SEALED value of the tenant's rows opened with its key, and every EPHEMERAL
 // value opened when its record key still exists (expired or not). Erasure tests assert on what is missing here.
 export async function decryptedDump(tenantId: string): Promise<string> {
-  const ring = await tenantKeyring(tenantId);
+  const ring = await keyringFor({ scope: "clinician", userId: tenantId });
   const store = ephemeralKeyStore();
   const out: Record<string, Record<string, unknown>[]> = {};
   for (const table of new Set([...Object.keys(SEALED), ...Object.keys(EPHEMERAL)])) {
@@ -82,7 +84,7 @@ export async function decryptedDump(tenantId: string): Promise<string> {
     out[table] = [];
     for (const row of rows) {
       const opened: Record<string, unknown> = { ...row };
-      for (const col of SEALED[table] ?? []) if (isSealed(row[col])) opened[col] = JSON.parse(open(ring.data, row[col]));
+      for (const col of SEALED[table] ?? []) if (isSealed(row[col])) opened[col] = JSON.parse(open(ring.data, row[col], sealContext(table, col, String(row.id))));
       for (const col of EPHEMERAL[table] ?? []) {
         const v = row[col];
         if (!isSealed(v)) continue;

@@ -1,6 +1,6 @@
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import type { ClinicianOnlyCtx } from "@/server/auth/ctx";
-import { keyringFor } from "@/server/crypto/tenant-keys";
+import { keyringFor } from "./tenant-keys";
 import { db } from "../index";
 import { decodeRow, decodeRows, encodeRow } from "../codec";
 import { newId } from "../ids";
@@ -34,7 +34,7 @@ export const providersRepo = {
       : and(tenantWhere(providers, ctx), isNull(providers.npi), sql`lower(${providers.name}) = lower(${values.name})`);
     const [existing] = await db.select({ id: providers.id }).from(providers).where(match);
     if (existing) {
-      const [row] = await db.update(providers).set(encodeRow(providers, ring, { ...known(values), updatedAt: new Date() })).where(and(eq(providers.id, existing.id), tenantWhere(providers, ctx))).returning();
+      const [row] = await db.update(providers).set(encodeRow(providers, ring, { ...known(values), updatedAt: new Date() }, { id: existing.id })).where(and(eq(providers.id, existing.id), tenantWhere(providers, ctx))).returning();
       return decodeRow(providers, ring, row);
     }
     const [row] = await db.insert(providers).values(encodeRow(providers, ring, { ...values, id: newId("prv"), userId: ctx.userId }, { insert: true })).returning();

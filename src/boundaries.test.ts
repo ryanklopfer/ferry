@@ -151,6 +151,28 @@ describe("import boundaries", () => {
     expect(await flagged("src/server/services/x.test.ts", code, "ferry/privileged-imports")).toEqual([]);
   });
 
+  it("keeps tenant keys, raw sealing and ephemeral keys inside the repo layer", async () => {
+    const rule = "ferry/privileged-imports";
+    const cases = [
+      'import { keyringFor } from "@/server/db/repos/tenant-keys";\nexport default keyringFor;\n',
+      'import { keyringFrom } from "@/server/crypto/tenant-keys";\nexport default keyringFrom;\n',
+      'import { open } from "@/server/crypto/aead";\nexport default open;\n',
+      'import { ephemeralKeyStore } from "@/server/crypto";\nexport default ephemeralKeyStore;\n',
+      'import { ephemeralKeyStore } from "@/server/crypto/index";\nexport default ephemeralKeyStore;\n',
+      'import { openEphemeral } from "@/server/crypto/ephemeral";\nexport default openEphemeral;\n',
+    ];
+    for (const file of ["src/server/services/trips.ts", "src/app/app/page.tsx", "src/app/api/v1/claims/route.ts", "src/server/auth/ctx.ts", "scripts/ops/x.ts"]) {
+      for (const code of cases) expect(await flagged(file, code, rule), `${file}: ${code}`).toHaveLength(1);
+    }
+    expect(await flagged("src/server/services/claims.ts", 'import { keyringFor } from "../db/repos/tenant-keys";\nexport default keyringFor;\n', rule)).toHaveLength(1);
+    for (const code of cases) expect(await flagged("src/server/db/repos/plans.ts", code, rule), code).toEqual([]);
+    expect(await flagged("src/server/services/roles.ts", cases[0], rule)).toHaveLength(1);
+    expect(await flagged("scripts/dev/demo-seed.ts", cases[0], rule)).toEqual([]);
+    expect(await flagged("scripts/dev/demo-seed.ts", cases[2], rule)).toHaveLength(1);
+    expect(await flagged("src/server/jobs/erase.ts", cases[5], rule)).toEqual([]);
+    expect(await flagged("src/server/jobs/erase.ts", cases[1], rule)).toHaveLength(1);
+  });
+
   it("bans 'use cache' and unstable_cache on PHI paths, but not on public pages", async () => {
     const directive = '"use cache";\nexport default async function Page() {\n  return null;\n}\n';
     const inner = 'export async function load() {\n  "use cache";\n  return 1;\n}\n';

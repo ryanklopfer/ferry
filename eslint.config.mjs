@@ -44,8 +44,9 @@ const importVisitors = (check) => ({
 
 const SYSTEM_CTX_ALLOWED = /^src\/(server\/(jobs|relay)\/|app\/api\/webhooks\/|server\/services\/ops\.ts$|server\/auth\/system-ctx\.ts$)/;
 const INVITE_CTX_ALLOWED = /^src\/server\/services\/invites\.ts$/;
-// Only the auth module, the invite service and the test helper assemble a context by hand; everything else gets one from a guard or constructor.
-const CTX_LITERAL_ALLOWED = /^src\/(server\/auth\/|server\/services\/invites\.ts$|server\/db\/testing\.ts$)/;
+// Only the auth module, the invite service, the test helper and demo:seed (dev tier only) assemble a context by hand;
+// everything else gets one from a guard or constructor.
+const CTX_LITERAL_ALLOWED = /^(src\/(server\/auth\/|server\/services\/invites\.ts$|server\/db\/testing\.ts$)|scripts\/dev\/demo-seed\.ts$)/;
 const CTX_SCOPES = new Set(["clinician", "self", "client", "invite", "system", "staff"]);
 const CTX_TYPES = new Set(["ClinicianCtx", "SelfCtx", "ClientCtx", "InviteCtx", "SystemCtx", "StaffCtx", "Ctx", "ClinicianOnlyCtx"]);
 
@@ -54,6 +55,11 @@ const PRIVILEGED_MODULES = [
   { module: "@/server/services/roles", allowed: /^(scripts\/ops\/|src\/server\/services\/(invites|clinician)\.ts$)/, message: "Roles are set only by staff:grant (scripts/ops), acceptInvite (services/invites.ts) and Start free (services/clinician.ts)." },
   { module: "@/server/db/repos/users", allowed: /^src\/server\/services\/(roles|invites)\.ts$/, message: "The users repo changes roles; only services/roles.ts and services/invites.ts may use it." },
   { module: "@/server/db/testing", allowed: /^$/, message: "@/server/db/testing creates users with any role; only tests may import it." },
+  // Keys and ciphertext stay in the repo layer (CLAUDE.md "Only src/server/db/repos/** sees ciphertext").
+  { module: "@/server/db/repos/tenant-keys", allowed: /^(src\/server\/db\/(repos\/|testing\.ts$)|scripts\/dev\/demo-seed\.ts$)/, message: "Tenant keys are reached only by the repos, db/testing.ts and demo:seed." },
+  ...["@/server/crypto/tenant-keys", "@/server/crypto/aead"].map((module) => ({ module, allowed: /^src\/server\/(crypto\/|db\/(repos\/|codec\.ts$|testing\.ts$))/, message: `${module} handles key material and ciphertext; only src/server/crypto, the repos, db/codec.ts and db/testing.ts may import it.` })),
+  // The raw EphemeralKeyStore.get returns expired keys; reads go through openEphemeral in the repos, and only the erasure jobs destroy.
+  ...["@/server/crypto", "@/server/crypto/index", "@/server/crypto/ephemeral"].map((module) => ({ module, allowed: /^src\/server\/(crypto\/|db\/(repos\/|testing\.ts$)|jobs\/)/, message: `${module} holds per-record keys; only src/server/crypto, the repos, db/testing.ts and src/server/jobs may import it.` })),
 ];
 
 // Rules that apply across layers, so they live in their own plugin instead of fighting over no-restricted-imports.

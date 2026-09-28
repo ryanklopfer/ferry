@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import type { ClinicianOnlyCtx, Ctx } from "@/server/auth/ctx";
-import { type Keyring, keyringFor } from "@/server/crypto/tenant-keys";
+import type { Keyring } from "@/server/crypto/tenant-keys";
+import { keyringFor } from "./tenant-keys";
 import { db } from "../index";
 import { decodeRow, decodeRows, encodeRow } from "../codec";
 import { newId } from "../ids";
@@ -67,7 +68,7 @@ export const claimsRepo = {
     const ring = await keyringFor(ctx);
     return db.transaction(async (tx) => {
       await assertProvidersOwned(tx, ctx, [patch.billingProviderId, patch.renderingProviderId]);
-      const [row] = await tx.update(claims).set(encodeRow(claims, ring, { ...patch, updatedAt: new Date() })).where(and(eq(claims.id, id), tenantWhere(claims, ctx))).returning();
+      const [row] = await tx.update(claims).set(encodeRow(claims, ring, { ...patch, updatedAt: new Date() }, { id })).where(and(eq(claims.id, id), tenantWhere(claims, ctx))).returning();
       return row ? decodeRow(claims, ring, row) : null;
     });
   },
@@ -78,7 +79,7 @@ export const claimsRepo = {
     const ring = await keyringFor(ctx);
     return db.transaction(async (tx) => {
       await assertProvidersOwned(tx, ctx, [patch.billingProviderId, patch.renderingProviderId]);
-      const [row] = await tx.update(claims).set(encodeRow(claims, ring, { ...patch, updatedAt: new Date() })).where(and(eq(claims.id, id), tenantWhere(claims, ctx))).returning();
+      const [row] = await tx.update(claims).set(encodeRow(claims, ring, { ...patch, updatedAt: new Date() }, { id })).where(and(eq(claims.id, id), tenantWhere(claims, ctx))).returning();
       if (!row) return null;
       await tx.delete(claimLines).where(and(eq(claimLines.claimId, id), tenantWhere(claimLines, ctx)));
       if (lines.length) await tx.insert(claimLines).values(lineRows(ctx, ring, row, lines));

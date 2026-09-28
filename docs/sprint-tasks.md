@@ -1034,7 +1034,7 @@ Why: P0-11 requires encryption before any real data, and the Tax ID invariant ne
 - One repo-level column codec, so later slices declare sealed columns in one place.
 - src/server/db/columns.ts: every text, jsonb or bytea column in a non-auth table is listed as SEALED, EPHEMERAL or PLAINTEXT_OK (with a reason).
 - Auth tables are excluded by name, with the decision recorded:
-  - users.name stays null for client users
+  - users.name stays empty for every user (the column is NOT NULL in Better Auth; auth hooks blank any sent name)
   - users.email is plaintext because Better Auth looks it up; RDS encryption at rest protects it
 
 **Test helpers**

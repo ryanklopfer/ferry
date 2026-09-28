@@ -1,6 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import type { ClinicianOnlyCtx, Ctx } from "@/server/auth/ctx";
-import { keyringFor } from "@/server/crypto/tenant-keys";
+import { keyringFor } from "./tenant-keys";
 import { db } from "../index";
 import { decodeRows, encodeRow } from "../codec";
 import { newId } from "../ids";

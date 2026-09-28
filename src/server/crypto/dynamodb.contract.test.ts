@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assertKeyTableSafe, type DynamoApi, dynamoEphemeralKeyStore, DYNAMO_TTL_ATTRIBUTE, type EphemeralKeyStore, localEphemeralKeyStore, openEphemeral, sealEphemeral, UnsafeKeyTable } from "./ephemeral";
 
 const TABLE = "ferry-ephemeral-keys";
@@ -15,7 +15,8 @@ class ConditionalCheckFailedException extends Error {
 type Item = Parameters<DynamoApi["putItem"]>[0]["Item"];
 
 // Behaves like DynamoDB for the calls the store makes. TTL deletion is lazy in AWS, so the mock never deletes.
-function mockDynamo(settings: { pitr?: string; ttlStatus?: string; ttlAttribute?: string } = {}) {
+type TableSettings = { pitr?: string; ttlStatus?: string; ttlAttribute?: string; backups?: number; stream?: boolean; replicas?: number; kinesis?: string };
+function mockDynamo(settings: TableSettings = {}) {
   const items = new Map<string, Item>();
   const calls: { op: string; input: unknown }[] = [];
   const ddb: DynamoApi = {
@@ -41,6 +42,16 @@ function mockDynamo(settings: { pitr?: string; ttlStatus?: string; ttlAttribute?
     async describeTimeToLive() {
       return { TimeToLiveDescription: { TimeToLiveStatus: settings.ttlStatus ?? "ENABLED", AttributeName: settings.ttlAttribute ?? DYNAMO_TTL_ATTRIBUTE } };
     },
+    async listBackups(input) {
+      calls.push({ op: "listBackups", input });
+      return { BackupSummaries: Array.from({ length: settings.backups ?? 0 }, (_, i) => ({ BackupName: `b${i}`, BackupType: "AWS_BACKUP" })) };
+    },
+    async describeTable() {
+      return { Table: { StreamSpecification: settings.stream ? { StreamEnabled: true } : undefined, Replicas: Array.from({ length: settings.replicas ?? 0 }, () => ({ RegionName: "us-west-2" })) } };
+    },
+    async describeKinesisStreamingDestination() {
+      return { KinesisDataStreamDestinations: settings.kinesis ? [{ DestinationStatus: settings.kinesis }] : [] };
+    },
   };
   return { ddb, items, calls };
 }
@@ -52,6 +63,13 @@ const tmpKeyDir = () => {
   dirs.push(d);
   return d;
 };
+
+// openEphemeral and sealEphemeral read the server clock, so the tests move it.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(NOW);
+});
+afterEach(() => vi.useRealTimers());
 
 // Every EphemeralKeyStore keeps these promises; the dynamodb one is held to them against the mock.
 function storeContract(name: string, make: () => EphemeralKeyStore) {
@@ -92,10 +110,25 @@ function storeContract(name: string, make: () => EphemeralKeyStore) {
     it("seals a record openable until expiry or destruction, whichever is first", async () => {
       const store = make();
       const sealed = await sealEphemeral(store, "trn_A", "Client reports sleeping better", new Date(NOW.getTime() + 24 * HOUR));
-      expect(await openEphemeral(store, "trn_A", sealed, NOW)).toBe("Client reports sleeping better");
-      expect(await openEphemeral(store, "trn_A", sealed, new Date(NOW.getTime() + 24 * HOUR))).toBeNull();
+      expect(await openEphemeral(store, "trn_A", sealed)).toBe("Client reports sleeping better");
+      vi.setSystemTime(NOW.getTime() + 24 * HOUR);
+      expect(await openEphemeral(store, "trn_A", sealed)).toBeNull();
+      vi.setSystemTime(NOW);
       await store.destroy("trn_A");
-      expect(await openEphemeral(store, "trn_A", sealed, NOW)).toBeNull();
+      expect(await openEphemeral(store, "trn_A", sealed)).toBeNull();
+    });
+
+    it("re-seals an edited record under the same key without moving expires_at", async () => {
+      const store = make();
+      const expiresAt = new Date(NOW.getTime() + 24 * HOUR);
+      const first = await sealEphemeral(store, "trn_A", "Client reports", expiresAt);
+      vi.setSystemTime(NOW.getTime() + 2 * HOUR);
+      const edited = await sealEphemeral(store, "trn_A", "Client reports sleeping better", new Date(Date.now() + 24 * HOUR));
+      expect((await store.get("trn_A"))?.expiresAt.toISOString()).toBe(expiresAt.toISOString());
+      expect(await openEphemeral(store, "trn_A", first)).toBe("Client reports");
+      expect(await openEphemeral(store, "trn_A", edited)).toBe("Client reports sleeping better");
+      vi.setSystemTime(expiresAt);
+      await expect(sealEphemeral(store, "trn_A", "too late", new Date(Date.now() + HOUR))).rejects.toThrow(/expired/);
     });
   });
 }
@@ -120,11 +153,21 @@ describe("dynamodb EphemeralKeyStore", () => {
     const store = dynamoEphemeralKeyStore(mockDynamo().ddb, TABLE);
     const sealed = await sealEphemeral(store, "trn_A", "rough note", new Date(NOW.getTime() - 1));
     expect(await store.get("trn_A")).not.toBeNull();
-    expect(await openEphemeral(store, "trn_A", sealed, NOW)).toBeNull();
+    expect(await openEphemeral(store, "trn_A", sealed)).toBeNull();
   });
 
-  it("accepts a table with point-in-time recovery off and TTL on", async () => {
-    await expect(assertKeyTableSafe(mockDynamo().ddb, TABLE)).resolves.toBeUndefined();
+  it("accepts a table with point-in-time recovery, backups, streams and replicas off and TTL on", async () => {
+    const { ddb, calls } = mockDynamo({ kinesis: "DISABLED" });
+    await expect(assertKeyTableSafe(ddb, TABLE)).resolves.toBeUndefined();
+    expect(calls.find((c) => c.op === "listBackups")?.input).toEqual({ TableName: TABLE, BackupType: "ALL" });
+  });
+
+  it("refuses a table with any copy that would outlive a destroyed key", async () => {
+    await expect(assertKeyTableSafe(mockDynamo({ backups: 1 }).ddb, TABLE)).rejects.toThrow(/no backups/);
+    await expect(assertKeyTableSafe(mockDynamo({ stream: true }).ddb, TABLE)).rejects.toThrow(/Streams/);
+    await expect(assertKeyTableSafe(mockDynamo({ replicas: 1 }).ddb, TABLE)).rejects.toThrow(/replicas/);
+    await expect(assertKeyTableSafe(mockDynamo({ kinesis: "ACTIVE" }).ddb, TABLE)).rejects.toThrow(/Kinesis/);
+    await expect(assertKeyTableSafe(mockDynamo({ kinesis: "ENABLING" }).ddb, TABLE)).rejects.toThrow(UnsafeKeyTable);
   });
 
   it("refuses a table with point-in-time recovery on, or without TTL on expires_at", async () => {

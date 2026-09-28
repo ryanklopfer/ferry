@@ -6,7 +6,6 @@ export const NORMALIZERS = {
   email: (v: string) => v.trim().toLowerCase(),
   phone: (v: string) => v.replace(/\D/g, "").replace(/^1(?=\d{10}$)/, ""),
   memberId: (v: string) => v.replace(/[\s-]/g, "").toUpperCase(),
-  taxId: (v: string) => v.replace(/\D/g, ""),
 } as const;
 export type Normalizer = keyof typeof NORMALIZERS;
 

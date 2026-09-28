@@ -1,41 +1,33 @@
 import { randomBytes } from "node:crypto";
-import { eq } from "drizzle-orm";
-import type { Ctx } from "@/server/auth/ctx";
-import { db } from "@/server/db";
-import { tenantKeys } from "@/server/db/schema";
 import type { DataKey } from "./aead";
 import { keyProvider } from "./index";
+import { KeyUnavailable } from "./key-provider";
 
 // A tenant's data key seals its rows; its index key (separate, per the blind-index rule) computes blind indexes.
+// The tenant_keys rows themselves are read and written only by src/server/db/repos/tenant-keys.ts.
 export type Keyring = { tenantId: string; data: DataKey; index: Buffer };
+export type StoredTenantKey = { keyId: string; kekRef: string; wrappedKey: string };
 
-// Unwrapping is the expensive call (KMS in AWS), so unwrapped keys are cached by their wrapped form. The row is
-// read every time, so a deleted or replaced key is never served from the cache.
-const unwrapped = new Map<string, Buffer>();
-
-async function load(tenantId: string): Promise<{ keyId: string; kekRef: string; wrappedKey: string } | undefined> {
-  const [row] = await db.select({ keyId: tenantKeys.keyId, kekRef: tenantKeys.kekRef, wrappedKey: tenantKeys.wrappedKey }).from(tenantKeys).where(eq(tenantKeys.userId, tenantId));
-  return row;
+// 64 fresh bytes (data key, then index key), wrapped for this tenant. Nothing is stored here.
+export async function newTenantKey(tenantId: string): Promise<StoredTenantKey> {
+  const { kekRef, wrapped } = await keyProvider().wrap(randomBytes(64), { tenantId });
+  return { keyId: `t-${randomBytes(8).toString("hex")}`, kekRef, wrappedKey: wrapped };
 }
 
-// Created on first use. Two racing first uses both insert; the unique user_id keeps one and both read it back.
-export async function tenantKeyring(tenantId: string): Promise<Keyring> {
-  let row = await load(tenantId);
-  if (!row) {
-    const material = randomBytes(64);
-    const { kekRef, wrapped } = await keyProvider().wrap(material, { tenantId });
-    await db.insert(tenantKeys).values({ keyId: `t-${randomBytes(8).toString("hex")}`, userId: tenantId, kekRef, wrappedKey: wrapped }).onConflictDoNothing();
-    row = await load(tenantId);
-    if (!row) throw new Error("tenant key was not stored");
-  }
-  const cacheKey = `${tenantId}.${row.wrappedKey}`;
-  let material = unwrapped.get(cacheKey);
-  if (!material) {
-    material = await keyProvider().unwrap({ kekRef: row.kekRef, wrapped: row.wrappedKey }, { tenantId });
-    unwrapped.set(cacheKey, material);
-  }
-  return { tenantId, data: { id: row.keyId, bytes: material.subarray(0, 32) }, index: material.subarray(32, 64) };
-}
+// Unwrapping is the expensive call (KMS in AWS), so each tenant's unwrapped key is cached against the wrapped form it
+// came from. The caller passes the row it just read: a replaced key replaces the entry, and a missing row (a key
+// never made, or destroyed after retention) evicts it and throws rather than making a new key.
+const unwrapped = new Map<string, { wrappedKey: string; material: Buffer }>();
 
-// A ClientCtx carries its tenant's id, so a client reads its clinician's rows with the clinician's key.
-export const keyringFor = (ctx: Ctx): Promise<Keyring> => tenantKeyring(ctx.userId);
+export async function keyringFrom(tenantId: string, stored: StoredTenantKey | undefined): Promise<Keyring> {
+  if (!stored) {
+    unwrapped.delete(tenantId);
+    throw new KeyUnavailable("This tenant has no key");
+  }
+  let cached = unwrapped.get(tenantId);
+  if (cached?.wrappedKey !== stored.wrappedKey) {
+    cached = { wrappedKey: stored.wrappedKey, material: await keyProvider().unwrap({ kekRef: stored.kekRef, wrapped: stored.wrappedKey }, { tenantId }) };
+    unwrapped.set(tenantId, cached);
+  }
+  return { tenantId, data: { id: stored.keyId, bytes: cached.material.subarray(0, 32) }, index: cached.material.subarray(32, 64) };
+}

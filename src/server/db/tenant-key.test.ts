@@ -3,9 +3,12 @@ import { clientCtxFor } from "@/server/auth/client-ctx";
 import type { ClinicianCtx, SelfCtx } from "@/server/auth/ctx";
 import { keyProvider } from "@/server/crypto";
 import { open, SealError } from "@/server/crypto/aead";
-import { tenantKeyring } from "@/server/crypto/tenant-keys";
+import { KeyUnavailable } from "@/server/crypto/key-provider";
 import { pool } from "@/server/db";
+import { sealContext } from "./codec";
+import { claimsRepo } from "./repos/claims";
 import { plansRepo } from "./repos/plans";
+import { keyringFor, tenantKeysRepo } from "./repos/tenant-keys";
 import { bindClientUser, createTestUser, resetDb, seedSyntheticClient } from "./testing";
 
 const A1 = { firstName: "Anneliese", lastName: "Vandermeer", email: "anneliese@example.test", phone: "555-010-0001", dob: "1990-01-01", memberId: "W8841207733", groupNumber: "GRP-1", diagnosis: "F41.1", taxId: "00-1000002" };
@@ -32,7 +35,7 @@ describe("per-tenant keys", () => {
   afterAll(() => pool.end());
 
   it("gives each clinician tenant its own data and index keys", async () => {
-    const [rx, ry] = await Promise.all([tenantKeyring(x.userId), tenantKeyring(y.userId)]);
+    const [rx, ry] = await Promise.all([keyringFor(x), keyringFor(y)]);
     expect(rx.data.id).not.toBe(ry.data.id);
     expect(Buffer.compare(rx.data.bytes, ry.data.bytes)).not.toBe(0);
     expect(Buffer.compare(rx.data.bytes, rx.index)).not.toBe(0);
@@ -50,12 +53,37 @@ describe("per-tenant keys", () => {
     const { rows } = await pool.query<{ member_id: string; subscriber_name: string }>("select member_id, subscriber_name from plans where id = $1", [a1.plan.id]);
     const stored = rows[0];
     expect(stored.member_id).not.toContain(A1.memberId);
-    const ry = await tenantKeyring(y.userId);
-    expect(() => open(ry.data, stored.member_id)).toThrow(SealError);
+    const context = sealContext("plans", "member_id", a1.plan.id);
+    const ry = await keyringFor(y);
+    expect(() => open(ry.data, stored.member_id, context)).toThrow(SealError);
     // Even relabelled as X's key id, Y's key bytes fail authentication.
-    const rx = await tenantKeyring(x.userId);
-    expect(() => open({ id: rx.data.id, bytes: ry.data.bytes }, stored.member_id)).toThrow(SealError);
-    expect(JSON.parse(open(rx.data, stored.member_id))).toBe(A1.memberId);
+    const rx = await keyringFor(x);
+    expect(() => open({ id: rx.data.id, bytes: ry.data.bytes }, stored.member_id, context)).toThrow(SealError);
+    expect(JSON.parse(open(rx.data, stored.member_id, context))).toBe(A1.memberId);
+  });
+
+  it("won't open a sealed value moved to another row or column of the same tenant", async () => {
+    const a2 = await seedSyntheticClient(x, { ...A1, firstName: "Benedikt", email: "benedikt@example.test", memberId: "W5510093321", diagnosis: "F33.1" });
+    const copy = (from: string, to: string) => pool.query(`update plans set member_id = (select member_id from plans where id = $1) where id = $2`, [from, to]);
+    await copy(a1.plan.id, a2.plan.id);
+    await expect(plansRepo.get(x, a2.plan.id)).rejects.toThrow(SealError);
+    await pool.query("update plans set group_number = member_id where id = $1", [a1.plan.id]);
+    await expect(plansRepo.get(x, a1.plan.id)).rejects.toThrow(SealError);
+    await pool.query("update claims set diagnosis_codes = (select diagnosis_codes from claims where id = $1) where id = $2", [a1.claim.id, a2.claim.id]);
+    await expect(claimsRepo.get(x, a2.claim.id)).rejects.toThrow(SealError);
+  });
+
+  it("never makes a key on use: a tenant whose key row is gone gets KeyUnavailable, and a replaced key isn't served from cache", async () => {
+    const before = await keyringFor(x);
+    await pool.query("delete from tenant_keys where user_id = $1", [x.userId]);
+    await expect(keyringFor(x)).rejects.toThrow(KeyUnavailable);
+    await expect(plansRepo.get(x, a1.plan.id)).rejects.toThrow(KeyUnavailable);
+    const { rows } = await pool.query("select 1 from tenant_keys where user_id = $1", [x.userId]);
+    expect(rows).toEqual([]);
+    await tenantKeysRepo.create(x);
+    const after = await keyringFor(x);
+    expect(after.data.id).not.toBe(before.data.id);
+    expect(Buffer.compare(after.data.bytes, before.data.bytes)).not.toBe(0);
   });
 
   it("keeps a wrapped tenant key bound to its tenant", async () => {

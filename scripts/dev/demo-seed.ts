@@ -1,9 +1,9 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { tenantKeyring } from "../../src/server/crypto/tenant-keys";
 import { db, pool } from "../../src/server/db";
 import { encodeRow } from "../../src/server/db/codec";
 import { databaseUrl } from "../../src/server/db/env";
+import { keyringFor, tenantKeysRepo } from "../../src/server/db/repos/tenant-keys";
 import { claimLines, claims, clientMemberships, clients, events, plans, users } from "../../src/server/db/schema";
 import { assertDevTier, DeployConfigError, type Env } from "../../src/server/deploy";
 
@@ -29,12 +29,13 @@ export async function demoSeed(env: Env = process.env): Promise<void> {
   await db
     .insert(users)
     .values([
-      { id: DEMO.users.x, name: "Clinician X", email: "clinician-x@demo.test", emailVerified: true, role: "clinician" },
-      { id: DEMO.users.y, name: "Clinician Y", email: "clinician-y@demo.test", emailVerified: true, role: "clinician" },
-      { id: DEMO.users.u, name: "Client U", email: "client-u@demo.test", emailVerified: true, role: "client" },
+      { id: DEMO.users.x, name: "", email: "clinician-x@demo.test", emailVerified: true, role: "clinician" },
+      { id: DEMO.users.y, name: "", email: "clinician-y@demo.test", emailVerified: true, role: "clinician" },
+      { id: DEMO.users.u, name: "", email: "client-u@demo.test", emailVerified: true, role: "client" },
     ])
     .onConflictDoNothing();
-  const rings = { [DEMO.users.x]: await tenantKeyring(DEMO.users.x), [DEMO.users.y]: await tenantKeyring(DEMO.users.y) };
+  for (const userId of [DEMO.users.x, DEMO.users.y]) await tenantKeysRepo.create({ scope: "clinician", userId });
+  const rings = { [DEMO.users.x]: await keyringFor({ scope: "clinician", userId: DEMO.users.x }), [DEMO.users.y]: await keyringFor({ scope: "clinician", userId: DEMO.users.y }) };
 
   await db.transaction(async (tx) => {
     for (const p of PEOPLE) {

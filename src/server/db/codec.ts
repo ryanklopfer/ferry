@@ -9,7 +9,8 @@ import { BLIND_INDEXES, LAST4_OF, SEALED, SEALED_DEFAULTS } from "./columns";
 // The one column codec. Repos call encodeRow on every insert or update and decodeRow on every row they return;
 // what is sealed, indexed or reduced to a last four is declared only in columns.ts.
 type Plan = {
-  sealed: string[];
+  name: string;
+  sealed: { key: string; sql: string }[];
   derived: { target: string; source: string; compute: (ring: Keyring, value: string) => string | null }[];
   defaults: [string, unknown][];
 };
@@ -27,7 +28,8 @@ function planFor(table: PgTable): Plan {
     return key;
   };
   const plan: Plan = {
-    sealed: (SEALED[name] ?? []).map(prop),
+    name,
+    sealed: (SEALED[name] ?? []).map((sql) => ({ key: prop(sql), sql })),
     derived: [
       ...Object.entries(BLIND_INDEXES[name] ?? {}).map(([target, { source, normalize }]) => ({
         target: prop(target),
@@ -42,8 +44,19 @@ function planFor(table: PgTable): Plan {
   return plan;
 }
 
-// Nulls stay SQL NULL; anything else is JSON, so a string[] or a date string comes back as it went in.
-export function encodeRow<T extends object>(table: PgTable, ring: Keyring, values: T, { insert = false } = {}): T {
+// Every sealed value is bound to its table, column and row (the AEAD context), so a ciphertext copied into another
+// row or column of the same tenant fails to open instead of reading as that row's value.
+export const sealContext = (table: string, column: string, rowId: string) => `${table}.${column}#${rowId}`;
+
+function rowIdOf(plan: Plan, values: Record<string, unknown>, id: string | undefined): string {
+  const rowId = values.id ?? id;
+  if (typeof rowId !== "string" || !rowId) throw new Error(`Sealing ${plan.name} needs the row id: pass { id } on update`);
+  return rowId;
+}
+
+// Nulls stay SQL NULL; anything else is JSON, so a string[] or a date string comes back as it went in. An insert
+// carries its id in values; an update passes { id }.
+export function encodeRow<T extends object>(table: PgTable, ring: Keyring, values: T, { insert = false, id }: { insert?: boolean; id?: string } = {}): T {
   const plan = planFor(table);
   const out = { ...values } as Record<string, unknown>;
   if (insert) for (const [key, value] of plan.defaults) if (out[key] === undefined) out[key] = value;
@@ -52,9 +65,9 @@ export function encodeRow<T extends object>(table: PgTable, ring: Keyring, value
     const v = out[d.source];
     out[d.target] = v === null || v === "" ? null : d.compute(ring, String(v));
   }
-  for (const key of plan.sealed) {
+  for (const { key, sql } of plan.sealed) {
     const v = out[key];
-    if (v !== undefined && v !== null) out[key] = seal(ring.data, JSON.stringify(v));
+    if (v !== undefined && v !== null) out[key] = seal(ring.data, JSON.stringify(v), sealContext(plan.name, sql, rowIdOf(plan, out, id)));
   }
   return out as T;
 }
@@ -62,9 +75,9 @@ export function encodeRow<T extends object>(table: PgTable, ring: Keyring, value
 export function decodeRow<T extends object>(table: PgTable, ring: Keyring, row: T): T {
   const plan = planFor(table);
   const out = { ...row } as Record<string, unknown>;
-  for (const key of plan.sealed) {
+  for (const { key, sql } of plan.sealed) {
     const v = out[key];
-    if (typeof v === "string") out[key] = JSON.parse(open(ring.data, v));
+    if (typeof v === "string") out[key] = JSON.parse(open(ring.data, v, sealContext(plan.name, sql, rowIdOf(plan, out, undefined))));
   }
   return out as T;
 }

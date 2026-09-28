@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import type { ClinicianOnlyCtx } from "@/server/auth/ctx";
-import { keyringFor } from "@/server/crypto/tenant-keys";
+import { keyringFor } from "./tenant-keys";
 import { db } from "../index";
 import { decodeRow, decodeRows, encodeRow } from "../codec";
 import { newId } from "../ids";
@@ -41,7 +41,7 @@ export const followUpsRepo = {
   async update(ctx: ClinicianOnlyCtx, id: string, patch: FollowUpPatch): Promise<FollowUp | null> {
     assertNotClient(ctx);
     const ring = await keyringFor(ctx);
-    const [row] = await db.update(followUps).set(encodeRow(followUps, ring, patch)).where(and(eq(followUps.id, id), tenantWhere(followUps, ctx))).returning();
+    const [row] = await db.update(followUps).set(encodeRow(followUps, ring, patch, { id })).where(and(eq(followUps.id, id), tenantWhere(followUps, ctx))).returning();
     return row ? decodeRow(followUps, ring, row) : null;
   },
 

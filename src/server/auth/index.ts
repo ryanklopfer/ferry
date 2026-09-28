@@ -21,6 +21,14 @@ export const auth = betterAuth({
       role: { type: "string", required: true, defaultValue: "pending", input: false },
     },
   },
+  // users.name is never used and always "": Better Auth would otherwise store whatever name a sign-in or
+  // update-user request sends, and a client's name belongs only in the sealed clients row.
+  databaseHooks: {
+    user: {
+      create: { before: async (user) => ({ data: { ...user, name: "" } }) },
+      update: { before: async (user) => ("name" in user ? { data: { ...user, name: "" } } : undefined) },
+    },
+  },
   plugins: [
     magicLink({
       expiresIn: MAGIC_LINK_TTL_SECONDS,

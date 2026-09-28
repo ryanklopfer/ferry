@@ -5,8 +5,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sealEphemeral } from "@/server/crypto/ephemeral";
 import { ephemeralKeyStore } from "@/server/crypto";
 import { keyDir } from "@/server/crypto/key-provider";
-import { tenantKeyring } from "@/server/crypto/tenant-keys";
 import { pool } from "@/server/db";
+import { keyringFor } from "./repos/tenant-keys";
 import { createTestUser, decryptedDump, rawDump, resetDb, seedSyntheticClient, type SyntheticPerson } from "./testing";
 
 // Long, distinctive synthetic values, so a chance match inside base64 ciphertext is out of the question.
@@ -66,7 +66,7 @@ describe("rawDump of a seeded ferry_test", () => {
       found.push(...variants(Buffer.from(key, "base64")).filter((v) => dump.includes(v)));
     }
     for (const t of tenants) {
-      const ring = await tenantKeyring(t);
+      const ring = await keyringFor({ scope: "clinician", userId: t });
       found.push(...[...variants(ring.data.bytes), ...variants(ring.index)].filter((v) => dump.includes(v)));
     }
     expect(found).toEqual([]);

@@ -16,6 +16,22 @@ describe("setRoleOnServer", () => {
     expect(await roleOf(userId)).toBe("clinician");
   });
 
+  it("makes a new clinician's tenant key once, and none for other roles", async () => {
+    const keysOf = async (userId: string) => (await pool.query<{ key_id: string }>("select key_id from tenant_keys where user_id = $1", [userId])).rows;
+    const { userId } = await createTestUser("pending");
+    await setRoleOnServer(userId, "clinician");
+    const [first] = await keysOf(userId);
+    expect(first).toBeDefined();
+    await setRoleOnServer(userId, "clinician");
+    expect(await keysOf(userId)).toEqual([first]);
+    const staff = await createTestUser("staff");
+    await expect(setRoleOnServer(staff.userId, "clinician")).rejects.toBeInstanceOf(RoleRefused);
+    expect(await keysOf(staff.userId)).toEqual([]);
+    const client = await createTestUser("pending");
+    await setRoleOnServer(client.userId, "client");
+    expect(await keysOf(client.userId)).toEqual([]);
+  });
+
   it("is a no-op when the user already holds that role", async () => {
     const { userId } = await createTestUser("client");
     await setRoleOnServer(userId, "client");

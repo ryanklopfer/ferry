@@ -6,8 +6,8 @@ import type { Normalizer } from "@/server/crypto/blind";
 
 // Better Auth owns these and looks rows up by their plaintext columns, so they are excluded by name:
 // - users.email stays plaintext because Better Auth signs people in by it; RDS encryption at rest protects it.
-// - users.name never holds a client's name: client users get their email's local part, and acceptInvite (N7a)
-//   never copies the clients row's name into it.
+// - users.name is always "": Better Auth would store whatever name a sign-in or update-user request sends, so
+//   database hooks in src/server/auth/index.ts blank it (auth.test.ts). Names live only in sealed tenant rows.
 export const AUTH_TABLES = ["users", "sessions", "accounts", "verifications", "passkeys"] as const;
 
 // Sealed under the tenant's data key (AES-256-GCM); the repos decode them for any Ctx of that tenant.
