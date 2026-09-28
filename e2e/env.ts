@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import path from "node:path";
 
 export const E2E_DATABASE_URL = process.env.DATABASE_URL_E2E ?? "postgres://localhost:5432/ferry_e2e_test";
@@ -9,6 +10,9 @@ export const E2E_OUTBOX_DIR = path.join(process.cwd(), "data", "outbox");
 export const E2E_RELAY_PORT = 3102;
 export const E2E_RELAY_SECRET = "e2e-only-relay-secret-for-synthetic-audio-00";
 export const E2E_SPIKE_K = "e2e-only-spike-key-for-the-mic-spike-pages-000";
+// Local key providers for the e2e servers: a test-only key-encryption key and a key directory of their own.
+export const E2E_LOCAL_KEK = createHash("sha256").update("ferry-e2e-only-kek").digest("base64");
+export const E2E_KEY_DIR = path.join(process.cwd(), "data", "e2e-keys");
 
 // Synthetic, dev-tier settings for every server the e2e suite starts. The secret signs e2e sessions only.
 export const e2eServerEnv = (port: number): Record<string, string> => ({
@@ -24,4 +28,6 @@ export const e2eServerEnv = (port: number): Record<string, string> => ({
   RELAY_PORT: String(E2E_RELAY_PORT),
   FERRY_RELAY_URL: `ws://localhost:${E2E_RELAY_PORT}`,
   FERRY_SPIKE_K: E2E_SPIKE_K,
+  FERRY_LOCAL_KEK: E2E_LOCAL_KEK,
+  FERRY_KEY_DIR: E2E_KEY_DIR,
 });

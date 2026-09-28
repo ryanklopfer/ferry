@@ -13,6 +13,9 @@ describe("repo hygiene", () => {
     expect(ignored("data/codes/x.json")).toBe(1);
     expect(ignored("data/outbox/x.json")).toBe(0);
     expect(ignored("data/uploads/x.pdf")).toBe(0);
+    expect(ignored("data/keys/kek")).toBe(0);
+    expect(ignored("data/keys/ephemeral/trn_x.json")).toBe(0);
+    expect(ignored("data/e2e-keys/kek")).toBe(0);
   });
 
   it("runs every test file the sprint plan names", () => {

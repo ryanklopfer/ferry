@@ -125,6 +125,7 @@ bun run typecheck    # next typegen && tsc --noEmit
 bun run lint
 bun run db:generate  # after schema changes
 bun run db:migrate   # apply to ferry_dev (db:migrate:test for ferry_test)
+bun run keys:dev     # dev-only local key-encryption key and ephemeral key directory in data/keys
 ```
 
 ## Boundaries (lint-enforced from slice 2)

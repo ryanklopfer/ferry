@@ -998,7 +998,7 @@ Plan: `docs/plans/slice-s11c.md`. Copy lives in `src/core/copy/home.ts` with one
 - [x] prelaunch.test.ts: `bun run build && FERRY_DEPLOY_TIER=prelaunch bun run start` with every vendor off serves / with 200; /app, /c, /api/v1 and /sign-in return 404; Start free is a mailto
 - [x] `bun run lighthouse:home` (bunx lighthouse, mobile preset) exits non-zero below 90 for performance or accessibility
 
-### [ ] S2b — Envelope encryption: per-tenant keys, per-record ephemeral keys outside Postgres, column classification
+### [x] S2b — Envelope encryption: per-tenant keys, per-record ephemeral keys outside Postgres, column classification
 
 Scheduled: Fri Oct 2 · Status: modified · Size: L · PRD: P0-11.2, P0-3.1, P0-5.3, P0-5.5, R9, R13
 
@@ -1048,17 +1048,17 @@ Why: P0-11 requires encryption before any real data, and the Tax ID invariant ne
 
 #### Acceptance
 
-- [ ] seal.test.ts: flipping one ciphertext byte fails to open; two seals of the same plaintext differ
-- [ ] columns.test.ts: fails if any text, jsonb or bytea column in a non-auth table is missing from SEALED, EPHEMERAL or PLAINTEXT_OK; today's claims.extraction_notes, info_requested and confirmation_number and events.note are classified (dropped in S10)
-- [ ] raw-dump.test.ts: rawDump() of a seeded ferry_test contains none of the seeded client names, emails, member IDs, diagnosis codes or Tax IDs
-- [ ] blind-index.test.ts: finds a plan by member ID and a client by email without decrypting any row
-- [ ] tenant-key.test.ts: ClientCtx(U→X) reads A1's plan in plaintext; Y's tenant key cannot open it
-- [ ] shred.test.ts (on a test-only table created in the test): copy a sealEphemeral row, destroy its key, re-insert the copy as a restored backup; it cannot be decrypted
-- [ ] shred.test.ts: openEphemeral returns nothing after expires_at, before destroy
-- [ ] raw-dump.test.ts: the dump contains no ephemeral key material
-- [ ] kms.contract.test.ts and dynamodb.contract.test.ts pass against mocked clients
-- [ ] boot.test.ts: the local providers are refused outside the dev tier
-- [ ] retention.test.ts table: an open claim gives no; all closed and canceled 29 days ago gives no; 30 days gives yes
+- [x] seal.test.ts: flipping one ciphertext byte fails to open; two seals of the same plaintext differ
+- [x] columns.test.ts: fails if any text, jsonb or bytea column in a non-auth table is missing from SEALED, EPHEMERAL or PLAINTEXT_OK; today's claims.extraction_notes, info_requested and confirmation_number and events.note are classified (dropped in S10)
+- [x] raw-dump.test.ts: rawDump() of a seeded ferry_test contains none of the seeded client names, emails, member IDs, diagnosis codes or Tax IDs
+- [x] blind-index.test.ts: finds a plan by member ID and a client by email without decrypting any row
+- [x] tenant-key.test.ts: ClientCtx(U→X) reads A1's plan in plaintext; Y's tenant key cannot open it
+- [x] shred.test.ts (on a test-only table created in the test): copy a sealEphemeral row, destroy its key, re-insert the copy as a restored backup; it cannot be decrypted
+- [x] shred.test.ts: openEphemeral returns nothing after expires_at, before destroy
+- [x] raw-dump.test.ts: the dump contains no ephemeral key material
+- [x] kms.contract.test.ts and dynamodb.contract.test.ts pass against mocked clients
+- [x] boot.test.ts: the local providers are refused outside the dev tier
+- [x] retention.test.ts table: an open claim gives no; all closed and canceled 29 days ago gives no; 30 days gives yes
 
 ### [ ] S3b — Consent records (clinician and client), versioned legal texts, re-consent and live-use gates
 

@@ -12,6 +12,7 @@ bun install
 cp .env.example .env.local   # DATABASE_URL
 printf 'BETTER_AUTH_SECRET=%s\n' "$(openssl rand -base64 32)" >> .env.local
 bun run db:migrate
+bun run keys:dev             # local encryption keys in data/keys (dev only; never delete them)
 bun run dev                  # http://localhost:3000
 ```
 

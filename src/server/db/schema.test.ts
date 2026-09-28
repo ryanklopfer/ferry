@@ -1,8 +1,9 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { pool } from "@/server/db";
+import { AUTH_TABLES as AUTH } from "./columns";
 import { CLIENT_ID_NULLABLE, CLIENT_SCOPED, CLIENT_SELF, GLOBAL_TABLES } from "./repos/scope";
 
-const AUTH_TABLES = ["users", "sessions", "accounts", "verifications", "passkeys"];
+const AUTH_TABLES: readonly string[] = AUTH;
 // user_id here is the client user, not a tenant; it is still NOT NULL (checked below).
 const MEMBERSHIPS = "client_memberships";
 

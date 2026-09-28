@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, date, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { check, date, index, integer, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import type { ClaimStatus, FollowUpStatus, FollowUpType } from "../../core/claim/status";
 import { users } from "./auth-schema";
 
@@ -10,23 +10,33 @@ const id = () => text("id").primaryKey();
 const owner = () => text("user_id").notNull().references(() => users.id, { onDelete: "cascade" });
 const at = (name: string) => timestamp(name, { withTimezone: true });
 const createdAt = () => at("created_at").notNull().defaultNow();
+// Stored as v1.<keyId>.<iv>.<ct>.<tag> under the tenant key; typed as the value the repos hand back after
+// decoding. Only the column codec (codec.ts, driven by columns.ts) reads or writes these.
+const sealed = <T = string>(name: string) => text(name).$type<T>();
 
-// The clinician's client (CLIENT_SELF). Contact fields are plaintext until S2b seals them.
+// The clinician's client (CLIENT_SELF). Names, DOB and contact are sealed; the blind indexes find a client by contact.
 export const clients = pgTable(
   "clients",
   {
     id: id(),
     userId: owner(),
-    firstName: text("first_name").notNull(),
-    lastName: text("last_name").notNull(),
-    dob: date("dob", { mode: "string" }),
-    email: text("email"),
-    phone: text("phone"),
+    firstName: sealed("first_name").notNull(),
+    lastName: sealed("last_name").notNull(),
+    dob: sealed("dob"),
+    email: sealed("email"),
+    phone: sealed("phone"),
+    emailBidx: text("email_bidx"),
+    phoneBidx: text("phone_bidx"),
     clientUserId: text("client_user_id").references(() => users.id, { onDelete: "set null" }),
     archivedAt: at("archived_at"),
     createdAt: createdAt(),
   },
-  (t) => [index("clients_user_idx").on(t.userId), uniqueIndex("clients_user_client_user_idx").on(t.userId, t.clientUserId)],
+  (t) => [
+    index("clients_user_idx").on(t.userId),
+    uniqueIndex("clients_user_client_user_idx").on(t.userId, t.clientUserId),
+    index("clients_email_bidx_idx").on(t.userId, t.emailBidx),
+    index("clients_phone_bidx_idx").on(t.userId, t.phoneBidx),
+  ],
 );
 
 export const MEMBERSHIP_STATUSES = ["active", "revoked"] as const;
@@ -60,16 +70,17 @@ export const plans = pgTable(
     clientId: clientRef(),
     insurerName: text("insurer_name").notNull(),
     planName: text("plan_name"),
-    memberId: text("member_id").notNull(),
-    groupNumber: text("group_number"),
-    subscriberName: text("subscriber_name").notNull(),
-    subscriberDob: date("subscriber_dob", { mode: "string" }),
-    patientName: text("patient_name").notNull(),
-    patientDob: date("patient_dob", { mode: "string" }),
-    patientRelationship: text("patient_relationship").notNull().default("self"),
-    patientAddress: text("patient_address"),
-    patientPhone: text("patient_phone"),
-    patientEmail: text("patient_email"),
+    memberId: sealed("member_id").notNull(),
+    memberIdBidx: text("member_id_bidx"),
+    groupNumber: sealed("group_number"),
+    subscriberName: sealed("subscriber_name").notNull(),
+    subscriberDob: sealed("subscriber_dob"),
+    patientName: sealed("patient_name").notNull(),
+    patientDob: sealed("patient_dob"),
+    patientRelationship: sealed("patient_relationship").notNull(),
+    patientAddress: sealed("patient_address"),
+    patientPhone: sealed("patient_phone"),
+    patientEmail: sealed("patient_email"),
     claimsAddress: text("claims_address"),
     claimsFax: text("claims_fax"),
     claimsPhone: text("claims_phone"),
@@ -78,7 +89,7 @@ export const plans = pgTable(
     timelyFilingDays: integer("timely_filing_days").notNull().default(180),
     createdAt: createdAt(),
   },
-  (t) => [index("plans_user_idx").on(t.userId), index("plans_client_idx").on(t.clientId)],
+  (t) => [index("plans_user_idx").on(t.userId), index("plans_client_idx").on(t.clientId), index("plans_member_id_bidx_idx").on(t.userId, t.memberIdBidx)],
 );
 
 export const TAX_ID_TYPES = ["EIN", "SSN"] as const;
@@ -93,10 +104,11 @@ export const providers = pgTable(
     userId: owner(),
     name: text("name").notNull(),
     npi: text("npi"),
-    taxId: text("tax_id"),
+    taxId: sealed("tax_id"),
+    taxIdLast4: text("tax_id_last4"),
     taxIdType: text("tax_id_type").$type<TaxIdType>(),
-    address: text("address"),
-    phone: text("phone"),
+    address: sealed("address"),
+    phone: sealed("phone"),
     credential: text("credential"),
     license: text("license"),
     createdAt: createdAt(),
@@ -117,10 +129,11 @@ export const claims = pgTable(
     renderingProviderId: text("rendering_provider_id").references(() => providers.id, { onDelete: "set null" }),
     billingProviderName: text("billing_provider_name"),
     billingProviderNpi: text("billing_provider_npi"),
-    billingProviderTaxId: text("billing_provider_tax_id"),
+    billingProviderTaxId: sealed("billing_provider_tax_id"),
+    billingProviderTaxIdLast4: text("billing_provider_tax_id_last4"),
     billingProviderTaxIdType: text("billing_provider_tax_id_type").$type<TaxIdType>(),
-    billingProviderAddress: text("billing_provider_address"),
-    billingProviderPhone: text("billing_provider_phone"),
+    billingProviderAddress: sealed("billing_provider_address"),
+    billingProviderPhone: sealed("billing_provider_phone"),
     renderingProviderName: text("rendering_provider_name"),
     renderingProviderNpi: text("rendering_provider_npi"),
     renderingProviderCredential: text("rendering_provider_credential"),
@@ -128,17 +141,17 @@ export const claims = pgTable(
     serviceDateStart: date("service_date_start", { mode: "string" }),
     serviceDateEnd: date("service_date_end", { mode: "string" }),
     placeOfService: text("place_of_service").default("11"),
-    diagnosisCodes: jsonb("diagnosis_codes").$type<string[]>().notNull().default([]),
+    diagnosisCodes: sealed<string[]>("diagnosis_codes").notNull(),
     totalCharged: integer("total_charged").notNull().default(0),
     totalPaid: integer("total_paid").notNull().default(0),
     amountReimbursed: integer("amount_reimbursed"),
-    extractionNotes: text("extraction_notes"),
+    extractionNotes: sealed("extraction_notes"),
     submittedAt: at("submitted_at"),
     submissionChannel: text("submission_channel"),
-    confirmationNumber: text("confirmation_number"),
+    confirmationNumber: sealed("confirmation_number"),
     decisionAt: at("decision_at"),
-    denialReason: text("denial_reason"),
-    infoRequested: text("info_requested"),
+    denialReason: sealed("denial_reason"),
+    infoRequested: sealed("info_requested"),
     createdAt: createdAt(),
     updatedAt: at("updated_at").notNull().defaultNow(),
   },
@@ -154,9 +167,9 @@ export const claimLines = pgTable(
     claimId: text("claim_id").notNull().references(() => claims.id, { onDelete: "cascade" }),
     position: integer("position").notNull(),
     serviceDate: date("service_date", { mode: "string" }),
-    cptCode: text("cpt_code").notNull(),
+    cptCode: sealed("cpt_code").notNull(),
     modifiers: text("modifiers").array().notNull().default(sql`'{}'::text[]`),
-    description: text("description"),
+    description: sealed("description"),
     units: integer("units").notNull().default(1),
     charge: integer("charge").notNull().default(0),
     diagnosisPointers: integer("diagnosis_pointers").array().notNull().default(sql`'{1}'::integer[]`),
@@ -174,8 +187,8 @@ export const followUps = pgTable(
     type: text("type").$type<FollowUpType>().notNull(),
     dueAt: at("due_at").notNull(),
     status: text("status").$type<FollowUpStatus>().notNull().default("pending"),
-    draftSubject: text("draft_subject"),
-    draftBody: text("draft_body"),
+    draftSubject: sealed("draft_subject"),
+    draftBody: sealed("draft_body"),
     sentAt: at("sent_at"),
     createdAt: createdAt(),
   },
@@ -190,11 +203,21 @@ export const events = pgTable(
     clientId: clientRef(),
     claimId: text("claim_id").notNull().references(() => claims.id, { onDelete: "cascade" }),
     type: text("type").notNull(),
-    note: text("note"),
+    note: sealed("note"),
     createdAt: createdAt(),
   },
   (t) => [index("events_claim_idx").on(t.claimId)],
 );
+
+// One data key per clinician tenant (plus a separate blind-index key), wrapped by the KeyProvider's key-encryption
+// key. Deleting the clinician's user row deletes the key, which crypto-shreds everything sealed under it.
+export const tenantKeys = pgTable("tenant_keys", {
+  keyId: text("key_id").primaryKey(),
+  userId: owner().unique(),
+  kekRef: text("kek_ref").notNull(),
+  wrappedKey: text("wrapped_key").notNull(),
+  createdAt: createdAt(),
+});
 
 export type Client = typeof clients.$inferSelect;
 export type ClientMembership = typeof clientMemberships.$inferSelect;

@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { APP_ICONS, type AppIcon } from "@/core/pwa/icons";
 import { isPlaceholderAddress, SITE } from "@/core/site";
 import { assertBootable, BootRefused } from "./boot";
+import { ephemeralKeyStoreFor, keyProviderFor } from "./crypto";
+import { localEphemeralKeyStore } from "./crypto/ephemeral";
+import { localKeyProvider } from "./crypto/key-provider";
 import { modeEnvVar, VENDORS, type Vendor } from "./integrations/mode";
 
 const allModes = (mode: string) => Object.fromEntries(VENDORS.map((v) => [modeEnvVar(v), mode]));
@@ -161,5 +164,38 @@ describe("assertBootable", () => {
     const r = refusal(env("prod", "fixture"));
     expect(r?.failures.map((f) => f.split(":")[0]).sort()).toEqual([...VENDORS].sort());
     for (const vendor of VENDORS) expect(r?.message).toContain(`${vendor}:`);
+  });
+
+  describe("local key providers", () => {
+    const KEK = { FERRY_LOCAL_KEK: Buffer.alloc(32, 7).toString("base64"), FERRY_KEY_DIR: "/nonexistent/ferry-keys" };
+
+    it.each(["prelaunch", "staging", "prod"])("boot refuses local and fixture keys and ephemeral keys in the %s tier", (tier) => {
+      const base = tier === "prelaunch" ? "off" : "live";
+      for (const vendor of ["keys", "ephemeralKeys"] as const) {
+        for (const mode of ["local", "fixture"]) expect(refusal(one(tier, base, vendor, mode))?.failures, `${vendor} ${mode}`).toEqual([expect.stringMatching(new RegExp(`^${vendor}: mode ${mode} is not allowed in the ${tier} tier`))]);
+      }
+    });
+
+    it.each(["prelaunch", "staging", "prod"])("the local providers refuse to construct in the %s tier, even when called directly", (tier) => {
+      const e = { FERRY_DEPLOY_TIER: tier, NODE_ENV: "production", ...KEK };
+      expect(() => localKeyProvider(e)).toThrow(/dev tier/);
+      expect(() => localEphemeralKeyStore(e)).toThrow(/dev tier/);
+      expect(() => keyProviderFor({ ...e, FERRY_KEYS_MODE: "local" })).toThrow(/not allowed/);
+      expect(() => ephemeralKeyStoreFor({ ...e, FERRY_EPHEMERAL_KEYS_MODE: "local" })).toThrow(/not allowed/);
+    });
+
+    it("the dev tier boots them by default", async () => {
+      expect(refusal({ ...DEV_DB, FERRY_KEYS_MODE: "local", FERRY_EPHEMERAL_KEYS_MODE: "local" })).toBeNull();
+      const provider = keyProviderFor({ ...DEV_DB, ...KEK });
+      const key = Buffer.alloc(64, 1);
+      expect(await provider.unwrap(await provider.wrap(key, { tenantId: "usr_x" }), { tenantId: "usr_x" })).toEqual(key);
+      expect(() => ephemeralKeyStoreFor({ ...DEV_DB, ...KEK })).not.toThrow();
+    });
+
+    it("the AWS modes wait for S21a's clients rather than falling back to local keys", () => {
+      expect(() => keyProviderFor({ ...env("staging", "live") })).toThrow(/keys has no live implementation/);
+      expect(() => ephemeralKeyStoreFor({ ...env("prod", "live") })).toThrow(/ephemeralKeys has no live implementation/);
+      expect(() => keyProviderFor({ FERRY_DEPLOY_TIER: "prelaunch", NODE_ENV: "production" })).toThrow(/keys is off/);
+    });
   });
 });
