@@ -291,3 +291,63 @@ SMS carries no names, insurers, codes, dates of service or amounts: a generic pr
 ### 12.5 Missing assets
 
 `tokens.json` and the `assets/` logo files referenced in sections 3 and 8 have not been exported yet. Until they arrive, the wordmark is live text in Bricolage Grotesque 800 and no boat mark is drawn. Do not improvise a logo.
+
+## 13. Clinician surfaces (DRAFT for Ryan, 2026-10-01)
+
+**Status: DRAFT.** Drafted in slice S3c from `docs/spec.html`; nothing here is approved until Ryan says so. The components exist in `src/ui/` and the dev gallery (`/dev/ui`) shows each one; the wording and choices below are what needs a yes or a change.
+
+The clinician side keeps every rule above: cream canvas, white cards, one peach action per screen, sea only for good news and money, no shadows, no dividers, sentence case. It is calmer and denser than the client tracker, because a clinician reads it between sessions, often at a desk.
+
+### 13.1 Voice for clinicians
+
+- Same three rules as §2, with clinical words allowed: note, session, SOAP, DAP, BIRP, intake, CPT, ICD-10, necessity letter, appeal. Clinicians use them; clients still never see them.
+- Say what happens next and who it's for: "Once you approve, we file it with Cigna. Free for Jordan."
+- Nothing reaches an insurer before Approve, so copy never says "sent" or "filed" before the clinician taps it.
+
+### 13.2 Desktop header
+
+- 1200 max width, 20 side padding on phones and 32 from tablet up.
+- Wordmark on the left (live text until F11). A white pill of links in the middle, 14/700 slate, the current one blush with navy text. Actions on the right: a text link, then at most one primary button 48 tall.
+- Below 1024 the link pill folds away; the wordmark and actions stay.
+
+### 13.3 Note editor
+
+- Title in h1 voice: "Here's Jordan's note." Facts as mist tags beneath ("48 min in the room"); good news as a mint tag ("Audio deleted").
+- The note is one list card. Each section (Data, Assessment, Plan; or S/O/A/P, B/I/R/P) is a label 12/700 slate over 15/400 navy text. The whole section is a button: tap it and it becomes a cream textarea with a navy border and a "Done" tertiary button. No pencil icons, no borders around sections at rest.
+- "Copy to EHR" is a tertiary button in the card's footer; disabled until Approve (CLAUDE.md invariant).
+- "Approve note" is the screen's one primary button, at the bottom.
+
+### 13.4 Code chip
+
+- Suggested codes are mist chips with navy text and tabular figures: "90834 · 48 min", "F41.1". Never sea or peach: a code is neither money nor the primary action.
+- A code that blocks Approve (for example 90837 on a 48-minute session) will get a blush chip with the hand icon, like "One quick thing". Not yet built; flagged for N9b.
+
+### 13.5 Record, dictate, type
+
+- A segmented control (white pill, pressed segment blush) chooses Record, Dictate or Type.
+- Record is an 80px peach circle with a 32px mic (stop square while recording), a five-bar navy level meter and the elapsed time in the display face. It is that screen's one primary action.
+- Without the client's recording consent the circle is mist with a slate mic, and one line says why in plain words: "Sam hasn't agreed to recording. Dictate or type instead."
+
+### 13.6 Bottom nav (clinician)
+
+- Same shape as §6. Proposed items: **Today · Clients · Letters.** Client nav stays Home · Trips · Insurers.
+- On a nav narrower than 20rem (small phones or large text) the label sits under the icon instead of beside it.
+
+### 13.7 Homepage pieces
+
+- Pricing cards are §6 cards. The featured one has a 3px peach outline (the only outline in the system) and holds the page's one primary button; the others use blush secondary buttons. The price uses the hero style; its unit is 16/600 slate.
+- Questions open in place: a white list card whose question is a real button with a plus or minus, 17/700.
+- Note: `docs/spec.html` shows several peach buttons on the homepage (header, hero, pricing, closing band). §3 allows one per screen; S11c needs Ryan to pick which one stays peach, or to allow one per section on the marketing page.
+
+### 13.8 Segment labels
+
+§12.3's first label, "Snapped and sent", assumes the client photographs a superbill. Claims now file from the clinician's approved note. Proposed replacement for the client tracker:
+
+**Filed for you · Your insurer has it · Money comes back**
+
+Until approved, the components keep §12.3's labels.
+
+### 13.9 Still open
+
+- The boat mark in `docs/spec.html`: approved as the logo, or a sketch? Until F11 and an answer, no mark is drawn (§12.5). The gallery's in-flight wave is the §9 wave on its own, without the boat.
+- "Landed" (white on sea, 3.1:1) passes §10's bold-12px rule but not WCAG AA's 4.5:1 for small text. Keep it, or switch to navy on sea?

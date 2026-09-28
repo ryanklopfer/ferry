@@ -9,6 +9,7 @@ import { verifyRelayToken } from "@/server/relay/token";
 import { GET, POST } from "../api/dev/relay-token/route";
 import FileInputPage from "./file-input/page";
 import MicPage from "./mic/page";
+import GalleryPage from "./ui/page";
 
 const K = randomBytes(32).toString("base64url");
 const SECRET = "s".repeat(32);
@@ -39,7 +40,7 @@ beforeEach(() => setEnv("dev", K));
 afterEach(() => vi.unstubAllEnvs());
 
 describe("dev pages, signed out", () => {
-  it.each(["/dev/mic", "/dev/file-input", "/api/dev/relay-token", "/api/dev/manifest"])("the proxy lets %s through without a session in the dev tier; the route enforces k", (path) => {
+  it.each(["/dev/mic", "/dev/file-input", "/dev/ui", "/api/dev/relay-token", "/api/dev/manifest"])("the proxy lets %s through without a session in the dev tier; the route enforces k", (path) => {
     expect(proxy(new NextRequest(`http://localhost:3000${path}`)).headers.get("x-middleware-next")).toBe("1");
   });
 
@@ -55,6 +56,12 @@ describe("dev pages, signed out", () => {
     expect(r.html).toMatch(/<input[^>]*type="file"/);
     expect(r.html).toContain('accept="image/*"');
     expect(r.html).not.toMatch(/capture=/);
+  });
+
+  it("with a valid k, /dev/ui returns 200 in the dev tier", async () => {
+    const r = await pageStatus(GalleryPage, { k: K });
+    expect(r.status).toBe(200);
+    expect(r.html).toContain("UI gallery");
   });
 
   it("with a valid k, POST /api/dev/relay-token issues a token bound to the capture and this dev run", async () => {
@@ -94,6 +101,7 @@ describe("dev pages without k, or outside the dev tier, are 404", () => {
     arrange();
     expect((await pageStatus(MicPage, query)).status).toBe(404);
     expect((await pageStatus(FileInputPage, query)).status).toBe(404);
+    expect((await pageStatus(GalleryPage, query)).status).toBe(404);
     expect((await POST(tokenRequest({ ...query, captureId: "cap_spike3" }))).status).toBe(404);
   });
 

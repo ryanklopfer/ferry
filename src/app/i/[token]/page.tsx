@@ -6,8 +6,8 @@ export const metadata: Metadata = { title: "Your invitation" };
 export default function InvitePage() {
   return (
     <div className="mx-auto max-w-sm space-y-4 pt-10">
-      <h1 className="text-xl font-semibold">You have an invitation waiting.</h1>
-      <p className="text-sm text-stone-600">Invitations open here very soon. Nothing is needed from you yet.</p>
+      <h1 className="font-display text-h1">You have an invitation waiting.</h1>
+      <p className="text-secondary text-slate">Invitations open here very soon. Nothing is needed from you yet.</p>
     </div>
   );
 }

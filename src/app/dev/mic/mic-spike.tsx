@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createRecorder, type Recorder, type RecorderSnapshot } from "@/ui/capture/recorder";
+import { Button } from "@/ui/button";
+import { Notice } from "@/ui/notice";
 
 const newCaptureId = () => `cap_${Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => b.toString(16).padStart(2, "0")).join("")}`;
 const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
@@ -45,36 +47,36 @@ export function MicSpike({ k }: { k: string }) {
   return (
     <div className="mx-auto max-w-md space-y-4">
       <div>
-        <h1 className="text-xl font-semibold">Mic spike (dev only)</h1>
-        <p className="text-sm text-stone-600">Synthetic speech only. Record, then lock the screen, take a call or switch apps, and come back. Every stop in the audio must show below as a gap.</p>
+        <h1 className="font-display text-h1">Mic spike (dev only)</h1>
+        <p className="text-secondary text-slate">Synthetic speech only. Record, then lock the screen, take a call or switch apps, and come back. Every stop in the audio must show below as a gap.</p>
       </div>
 
       <div className="flex gap-2">
         {state === "idle" || state === "stopped" || state === "failed" ? (
-          <button className="btn-primary" onClick={start}>
+          <Button variant="primary" onClick={start}>
             Start recording
-          </button>
+          </Button>
         ) : null}
         {recording ? (
           <>
-            <button className="btn-primary" onClick={() => void recorder.current?.stop()}>
+            <Button variant="primary" onClick={() => void recorder.current?.stop()}>
               Stop
-            </button>
-            <button className="btn-secondary" onClick={() => void recorder.current?.resume()}>
+            </Button>
+            <Button variant="secondary" onClick={() => void recorder.current?.resume()}>
               Resume mic
-            </button>
+            </Button>
           </>
         ) : null}
       </div>
 
-      {stalledMs > 1_500 ? <p className="rounded-md bg-amber-100 p-2 text-sm font-medium text-amber-900">No audio for {seconds(stalledMs)}. Tap Resume mic.</p> : null}
-      {s?.error ? <p className="rounded-md bg-red-100 p-2 text-sm text-red-800">Failed: {s.error}</p> : null}
+      {stalledMs > 1_500 ? <Notice>No audio for {seconds(stalledMs)}. Tap Resume mic.</Notice> : null}
+      {s?.error ? <p className="text-secondary text-danger">Failed: {s.error}</p> : null}
 
-      <dl className="card grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-card bg-white p-5.5 text-secondary">
         <dt>State</dt>
         <dd data-testid="state">{state}</dd>
         <dt>Capture</dt>
-        <dd className="truncate font-mono text-xs">{captureId ?? "none"}</dd>
+        <dd className="truncate text-caption tabular-nums">{captureId ?? "none"}</dd>
         <dt>Wall time</dt>
         <dd>{seconds(wallMs)}</dd>
         <dt>Audio produced</dt>
@@ -98,9 +100,9 @@ export function MicSpike({ k }: { k: string }) {
       </dl>
 
       <section>
-        <h2 className="text-sm font-semibold">Gaps</h2>
+        <h2 className="text-label">Gaps</h2>
         {s?.gaps.length ? (
-          <ul className="text-sm" data-testid="gaps">
+          <ul className="text-secondary" data-testid="gaps">
             {s.gaps.map((g) => (
               <li key={g.from}>
                 {clock(g.from)}: {seconds(g.durationMs)} ({g.cause})
@@ -108,15 +110,15 @@ export function MicSpike({ k }: { k: string }) {
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-stone-500" data-testid="gaps">
+          <p className="text-secondary text-slate" data-testid="gaps">
             None.
           </p>
         )}
       </section>
 
       <section>
-        <h2 className="text-sm font-semibold">Events</h2>
-        <ol className="max-h-64 overflow-y-auto font-mono text-xs">
+        <h2 className="text-label">Events</h2>
+        <ol className="max-h-64 overflow-y-auto text-caption tabular-nums">
           {s?.events
             .slice()
             .reverse()
@@ -128,7 +130,7 @@ export function MicSpike({ k }: { k: string }) {
         </ol>
       </section>
 
-      <a className="text-sm underline" href={`/dev/file-input?k=${encodeURIComponent(k)}`}>
+      <a className="text-secondary underline" href={`/dev/file-input?k=${encodeURIComponent(k)}`}>
         Android file-input check
       </a>
     </div>

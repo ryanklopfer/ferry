@@ -15,8 +15,8 @@ export default async function LegalPage({ params }: PageProps<"/legal/[doc]">) {
   if (!Object.hasOwn(TITLES, doc)) notFound();
   return (
     <div className="mx-auto max-w-xl space-y-4 pt-10">
-      <h1 className="text-xl font-semibold">{TITLES[doc]}</h1>
-      <p className="text-sm text-stone-600">We&apos;re finishing this text with our attorney. It will be here before anything depends on it.</p>
+      <h1 className="font-display text-h1">{TITLES[doc]}</h1>
+      <p className="text-secondary text-slate">We&apos;re finishing this text with our attorney. It will be here before anything depends on it.</p>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { Field, StatusBadge } from "@/components/ui";
+import { Chip } from "@/ui/chip";
+import { Field } from "@/ui/field";
 
 describe("component tests", () => {
   afterEach(cleanup);
@@ -12,7 +13,7 @@ describe("component tests", () => {
   it("render a real component with Testing Library", () => {
     render(
       <>
-        <StatusBadge status="paid" />
+        <Chip kind="landed" />
         <Field label="Member ID" name="memberId" defaultValue="SYN000" />
       </>,
     );

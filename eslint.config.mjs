@@ -14,7 +14,7 @@ const boundaries = [
   },
   {
     // UI reads and writes through services, never the database.
-    files: ["src/app/**", "src/ui/**", "src/components/**"],
+    files: ["src/app/**", "src/ui/**"],
     rules: {
       "no-restricted-imports": ["error", { patterns: [{ group: ["drizzle-orm", "drizzle-orm/*", "pg", "@/server/db", "@/server/db/**"], message: "UI code goes through @/server/services, not the database." }] }],
     },

@@ -886,7 +886,7 @@ Plan: `docs/plans/slice-n4.md`. The route behind client-ctx.test.ts is `GET /api
 - [x] api.test.ts: GET /api/v1/claims lists only the caller's tenant and returns 404 for a client session
 - [x] demo-seed.test.ts: running demo:seed twice leaves identical row counts; it refuses outside the dev tier
 
-### [ ] S3c — UI foundation: brand tokens and components for clinician desktop and client phone
+### [x] S3c — UI foundation: brand tokens and components for clinician desktop and client phone
 
 Scheduled: Thu Oct 1 · Status: modified · Size: L · PRD: P0-1.1, P0-1.3, P0-9.1
 
@@ -923,13 +923,15 @@ Why: The homepage, onboarding, note screen and tracker all need the brand system
 
 #### Acceptance
 
-- [ ] tokens.test.ts: every FERRY_BRAND §3–§5 token exists under the same name; no hex colour appears outside the theme file
-- [ ] chips.test.tsx (happy-dom): all seven §12.2 chips render with the specified fill and text
-- [ ] e2e/gallery.spec.ts: renders at 390 px and 1280 px with document scrollWidth no wider than the viewport, and at 130% text scale; reduced motion disables the wave
-- [ ] e2e/gallery.spec.ts (axe): icon-only buttons have aria-label; every control is a real button, a or input element
-- [ ] banned-classes.test.ts: no stone-, shadow-, divide-, bg-gradient or uppercase class anywhere in src/
-- [ ] banned-classes.test.ts: 'Superbill Claims' appears nowhere in src/
-- [ ] banned-classes.test.ts: no gallery screen has two primary buttons
+Plan: `docs/plans/slice-s3c.md`. The theme file is `src/app/globals.css`; `src/core/brand.ts` `COLORS` keeps the two literal colours the web manifest and viewport need, and tokens.test.ts holds them equal to the theme. Tailwind's default palette, type scale and shadows are reset, so only brand utilities exist. The gallery sits behind the dev tier and the spike key like the other /dev pages. axe runs clean except colour contrast on the "Landed" chip, which §3 allows (white on sea, 3.1:1) and §13.9 puts to Ryan. `src/components/ui.tsx`'s pre-pivot StatusBadge, Empty and date/money helpers had no callers and were replaced by Chip and Field. FERRY_BRAND §13 is the DRAFT for Ryan.
+
+- [x] tokens.test.ts: every FERRY_BRAND §3–§5 token exists under the same name; no hex colour appears outside the theme file
+- [x] chips.test.tsx (happy-dom): all seven §12.2 chips render with the specified fill and text
+- [x] e2e/gallery.spec.ts: renders at 390 px and 1280 px with document scrollWidth no wider than the viewport, and at 130% text scale; reduced motion disables the wave
+- [x] e2e/gallery.spec.ts (axe): icon-only buttons have aria-label; every control is a real button, a or input element
+- [x] banned-classes.test.ts: no stone-, shadow-, divide-, bg-gradient or uppercase class anywhere in src/
+- [x] banned-classes.test.ts: 'Superbill Claims' appears nowhere in src/
+- [x] banned-classes.test.ts: no gallery screen has two primary buttons
 
 ### [ ] S11c — Homepage, pricing, /for-clients and legal pages, deployable in the prelaunch tier
 

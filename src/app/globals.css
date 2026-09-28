@@ -1,30 +1,146 @@
 @import "tailwindcss";
 
+/* FERRY_BRAND §3, verbatim. The only file that writes a colour value (src/ui/tokens.test.ts). */
+:root {
+  --ferry-cream: #FFF6EC;
+  --ferry-white: #FFFFFF;
+  --ferry-peach: #F0704F;
+  --ferry-blush: #FFD9C2;
+  --ferry-sea: #2EA88F;
+  --ferry-sea-deep: #176D5C;
+  --ferry-mint: #E5F5F0;
+  --ferry-navy: #17263F;
+  --ferry-navy-surface: #24375A;
+  --ferry-slate: #566680;
+  --ferry-mist: #EEF1F6;
+  --ferry-on-navy: #C7D2E6;
+  --ferry-on-navy-muted: #93A3BD;
+  --ferry-danger: #C43D2E;
+
+  /* The first family is self-hosted by next/font in layout.tsx. */
+  --ferry-font-display: var(--font-bricolage), 'Helvetica Neue', Arial, sans-serif;
+  --ferry-font-body: var(--font-figtree), 'Helvetica Neue', Arial, sans-serif;
+
+  --ferry-radius-card: 28px;
+  --ferry-radius-card-sm: 22px;
+  --ferry-radius-input: 16px;
+  --ferry-radius-pill: 999px;
+}
+
+/* Only brand colours, the brand type scale and no shadows generate utilities. */
+@theme {
+  --color-*: initial;
+  --text-*: initial;
+  --shadow-*: initial;
+  --inset-shadow-*: initial;
+  --drop-shadow-*: initial;
+  --text-shadow-*: initial;
+
+  /* §4, in rem so text follows the reader's text size (§10: 130%). */
+  --text-hero: 2.75rem;
+  --text-hero--line-height: 1;
+  --text-hero--font-weight: 800;
+  --text-hero--letter-spacing: -0.03em;
+  --text-h1: 1.875rem;
+  --text-h1--line-height: 1.05;
+  --text-h1--font-weight: 800;
+  --text-h1--letter-spacing: -0.02em;
+  --text-h2: 1.5rem;
+  --text-h2--line-height: 1.1;
+  --text-h2--font-weight: 800;
+  --text-h2--letter-spacing: -0.02em;
+  --text-h3: 1.375rem;
+  --text-h3--line-height: 1.15;
+  --text-h3--font-weight: 800;
+  --text-h3--letter-spacing: -0.01em;
+  --text-amount: 1.125rem;
+  --text-amount--line-height: 1;
+  --text-amount--font-weight: 800;
+  --text-amount--letter-spacing: 0;
+  --text-body: 1rem;
+  --text-body--line-height: 1.55;
+  --text-body--font-weight: 400;
+  --text-body--letter-spacing: 0;
+  --text-secondary: 0.9375rem;
+  --text-secondary--line-height: 1.5;
+  --text-secondary--font-weight: 400;
+  --text-secondary--letter-spacing: 0;
+  --text-caption: 0.8125rem;
+  --text-caption--line-height: 1.45;
+  --text-caption--font-weight: 400;
+  --text-caption--letter-spacing: 0;
+  --text-label: 0.8125rem;
+  --text-label--line-height: 1.3;
+  --text-label--font-weight: 700;
+  --text-label--letter-spacing: 0;
+  --text-chip: 0.75rem;
+  --text-chip--line-height: 1.2;
+  --text-chip--font-weight: 700;
+  --text-chip--letter-spacing: 0;
+  --text-button: 1.0625rem;
+  --text-button--line-height: 1;
+  --text-button--font-weight: 700;
+  --text-button--letter-spacing: 0;
+  /* §6 bottom nav labels. */
+  --text-nav: 0.875rem;
+  --text-nav--line-height: 1;
+  --text-nav--font-weight: 700;
+
+  /* §5: the 4 px scale, and the sizes it names. */
+  --spacing: 0.25rem;
+  --spacing-screen-top: 60px;
+  --spacing-gutter: 20px;
+  --spacing-screen-bottom: 24px;
+  --spacing-section: 20px;
+  --spacing-touch: 44px;
+  --spacing-btn-primary: 60px;
+  --spacing-btn-secondary: 56px;
+  --spacing-btn-tertiary: 48px;
+  --spacing-nav: 64px;
+  --spacing-nav-item: 48px;
+  --container-phone: 390px;
+  --container-page: 1200px;
+
+  /* §9: the one ambient animation. */
+  --animate-wave: ferry-wave 1.8s ease-in-out infinite alternate;
+  @keyframes ferry-wave {
+    from { transform: translateX(-3px); }
+    to { transform: translateX(3px); }
+  }
+}
+
 @theme inline {
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --color-cream: var(--ferry-cream);
+  --color-white: var(--ferry-white);
+  --color-peach: var(--ferry-peach);
+  --color-blush: var(--ferry-blush);
+  --color-sea: var(--ferry-sea);
+  --color-sea-deep: var(--ferry-sea-deep);
+  --color-mint: var(--ferry-mint);
+  --color-navy: var(--ferry-navy);
+  --color-navy-surface: var(--ferry-navy-surface);
+  --color-slate: var(--ferry-slate);
+  --color-mist: var(--ferry-mist);
+  --color-onnavy: var(--ferry-on-navy);
+  --color-onnavy-muted: var(--ferry-on-navy-muted);
+  --color-danger: var(--ferry-danger);
+
+  --font-display: var(--ferry-font-display);
+  --font-body: var(--ferry-font-body);
+
+  --radius-card: var(--ferry-radius-card);
+  --radius-card-sm: var(--ferry-radius-card-sm);
+  --radius-input: var(--ferry-radius-input);
+  --radius-pill: var(--ferry-radius-pill);
 }
 
-body {
-  font-family: var(--font-sans);
-}
-
-@layer components {
-  .input {
-    @apply w-full rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm shadow-xs focus:border-stone-500 focus:outline-none;
-  }
-  .label {
-    @apply block text-xs font-medium text-stone-600 mb-1;
-  }
-  .btn {
-    @apply inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors cursor-pointer disabled:opacity-50;
-  }
-  .btn-primary {
-    @apply inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors cursor-pointer disabled:opacity-50 bg-stone-900 text-white hover:bg-stone-700;
-  }
-  .btn-secondary {
-    @apply inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors cursor-pointer disabled:opacity-50 border border-stone-300 bg-white text-stone-800 hover:bg-stone-100;
-  }
-  .card {
-    @apply rounded-lg border border-stone-200 bg-white p-4 shadow-xs;
+@layer base {
+  body {
+    background: var(--color-cream);
+    color: var(--color-navy);
+    font-family: var(--font-body);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    -webkit-font-smoothing: antialiased;
   }
 }

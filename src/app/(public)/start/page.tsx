@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { ButtonLink } from "@/ui/button";
+import { Notice } from "@/ui/notice";
 
 export const metadata: Metadata = { title: "Get started" };
 
@@ -9,15 +11,17 @@ export default async function StartPage({ searchParams }: PageProps<"/start">) {
   const { door } = await searchParams;
   return (
     <div className="mx-auto max-w-sm space-y-6 pt-10">
-      <h1 className="text-xl font-semibold">Who&apos;s joining us?</h1>
+      <h1 className="font-display text-h1">Who&apos;s joining us?</h1>
       {door === "clinician" && (
-        <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status">
-          Clinician sign-up opens soon. There&apos;s nothing to set up before then.
-        </p>
+        <Notice role="status">Clinician sign-up opens soon. There&apos;s nothing to set up before then.</Notice>
       )}
       <div className="flex flex-col gap-3">
-        <a className="btn-primary text-center" href="/start?door=clinician">I&apos;m a clinician</a>
-        <a className="btn-secondary text-center" href="/for-clients">I&apos;m a client</a>
+        <ButtonLink variant="primary" href="/start?door=clinician">
+          I&apos;m a clinician
+        </ButtonLink>
+        <ButtonLink variant="secondary" href="/for-clients">
+          I&apos;m a client
+        </ButtonLink>
       </div>
     </div>
   );

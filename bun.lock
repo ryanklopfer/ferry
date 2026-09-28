@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "superbill-claims",
+      "name": "ferry",
       "dependencies": {
         "@anthropic-ai/sdk": "^0.124.0",
         "@better-auth/drizzle-adapter": "^1.7.5",
@@ -11,6 +11,7 @@
         "better-auth": "^1.7.5",
         "date-fns": "^4.4.0",
         "drizzle-orm": "^0.45.2",
+        "lucide-react": "^1.48.0",
         "next": "16.3.4",
         "pdf-lib": "^1.17.1",
         "pg": "^8.23.0",
@@ -36,7 +37,7 @@
         "fast-check": "^4.10.2",
         "happy-dom": "^20.14.5",
         "tailwindcss": "^4",
-        "toqr": "0.1.1",
+        "toqr": "^0.1.1",
         "typescript": "^5",
         "vitest": "^5.0.0",
       },
@@ -912,6 +913,8 @@
     "loose-envify": ["loose-envify@1.4.0", "", { "dependencies": { "js-tokens": "^3.0.0 || ^4.0.0" }, "bin": { "loose-envify": "cli.js" } }, "sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q=="],
 
     "lru-cache": ["lru-cache@5.1.1", "", { "dependencies": { "yallist": "^3.0.2" } }, "sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w=="],
+
+    "lucide-react": ["lucide-react@1.48.0", "", { "peerDependencies": { "react": "^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-R0CIKY/fXiC6y9xRBADgsK+VW2p/pcTJOMhLZf1T+uG+vJUvyUR02nGOgmIIC7MPkiNK4Ox8QDnbqF8rJYWPZQ=="],
 
     "lz-string": ["lz-string@1.5.0", "", { "bin": { "lz-string": "bin/bin.js" } }, "sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ=="],
 

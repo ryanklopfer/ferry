@@ -3,6 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { authClient } from "@/app/auth-client";
+import { Button } from "@/ui/button";
+import { Card } from "@/ui/card";
+import { Field } from "@/ui/field";
+import { Notice } from "@/ui/notice";
 
 type Status = { kind: "idle" } | { kind: "busy" } | { kind: "sent"; to: string } | { kind: "problem" };
 
@@ -28,9 +32,11 @@ export function SignInForm({ linkProblem }: { linkProblem: boolean }) {
 
   if (status.kind === "sent") {
     return (
-      <div className="card space-y-1" role="status">
-        <p className="font-medium">Check your email.</p>
-        <p className="text-sm text-stone-600">We sent a link to {status.to}. It works once and lasts 15 minutes.</p>
+      <div role="status">
+        <Card>
+          <p className="font-display text-h3">Check your email.</p>
+          <p className="text-secondary text-slate">We sent a link to {status.to}. It works once and lasts 15 minutes.</p>
+        </Card>
       </div>
     );
   }
@@ -38,25 +44,20 @@ export function SignInForm({ linkProblem }: { linkProblem: boolean }) {
   return (
     <div className="space-y-4">
       {linkProblem && status.kind === "idle" && (
-        <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status">
-          That link was already used or ran out of time. We&apos;ll send you a fresh one.
-        </p>
+        <Notice role="status">That link was already used or ran out of time. We&apos;ll send you a fresh one.</Notice>
       )}
       {status.kind === "problem" && (
-        <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900" role="alert">
-          That didn&apos;t go through. One more try?
-        </p>
+        <Notice role="alert">That didn&apos;t go through. One more try?</Notice>
       )}
-      <form action={sendLink} className="card space-y-3">
-        <div>
-          <label className="label" htmlFor="email">Your email</label>
-          <input className="input" id="email" name="email" type="email" autoComplete="email webauthn" required />
-        </div>
-        <button className="btn-primary w-full" type="submit" disabled={status.kind === "busy"}>Send me a link</button>
+      <form action={sendLink} className="flex flex-col gap-4 rounded-card bg-white p-5.5">
+        <Field label="Your email" name="email" type="email" autoComplete="email webauthn" required />
+        <Button variant="primary" type="submit" className="w-full" disabled={status.kind === "busy"}>
+          Send me a link
+        </Button>
       </form>
-      <button className="btn-secondary w-full" type="button" onClick={usePasskey} disabled={status.kind === "busy"}>
+      <Button variant="secondary" className="w-full" onClick={usePasskey} disabled={status.kind === "busy"}>
         Use a passkey instead
-      </button>
+      </Button>
     </div>
   );
 }

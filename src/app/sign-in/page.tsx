@@ -8,8 +8,8 @@ export default async function SignInPage({ searchParams }: PageProps<"/sign-in">
   return (
     <div className="mx-auto max-w-sm space-y-6 pt-10">
       <div>
-        <h1 className="text-xl font-semibold">Let&apos;s get you in.</h1>
-        <p className="mt-1 text-sm text-stone-600">No password to remember. We&apos;ll email you a link that signs you in.</p>
+        <h1 className="font-display text-h1">Let&apos;s get you in.</h1>
+        <p className="mt-1 text-secondary text-slate">No password to remember. We&apos;ll email you a link that signs you in.</p>
       </div>
       <SignInForm linkProblem={Boolean(error)} />
     </div>

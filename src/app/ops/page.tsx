@@ -5,8 +5,8 @@ export default async function OpsHome() {
   await requireStaff();
   return (
     <div className="mx-auto max-w-xl space-y-4 pt-10">
-      <h1 className="text-xl font-semibold">Ops</h1>
-      <p className="text-sm text-stone-600">Nothing needs a hand right now.</p>
+      <h1 className="font-display text-h1">Ops</h1>
+      <p className="text-secondary text-slate">Nothing needs a hand right now.</p>
     </div>
   );
 }

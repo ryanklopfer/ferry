@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { buttonClass } from "@/ui/button";
 
 export const metadata: Metadata = { title: "No signal" };
 
@@ -7,11 +8,13 @@ export const metadata: Metadata = { title: "No signal" };
 export default function OfflinePage() {
   return (
     <div className="mx-auto max-w-sm space-y-4 pt-10">
-      <h1 className="text-xl font-semibold">No signal right now.</h1>
-      <p className="text-sm text-stone-600">
+      <h1 className="font-display text-h1">No signal right now.</h1>
+      <p className="text-secondary text-slate">
         Ferry needs a connection to work, so nothing was sent from this screen and nothing is waiting to go out. Everything we already had is safe with us.
       </p>
-      <a className="btn-secondary" href="/home">Try again</a>
+      <a className={buttonClass("secondary")} href="/home">
+        Try again
+      </a>
     </div>
   );
 }

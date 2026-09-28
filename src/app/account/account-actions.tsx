@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { authClient } from "@/app/auth-client";
 import { clearAppCaches } from "@/ui/pwa";
+import { Button } from "@/ui/button";
 
 export function AddPasskey() {
   const router = useRouter();
@@ -17,9 +18,15 @@ export function AddPasskey() {
   }
 
   return (
-    <div className="space-y-2">
-      <button className="btn-secondary" type="button" onClick={add}>Add a passkey</button>
-      {problem && <p className="text-sm text-amber-900" role="alert">That didn&apos;t go through. One more try?</p>}
+    <div className="flex flex-col items-start gap-2">
+      <Button variant="secondary" fill="blush" onClick={add}>
+        Add a passkey
+      </Button>
+      {problem && (
+        <p className="text-caption text-danger" role="alert">
+          That didn&apos;t go through. One more try?
+        </p>
+      )}
     </div>
   );
 }
@@ -27,25 +34,24 @@ export function AddPasskey() {
 export function RemovePasskey({ id }: { id: string }) {
   const router = useRouter();
   return (
-    <button
-      className="text-sm text-stone-600 underline hover:text-stone-900"
-      type="button"
+    <Button
+      variant="tertiary"
       onClick={async () => {
         await authClient.passkey.deletePasskey({ id });
         router.refresh();
       }}
     >
       Remove
-    </button>
+    </Button>
   );
 }
 
 // A full page load afterwards, not a client-side push, so no page data from the session stays in memory either.
 export function SignOut() {
   return (
-    <button
-      className="btn-secondary"
-      type="button"
+    <Button
+      variant="secondary"
+      className="self-start"
       onClick={async () => {
         await authClient.signOut();
         await clearAppCaches();
@@ -53,6 +59,6 @@ export function SignOut() {
       }}
     >
       Sign out
-    </button>
+    </Button>
   );
 }
