@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="96" viewBox="0 0 300 96" fill="none">
+  <g transform="scale(2)">
+    <rect x="18" y="11" width="14" height="13" rx="4" fill="#2EA88F"/>
+    <circle cx="25" cy="17.5" r="2.2" fill="#FFFFFF"/>
+    <path d="M6 26h36l-6 12H12z" fill="#F0704F" stroke="#F0704F" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M4 44c3-3 7-3 10 0s7 3 10 0 7-3 10 0 7 3 10 0" stroke="#17263F" stroke-width="3" stroke-linecap="round"/>
+  </g>
+  <text x="112" y="76" font-family="'Bricolage Grotesque', 'Helvetica Neue', Arial, sans-serif" font-size="80" font-weight="800" letter-spacing="-2.4" fill="#17263F">Ferry</text>
+</svg>
