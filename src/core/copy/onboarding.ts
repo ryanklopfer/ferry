@@ -80,6 +80,7 @@ export const ONBOARDING = {
     group_needs_ein: "A group bills under its EIN.",
     tax_id_format: "A Tax ID is 9 digits.",
     tax_id_required: "Add your Tax ID.",
+    tax_id_changed: "You changed how your claims bill, so enter the Tax ID they bill under.",
     zip_format: "A ZIP code is 5 digits.",
     invalid: "Some of that didn't look right. Check the highlighted fields.",
     no_fees: "Set a fee for at least one kind of session.",

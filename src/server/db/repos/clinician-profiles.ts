@@ -9,7 +9,7 @@ import { assertNotClient, tenantWhere } from "./scope";
 
 type Insert = typeof clinicianProfiles.$inferInsert;
 export type ProfileValues = Omit<Insert, "id" | "userId" | "createdAt" | "updatedAt" | "taxIdBidx" | "taxIdLast4" | "nppesCheckedAt" | "nppesNameMatch" | "identityVerifiedAt" | "onboardedAt">;
-// An edit may leave the Tax ID out, which keeps the one on file. A changed NPI or name clears the S6 checks.
+// An edit may leave the Tax ID out, which keeps the one on file. A changed billing identity clears the S6 checks.
 export type ProfilePatch = Omit<ProfileValues, "taxId"> & { taxId?: string; nppesCheckedAt?: null; nppesNameMatch?: null; identityVerifiedAt?: null };
 
 export class NpiTaken extends Error {

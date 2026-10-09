@@ -1,7 +1,7 @@
 import { type Address, type BillingParty, billingParty, liveFilingAllowed, type Modality, type NoteFormat, type NpiType, ProfileInput, type TaxIdType } from "@/core/clinician";
 import type { OnboardingProblem } from "@/core/copy/onboarding";
 import type { LegalBlock } from "@/core/legal";
-import { COMMON_BEHAVIORAL_CODES, dollarsToCents, type FeeItem, isBehavioralCode } from "@/core/fee-schedule";
+import { COMMON_BEHAVIORAL_CODES, dollarsToCents, type FeeItem, isBehavioralCode, MAX_FEE_CENTS } from "@/core/fee-schedule";
 import type { SignupDecision } from "@/core/signup";
 import { auth } from "@/server/auth";
 import { type ClinicianCtx, type ClinicianOnlyCtx, getClinician, getSessionUser } from "@/server/auth/ctx";
@@ -110,8 +110,9 @@ export type OnboardingStep = "agree" | "practice" | "fees" | "authorize" | "done
 
 export async function onboardingStep(ctx: ClinicianCtx): Promise<OnboardingStep> {
   const [consents, profile, fees] = await Promise.all([consentStatus(ctx), clinicianProfilesRepo.get(ctx), feeScheduleRepo.list(ctx)]);
-  if (consents.terms !== "current" || consents.baa !== "current") return "agree";
+  // Onboarding happens once: an agreement that goes stale later is re-consent's (/app/reconsent), not step 1's.
   if (profile?.onboardedAt) return "done";
+  if (consents.terms !== "current" || consents.baa !== "current") return "agree";
   if (!profile) return "practice";
   if (!fees.length) return "fees";
   return "authorize";
@@ -179,9 +180,21 @@ export async function saveProfile(ctx: ClinicianCtx, raw: unknown): Promise<void
       if (!taxId) throw new ProfileRefused("tax_id_required", ["taxId"]);
       await clinicianProfilesRepo.create(ctx, { ...values, taxId });
     } else {
+      // A blank Tax ID keeps the digits on file only while they would bill the same way; otherwise an SSN on file
+      // could go out relabeled as a group's EIN.
+      if (!taxId && (rest.taxIdType !== existing.taxIdType || rest.npiType !== existing.npiType)) throw new ProfileRefused("tax_id_changed", ["taxId"]);
       const patch: ProfilePatch = { ...values, ...(taxId ? { taxId } : {}) };
-      // A new NPI or name has not been checked against NPPES or by a person (S6).
-      if (rest.npi !== existing.npi || rest.legalName !== existing.legalName) Object.assign(patch, { nppesCheckedAt: null, nppesNameMatch: null, identityVerifiedAt: null });
+      // A billing identity that changed in any part (who renders, who bills, under which Tax ID) has not been checked
+      // against NPPES or by a person (S6).
+      const identityChanged =
+        rest.npi !== existing.npi ||
+        rest.legalName !== existing.legalName ||
+        rest.npiType !== existing.npiType ||
+        rest.groupNpi !== existing.groupNpi ||
+        rest.groupName !== existing.groupName ||
+        rest.taxIdType !== existing.taxIdType ||
+        (!!taxId && taxId !== existing.taxId);
+      if (identityChanged) Object.assign(patch, { nppesCheckedAt: null, nppesNameMatch: null, identityVerifiedAt: null });
       await clinicianProfilesRepo.update(ctx, existing.id, patch);
     }
   } catch (e) {
@@ -197,14 +210,16 @@ export async function feesView(ctx: ClinicianCtx): Promise<FeeItem[]> {
 
 // Dollar amounts from the fee form, by code. A blank amount means no fee for that code.
 export async function setFees(ctx: ClinicianCtx, entries: readonly { cptCode: string; amount: string }[]): Promise<void> {
-  const items: FeeItem[] = [];
+  // By code, so a code sent twice is one fee (the last), not two rows for one upsert.
+  const byCode = new Map<string, FeeItem>();
   for (const { cptCode, amount } of entries) {
     if (!amount.trim()) continue;
     if (!isBehavioralCode(cptCode)) throw new ProfileRefused("invalid", [cptCode]);
     const cents = dollarsToCents(amount);
-    if (!cents) throw new ProfileRefused("fee_format", [cptCode]);
-    items.push({ cptCode, chargeCents: cents });
+    if (!cents || cents > MAX_FEE_CENTS) throw new ProfileRefused("fee_format", [cptCode]);
+    byCode.set(cptCode, { cptCode, chargeCents: cents });
   }
+  const items = [...byCode.values()];
   if (!items.length) throw new ProfileRefused("no_fees", COMMON_BEHAVIORAL_CODES.map((c) => c.code));
   await feeScheduleRepo.replace(ctx, items);
   log("clinician.fees_saved", { userId: ctx.userId, count: items.length });

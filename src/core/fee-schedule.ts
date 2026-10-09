@@ -24,6 +24,9 @@ export const isBehavioralCode = (code: string): code is BehavioralCode => COMMON
 
 export type FeeItem = { cptCode: string; chargeCents: number };
 
+// No behavioral-health session costs more than this; anything above is a typo (and would overflow charge_cents).
+export const MAX_FEE_CENTS = 100_000_00;
+
 // The clinician's charge for a code, in cents, as the schedule stands when a claim is built. Claims copy it onto the
 // line, so a later fee edit changes only claims built after it.
 export function chargeFor(schedule: readonly FeeItem[], cptCode: string): number | { missing: string } {
